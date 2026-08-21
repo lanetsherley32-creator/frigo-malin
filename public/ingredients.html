@@ -6,15 +6,15 @@
     <title>Gestion des Ingrédients</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
-    <!-- Bibliothèque de scan -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <!-- Bibliothèque pour scanner les codes-barres avec la caméra -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body class="bg-slate-100 min-h-screen pb-12">
     <div class="max-w-4xl mx-auto p-3 sm:p-6 space-y-4">
         
         <!-- Navigation Mobile Friendly -->
         <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
-            <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🥕 Gestion des Ingrédients</h1>
+            <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🥗 Gestion des Ingrédients</h1>
             <nav class="grid grid-cols-5 gap-1 text-center text-xs font-medium">
                 <a href="index.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
@@ -24,305 +24,230 @@
             </nav>
         </header>
 
-        <!-- Section Scanner & Recherche -->
-        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-            <h2 class="font-bold text-slate-700 text-sm" id="titre-form-ing">Ajouter un ingrédient</h2>
-            
-            <div class="grid grid-cols-2 gap-2">
-                <button type="button" onclick="lancerScanner('qrcode')" class="bg-indigo-600 active:bg-indigo-700 text-white p-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-sm">
-                    📷 QR Code
-                </button>
-                <button type="button" onclick="lancerScanner('barcode')" class="bg-emerald-600 active:bg-emerald-700 text-white p-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-sm">
-                    🛒 Code-barres
-                </button>
-            </div>
-
-            <!-- Conteneur Caméra -->
-            <div id="scanner-container" class="hidden bg-slate-50 p-3 rounded-xl border space-y-2">
-                <div id="reader" class="w-full"></div>
-                <button type="button" onclick="fermerScanner()" class="w-full bg-rose-500 active:bg-rose-600 text-white p-2.5 rounded-xl text-xs font-bold">Fermer la caméra</button>
-            </div>
-
-            <!-- Recherche Open Food Facts Texte -->
+        <!-- Scanner Caméra Code-Barres / Open Food Facts -->
+        <section class="bg-indigo-50 p-4 rounded-2xl shadow-sm border border-indigo-200 space-y-3">
+            <h2 class="font-bold text-indigo-900 text-sm flex items-center gap-1.5">📷 Scanner un code-barres (Open Food Facts)</h2>
             <div class="flex gap-2">
-                <input type="text" id="recherche-off" placeholder="Rechercher (ex: Nutella)..." class="border border-slate-200 p-2.5 rounded-xl text-xs flex-1 bg-slate-50 focus:bg-white transition-colors">
-                <button type="button" onclick="chercherTexteOpenFoodFacts()" class="bg-blue-600 active:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold">Rechercher</button>
+                <button type="button" onclick="demarrerScanner()" class="bg-indigo-600 active:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm">Allumer la caméra</button>
+                <button type="button" onclick="arreterScanner()" class="bg-rose-600 active:bg-rose-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm">Éteindre</button>
             </div>
+            <!-- Zone où la caméra s'affiche -->
+            <div id="reader" class="w-full max-w-sm mx-auto rounded-xl overflow-hidden bg-black/5"></div>
+        </section>
 
-            <!-- Formulaire -->
-            <form id="form-ingredient" onsubmit="sauvegarderIngredient(event)" class="space-y-3 pt-2 border-t">
-                <input type="hidden" id="ing-id">
+        <!-- Formulaire Ingrédient -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+            <h2 id="form-title" class="font-bold text-slate-700 text-sm">➕ Ajouter ou modifier un ingrédient</h2>
+            <form id="form-ingredient" onsubmit="sauvegarderIngredient(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="ingredient-id">
                 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <input type="text" id="ing-nom" placeholder="Nom de l'ingrédient" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50" required>
-                    <input type="text" id="ing-marque" placeholder="Marque" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50">
-                    <input type="text" id="ing-format" placeholder="Format (ex: 1kg, 500ml)" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50">
-                    <input type="text" id="ing-unite" placeholder="Unité (g, ml, unité)" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50" required>
-                </div>
-
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                    <input type="number" step="any" id="ing-calories" placeholder="kcal/100g" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50" required>
-                    <input type="number" step="any" id="ing-proteines" placeholder="Protéines (g)" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50" required>
-                    <input type="number" step="any" id="ing-glucides" placeholder="Glucides (g)" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50" required>
-                    <input type="number" step="any" id="ing-lipides" placeholder="Lipides (g)" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50" required>
-                </div>
-
-                <!-- Prix enseignes -->
-                <div class="space-y-2 pt-2">
-                    <div class="flex justify-between items-center">
-                        <label class="font-bold text-xs text-slate-700">Prix par enseigne :</label>
-                        <button type="button" onclick="ajouterLigneEnseigne()" class="bg-emerald-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold">+ Enseigne</button>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-700 text-xs">Nom de l'ingrédient :</label>
+                        <input type="text" id="nom" placeholder="Ex: Riz blanc, Poulet..." class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium" required>
                     </div>
-                    <div id="liste-enseignes-container" class="space-y-2"></div>
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-700 text-xs">Unité de mesure :</label>
+                        <select id="unite" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium">
+                            <option value="g">Grammes (g)</option>
+                            <option value="ml">Millilitres (ml)</option>
+                            <option value="pièce">Pièce(s)</option>
+                            <option value="c.à.s">Cuillère à soupe</option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="flex gap-2 pt-2">
-                    <button type="submit" class="flex-1 bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl text-xs font-bold shadow-sm">Enregistrer</button>
-                    <button type="button" onclick="reinitialiserFormulaire()" class="bg-slate-300 active:bg-slate-400 text-slate-700 px-4 py-3 rounded-xl text-xs font-bold">Annuler</button>
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+                    <span class="block font-bold text-slate-700 text-xs">Valeurs nutritionnelles (pour 100g ou 100ml) :</span>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div>
+                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Calories (kcal)</label>
+                            <input type="number" step="any" id="calories" placeholder="0" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Protéines (g)</label>
+                            <input type="number" step="any" id="proteines" placeholder="0" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Glucides (g)</label>
+                            <input type="number" step="any" id="glucides" placeholder="0" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Lipides (g)</label>
+                            <input type="number" step="any" id="lipides" placeholder="0" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button type="submit" class="flex-1 bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">Enregistrer l'ingrédient</button>
+                    <button type="button" id="btn-annuler" onclick="reinitialiserFormulaire()" class="hidden bg-slate-200 active:bg-slate-300 text-slate-700 px-4 py-3 rounded-xl font-bold">Annuler</button>
                 </div>
             </form>
         </section>
 
-        <!-- Liste des Ingrédients (Format cartes sur mobile) -->
-        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-            <h2 class="font-bold text-slate-700 text-sm">📋 Vos Ingrédients</h2>
-            <div id="tableau-ingredients" class="space-y-2">
-                <!-- Chargé dynamiquement -->
+        <!-- Liste des Ingrédients -->
+        <section class="space-y-3">
+            <h2 class="font-bold text-slate-700 text-sm">📋 Liste des Ingrédients Enregistrés</h2>
+            <div id="liste-ingredients-container" class="space-y-2">
+                <p class="text-slate-400 italic text-xs">Chargement...</p>
             </div>
         </section>
     </div>
 
     <script>
         const socket = io();
-        let ingredientsGlobal = [];
-        let html5QrCodeScanner = null;
-        let modeActuel = 'qrcode';
+        let html5QrCode = null;
 
         async function init() {
-            await chargerIngredients();
-            ajouterLigneEnseigne();
-        }
-
-        async function chargerIngredients() {
             const res = await fetch('/api/ingredients');
-            ingredientsGlobal = await res.json();
-            renderTableau();
+            const ingredients = await res.json();
+            renderIngredients(ingredients);
         }
 
-        function ajouterLigneEnseigne(nom = '', prix = '') {
-            const container = document.getElementById('liste-enseignes-container');
-            const div = document.createElement('div');
-            div.className = "flex gap-2 items-center enseigne-ligne";
-            div.innerHTML = `
-                <input type="text" placeholder="Enseigne (ex: Leclerc)" value="${nom}" class="border border-slate-200 p-2 rounded-xl nom-enseigne flex-1 text-xs bg-slate-50">
-                <input type="number" step="any" placeholder="Prix (€)" value="${prix}" class="border border-slate-200 p-2 rounded-xl prix-enseigne w-24 text-xs bg-slate-50">
-                <button type="button" onclick="this.parentElement.remove()" class="text-rose-500 font-bold px-2 text-sm">✕</button>
-            `;
-            container.appendChild(div);
-        }
-
-        function renderTableau() {
-            const container = document.getElementById('tableau-ingredients');
-            if (ingredientsGlobal.length === 0) {
-                container.innerHTML = `<p class="text-center text-slate-400 italic text-xs py-4">Aucun ingrédient enregistré.</p>`;
-                return;
-            }
-
-            container.innerHTML = ingredientsGlobal.map(i => {
-                let prixHTML = 'Aucun prix';
-                if (i.enseignes && Array.isArray(i.enseignes) && i.enseignes.length > 0) {
-                    prixHTML = i.enseignes.map(e => `<span class="bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg text-xs font-medium mr-1 inline-block mb-1"><b>${e.nom}</b>: ${e.prix}€</span>`).join('');
-                } else if (i.prix_unitaire) {
-                    prixHTML = `<span>${i.prix_unitaire} €</span>`;
-                }
-
-                return `
-                    <div class="border border-slate-200 p-3 rounded-xl bg-slate-50 space-y-2 text-xs">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <span class="font-bold text-slate-800 text-sm">${i.nom}</span>
-                                <span class="text-slate-500 block">Marque : ${i.marque || '-'} | Format : ${i.format || '-'} (${i.unite || ''})</span>
-                            </div>
-                            <div class="flex gap-2">
-                                <button onclick="preparerModification(${i.id})" class="text-blue-600 font-bold p-1">Modifier</button>
-                                <button onclick="supprimerIngredient(${i.id})" class="text-rose-500 font-bold p-1">Supprimer</button>
-                            </div>
-                        </div>
-                        <div class="text-slate-600"><b>Prix :</b> ${prixHTML}</div>
-                        <div class="text-slate-500 text-[11kpx]">Nutrition (/100g) : ${i.calories || 0} kcal | P: ${i.proteines || 0}g | G: ${i.glucides || 0}g | L: ${i.lipides || 0}g</div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function lancerScanner(mode) {
-            modeActuel = mode;
-            const container = document.getElementById('scanner-container');
-            container.classList.remove('hidden');
-
-            if (html5QrCodeScanner) {
-                html5QrCodeScanner.clear().catch(() => {});
-            }
-
-            html5QrCodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 220 }, false);
-            html5QrCodeScanner.render(
-                (decodedText) => {
-                    fermerScanner();
-                    if (modeActuel === 'qrcode') {
-                        traiterQRScan(decodedText);
-                    } else {
-                        rechercherOpenFoodFactsParBarcode(decodedText);
-                    }
+        function demarrerScanner() {
+            const readerDiv = document.getElementById('reader');
+            readerDiv.innerHTML = "<p class='p-3 text-xs text-slate-500 text-center'>Initialisation de la caméra...</p>";
+            
+            html5QrCode = new Html5Qrcode("reader");
+            
+            html5QrCode.start(
+                { facingMode: "environment" },
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 100 }
                 },
-                (error) => {}
-            );
+                async (decodedText) => {
+                    await arreterScanner();
+                    chercherParCodeBarresAutomatique(decodedText);
+                },
+                (errorMessage) => {}
+            ).catch((err) => {
+                console.error("Erreur caméra :", err);
+                alert("Erreur Caméra : " + err);
+                readerDiv.innerHTML = `<p class='p-3 text-xs text-rose-600 text-center font-bold'>Erreur : ${err}</p>`;
+            });
         }
 
-        function fermerScanner() {
-            if (html5QrCodeScanner) {
-                html5QrCodeScanner.clear().catch(() => {});
-            }
-            document.getElementById('scanner-container').classList.add('hidden');
-        }
-
-        function traiterQRScan(text) {
-            try {
-                let data = JSON.parse(text);
-                document.getElementById('ing-nom').value = data.nom || '';
-                document.getElementById('ing-marque').value = data.marque || '';
-                document.getElementById('ing-format').value = data.format || '';
-                document.getElementById('ing-unite').value = data.unite || 'g';
-                document.getElementById('ing-calories').value = data.calories || 0;
-                document.getElementById('ing-proteines').value = data.proteines || 0;
-                document.getElementById('ing-glucides').value = data.glucides || 0;
-                document.getElementById('ing-lipides').value = data.lipides || 0;
-
-                document.getElementById('liste-enseignes-container').innerHTML = '';
-                if (data.enseignes && Array.isArray(data.enseignes)) {
-                    data.enseignes.forEach(e => ajouterLigneEnseigne(e.nom, e.prix));
-                } else {
-                    ajouterLigneEnseigne();
+        async function arreterScanner() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                try {
+                    await html5QrCode.stop();
+                    html5QrCode.clear();
+                } catch (err) {
+                    console.error("Erreur à l'arrêt du scanner", err);
                 }
-                alert("QR Code chargé avec succès !");
-            } catch (e) {
-                alert("Le texte scanné n'est pas un JSON valide : " + text);
             }
         }
 
-        async function rechercherOpenFoodFactsParBarcode(barcode) {
+        async function chercherParCodeBarresAutomatique(code) {
             try {
-                const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-                const data = await res.json();
+                const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
+                const data = await response.json();
+
                 if (data.status === 1) {
-                    remplirChampsOpenFoodFacts(data.product);
-                } else {
-                    alert("Produit inconnu dans Open Food Facts.");
-                }
-            } catch (e) { alert("Erreur réseau Open Food Facts"); }
-        }
+                    const produit = data.product;
+                    const nutriments = produit.nutriments || {};
 
-        async function chercherTexteOpenFoodFacts() {
-            const query = document.getElementById('recherche-off').value.trim();
-            if (!query) return;
-            try {
-                const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1`);
-                const data = await res.json();
-                if (data.products && data.products.length > 0) {
-                    remplirChampsOpenFoodFacts(data.products[0]);
-                } else {
-                    alert("Aucun produit trouvé.");
-                }
-            } catch (e) { alert("Erreur lors de la recherche"); }
-        }
+                    document.getElementById('nom').value = produit.product_name || produit.brands || "Produit scanné";
+                    document.getElementById('calories').value = Math.round(nutriments['energy-kcal_100g'] || nutriments['energy-kcal'] || 0);
+                    document.getElementById('proteines').value = Math.round((nutriments['proteins_100g'] || 0) * 10) / 10;
+                    document.getElementById('glucides').value = Math.round((nutriments['carbohydrates_100g'] || 0) * 10) / 10;
+                    document.getElementById('lipides').value = Math.round((nutriments['fat_100g'] || 0) * 10) / 10;
+                    document.getElementById('unite').value = "g";
 
-        function remplirChampsOpenFoodFacts(p) {
-            document.getElementById('ing-nom').value = p.product_name || '';
-            document.getElementById('ing-marque').value = p.brands || '';
-            document.getElementById('ing-format').value = p.quantity || '';
-            document.getElementById('ing-unite').value = 'g';
-            const n = p.nutriments || {};
-            document.getElementById('ing-calories').value = n['energy-kcal_100g'] || 0;
-            document.getElementById('ing-proteines').value = n['proteins_100g'] || 0;
-            document.getElementById('ing-glucides').value = n['carbohydrates_100g'] || 0;
-            document.getElementById('ing-lipides').value = n['fat_100g'] || 0;
-            alert("Produit chargé : " + (p.product_name || 'Inconnu'));
+                    alert("✅ Produit scanné et importé avec succès !");
+                } else {
+                    alert(`❌ Produit introuvable (Code: ${code}) dans Open Food Facts.`);
+                }
+            } catch (error) {
+                console.error("Erreur:", error);
+                alert("Erreur de connexion lors de la recherche du produit.");
+            }
         }
 
         async function sauvegarderIngredient(e) {
             e.preventDefault();
-            const id = document.getElementById('ing-id').value;
-            const enseignes = Array.from(document.querySelectorAll('.enseigne-ligne')).map(l => ({
-                nom: l.querySelector('.nom-enseigne').value,
-                prix: parseFloat(l.querySelector('.prix-enseigne').value) || 0
-            }));
+            
+            const id = document.getElementById('ingredient-id').value;
             const data = {
-                nom: document.getElementById('ing-nom').value,
-                marque: document.getElementById('ing-marque').value,
-                format: document.getElementById('ing-format').value,
-                unite: document.getElementById('ing-unite').value,
-                calories: document.getElementById('ing-calories').value,
-                proteines: document.getElementById('ing-proteines').value,
-                glucides: document.getElementById('ing-glucides').value,
-                lipides: document.getElementById('ing-lipides').value,
-                enseignes: enseignes
+                nom: document.getElementById('nom').value.trim(),
+                unite: document.getElementById('unite').value,
+                calories: parseFloat(document.getElementById('calories').value) || 0,
+                proteines: parseFloat(document.getElementById('proteines').value) || 0,
+                glucides: parseFloat(document.getElementById('glucides').value) || 0,
+                lipides: parseFloat(document.getElementById('lipides').value) || 0
             };
 
             const url = id ? `/api/ingredients/${id}` : '/api/ingredients';
             const method = id ? 'PUT' : 'POST';
 
-            const response = await fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-            if (response.ok) {
-                reinitialiserFormulaire();
-                chargerIngredients();
-            } else {
-                alert("Erreur lors de l'enregistrement");
+            const response = await fetch(url, {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                alert(errData.error || "Erreur lors de l'enregistrement");
+                return;
             }
+
+            reinitialiserFormulaire();
+            init();
         }
 
-        function preparerModification(id) {
-            const i = ingredientsGlobal.find(item => item.id == id);
-            if (!i) return;
-
-            document.getElementById('ing-id').value = i.id;
-            document.getElementById('ing-nom').value = i.nom;
-            document.getElementById('ing-marque').value = i.marque || '';
-            document.getElementById('ing-format').value = i.format || '';
-            document.getElementById('ing-unite').value = i.unite || '';
-            document.getElementById('ing-calories').value = i.calories || '';
-            document.getElementById('ing-proteines').value = i.proteines || '';
-            document.getElementById('ing-glucides').value = i.glucides || '';
-            document.getElementById('ing-lipides').value = i.lipides || '';
-
-            document.getElementById('liste-enseignes-container').innerHTML = '';
-            if (i.enseignes && Array.isArray(i.enseignes) && i.enseignes.length > 0) {
-                i.enseignes.forEach(e => ajouterLigneEnseigne(e.nom, e.prix));
-            } else {
-                ajouterLigneEnseigne();
+        function renderIngredients(ingredients) {
+            const container = document.getElementById('liste-ingredients-container');
+            if (ingredients.length === 0) {
+                container.innerHTML = `<p class="text-slate-400 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Aucun ingrédient enregistré.</p>`;
+                return;
             }
 
-            document.getElementById('titre-form-ing').innerText = `Modifier : ${i.nom}`;
+            container.innerHTML = ingredients.map(i => `
+                <div class="bg-white border border-slate-200 p-3.5 rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs">
+                    <div class="space-y-0.5">
+                        <h3 class="font-bold text-slate-800 text-sm">${i.nom} <span class="text-slate-400 font-normal">(${i.unite || 'g'})</span></h3>
+                        <p class="text-emerald-700 font-medium">🔥 ${i.calories || 0} kcal | P: ${i.proteines || 0}g | G: ${i.glucides || 0}g | L: ${i.lipides || 0}g <span class="text-slate-400 text-[10px]">(pour 100${i.unite || 'g'})</span></p>
+                    </div>
+                    <div class="flex gap-2 w-full sm:w-auto justify-end">
+                        <button onclick='preparerModification(${JSON.stringify(i)})' class="bg-slate-100 active:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl font-bold">Modifier</button>
+                        <button onclick="supprimerIngredient(${i.id})" class="bg-rose-100 active:bg-rose-200 text-rose-600 px-3 py-1.5 rounded-xl font-bold">Supprimer</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function preparerModification(i) {
+            document.getElementById('ingredient-id').value = i.id;
+            document.getElementById('nom').value = i.nom;
+            document.getElementById('unite').value = i.unite || 'g';
+            document.getElementById('calories').value = i.calories || 0;
+            document.getElementById('proteines').value = i.proteines || 0;
+            document.getElementById('glucides').value = i.glucides || 0;
+            document.getElementById('lipides').value = i.lipides || 0;
+            
+            document.getElementById('form-title').innerText = "✏️ Modifier l'ingrédient";
+            document.getElementById('btn-annuler').classList.remove('hidden');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function reinitialiserFormulaire() {
-            document.getElementById('ing-id').value = '';
             document.getElementById('form-ingredient').reset();
-            document.getElementById('liste-enseignes-container').innerHTML = '';
-            ajouterLigneEnseigne();
-            document.getElementById('titre-form-ing').innerText = "Ajouter un ingrédient";
+            document.getElementById('ingredient-id').value = '';
+            document.getElementById('form-title').innerText = "➕ Ajouter un ingrédient";
+            document.getElementById('btn-annuler').classList.add('hidden');
         }
 
         async function supprimerIngredient(id) {
-            if (confirm("Supprimer cet ingrédient ?")) {
+            if (confirm("Voulez-vous vraiment supprimer cet ingrédient ?")) {
                 await fetch(`/api/ingredients/${id}`, { method: 'DELETE' });
-                chargerIngredients();
+                init();
             }
         }
 
-        socket.on('data_updated', () => {
-            chargerIngredients();
-        });
-
+        socket.on('data_updated', init);
         init();
     </script>
 </body>
