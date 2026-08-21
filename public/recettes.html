@@ -12,13 +12,21 @@
         
         .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         form input, form select, form textarea { width: 100%; padding: 8px; margin: 5px 0 15px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        form button { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        form button:hover { background: #218838; }
+        
+        .btn-success { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .btn-success:hover { background: #218838; }
+        .btn-warning { background: #ffc107; color: #333; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn-danger { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn-secondary { background: #6c757d; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
 
-        .recette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+        .recette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; }
         .recette-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #007bff; }
         .recette-card h3 { margin-top: 0; color: #007bff; }
         .badge { background: #e9ecef; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        
+        .ingredient-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .ingredient-row select { flex: 2; margin: 0; }
+        .ingredient-row input { flex: 1; margin: 0; }
     </style>
 </head>
 <body>
@@ -32,14 +40,15 @@
         <a href="vider-frigo.html">Vider Frigo</a>
     </div>
 
-    <h1>🍳 Gestion de vos Recettes</h1>
+    <h1 id="titre-formulaire">🍳 Ajouter une nouvelle recette</h1>
 
-    <!-- Formulaire d'ajout de recette -->
+    <!-- Formulaire d'ajout / modification de recette -->
     <div class="card">
-        <h2>Ajouter une nouvelle recette</h2>
         <form id="form-recette">
+            <input type="hidden" id="recette-id">
+
             <label for="nom">Nom de la recette :</label>
-            <input type="text" id="nom" required placeholder="Ex: Gratin dauphinois">
+            <input type="text" id="nom" required placeholder="Ex: Pâtes à la carbonara">
 
             <label for="categorie">Catégorie :</label>
             <select id="categorie">
@@ -52,24 +61,35 @@
             <label for="parts">Nombre de parts :</label>
             <input type="number" id="parts" value="4" min="1" required>
 
-            <label for="ingredients">Ingrédients (ex: Pommes de terre (1kg), Crème (20cl)) :</label>
-            <textarea id="ingredients" rows="3" required placeholder="Listez les ingrédients avec leurs quantités"></textarea>
+            <label>Ingrédients (sélectionnez depuis votre base) :</label>
+            <div id="liste-ingredients-container">
+                <!-- Les lignes d'ingrédients dynamiques s'ajouteront ici -->
+            </div>
+            <button type="button" class="btn-secondary" onclick="ajouterLigneIngredient()">+ Ajouter un ingrédient</button>
+            <br><br>
 
-            <label for="etapes">Étapes de préparation (optionnel) :</label>
-            <textarea id="etapes" rows="3" placeholder="1. Éplucher les pommes de terre..."></textarea>
+            <label for="etapes">Étapes de préparation :</label>
+            <textarea id="etapes" rows="3" placeholder="1. Cuire les pâtes..."></textarea>
 
             <label for="cout">Coût total (€) :</label>
-            <input type="number" step="0.01" id="cout" required placeholder="Ex: 5.50">
+            <input type="number" step="0.01" id="cout" required placeholder="Ex: 4.50">
 
-            <label for="calories">Calories totales (kcal) :</label>
-            <input type="number" step="0.1" id="calories" required placeholder="Ex: 1200">
+            <!-- Affichage automatique des apports calculés -->
+            <div style="background: #eef2f7; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+                <strong>Apports nutritionnels calculés (pour la recette entière) :</strong><br>
+                🔥 Calories : <span id="calc-calories">0</span> kcal | 
+                💪 Protéines : <span id="calc-proteines">0</span> g | 
+                🍞 Glucides : <span id="calc-glucides">0</span> g | 
+                🥑 Lipides : <span id="calc-lipides">0</span> g
+            </div>
 
-            <button type="submit">Enregistrer la recette</button>
+            <button type="submit" class="btn-success" id="btn-submit">Enregistrer la recette</button>
+            <button type="button" class="btn-secondary" id="btn-annuler" style="display:none;" onclick="reinitialiserFormulaire()">Annuler</button>
         </form>
     </div>
 
     <!-- Liste des recettes enregistrées -->
-    <h2>Liste des recettes</h2>
+    <h2>Liste de vos recettes</h2>
     <div id="container-recettes" class="recette-grid">
         <p>Chargement des recettes...</p>
     </div>
@@ -77,7 +97,68 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        let tousLesIngredients = [];
 
+        // Charger la liste des ingrédients disponibles pour les sélecteurs
+        function chargerIngredientsDisponibles(callback) {
+            fetch('/api/ingredients')
+                .then(res => res.json())
+                .then(data => {
+                    tousLesIngredients = data;
+                    if (callback) callback();
+                })
+                .catch(err => console.error("Erreur chargement ingrédients:", err));
+        }
+
+        // Ajouter une ligne d'ingrédient dans le formulaire
+        function ajouterLigneIngredient(idIng = "", quantite = "") {
+            const container = document.getElementById('liste-ingredients-container');
+            const div = document.createElement('div');
+            div.className = 'ingredient-row';
+            
+            let options = '<option value="">-- Choisir un ingrédient --</option>';
+            tousLesIngredients.forEach(ing => {
+                options += `<option value="${ing.id}" ${ing.id == idIng ? 'selected' : ''}>${ing.nom} (${ing.marque || 'Générique'})</option>`;
+            });
+
+            div.innerHTML = `
+                <select class="ing-select" onchange="calculerNutrimentsRecette()">${options}</select>
+                <input type="number" step="0.1" class="ing-qte" placeholder="Quantité (g ou ml)" value="${quantite}" oninput="calculerNutrimentsRecette()">
+                <button type="button" class="btn-danger" onclick="this.parentElement.remove(); calculerNutrimentsRecette();">X</button>
+            `;
+            container.appendChild(div);
+        }
+
+        // Calcul automatique des nutriments en fonction des ingrédients et quantités (basé sur 100g)
+        function calculerNutrimentsRecette() {
+            let totalCal = 0, totalPro = 0, totalGlu = 0, totalLip = 0;
+            
+            document.querySelectorAll('.ingredient-row').forEach(row => {
+                const select = row.querySelector('.ing-select');
+                const qteInput = row.querySelector('.ing-qte');
+                
+                const ingId = select.value;
+                const qte = parseFloat(qteInput.value) || 0;
+
+                if (ingId && qte > 0) {
+                    const ing = tousLesIngredients.find(i => i.id == ingId);
+                    if (ing) {
+                        // Formule : (Valeur pour 100g * quantité) / 100
+                        totalCal += (ing.calories * qte) / 100;
+                        totalPro += (ing.proteines * qte) / 100;
+                        totalGlu += (ing.glucides * qte) / 100;
+                        totalLip += (ing.lipides * qte) / 100;
+                    }
+                }
+            });
+
+            document.getElementById('calc-calories').innerText = totalCal.toFixed(1);
+            document.getElementById('calc-proteines').innerText = totalPro.toFixed(1);
+            document.getElementById('calc-glucides').innerText = totalGlu.toFixed(1);
+            document.getElementById('calc-lipides').innerText = totalLip.toFixed(1);
+        }
+
+        // Charger et afficher les recettes
         function chargerRecettes() {
             fetch('/api/recettes')
                 .then(res => res.json())
@@ -91,50 +172,112 @@
                         <div class="recette-card">
                             <h3>${r.nom}</h3>
                             <p><span class="badge">${r.categorie || 'Plat'}</span> | <strong>Parts :</strong> ${r.parts || 1}</p>
-                            <p><strong>Coût :</strong> ${r.cout ? r.cout + ' €' : 'Non renseigné'}</p>
+                            <p><strong>Coût :</strong> ${r.cout ? r.cout + ' €' : '0 €'}</p>
                             <p><strong>Ingrédients :</strong><br>${r.ingredients || 'Aucun'}</p>
-                            <p><strong>Étapes :</strong><br>${r.etapes ? r.etapes.replace(/\n/g, '<br>') : 'Aucune étape'}</p>
-                            <p><strong>Apports :</strong> ${r.calories || 0} kcal</p>
+                            <p><strong>Étapes :</strong><br>${r.etapes ? r.etapes.replace(/\n/g, '<br>') : 'Aucune'}</p>
+                            <p><strong>Apports totaux :</strong> ${r.calories || 0} kcal (Pro: ${r.proteines || 0}g, Glu: ${r.glucides || 0}g, Lip: ${r.lipides || 0}g)</p>
+                            <br>
+                            <button class="btn-warning" onclick='preparerModification(${JSON.stringify(r)})'>Modifier</button>
+                            <button class="btn-danger" onclick="supprimerRecette(${r.id})">Supprimer</button>
                         </div>
                     `).join('');
                 })
-                .catch(err => {
-                    console.error("Erreur chargement recettes:", err);
-                });
+                .catch(err => console.error("Erreur chargement recettes:", err));
         }
 
-        // Soumission du formulaire
+        // Remplir le formulaire pour modification
+        function preparerModification(r) {
+            document.getElementById('recette-id').value = r.id;
+            document.getElementById('nom').value = r.nom;
+            document.getElementById('categorie').value = r.categorie;
+            document.getElementById('parts').value = r.parts;
+            document.getElementById('etapes').value = r.etapes;
+            document.getElementById('cout').value = r.cout;
+            
+            document.getElementById('titre-formulaire').innerText = "✏️ Modifier la recette";
+            document.getElementById('btn-submit').innerText = "Mettre à jour";
+            document.getElementById('btn-annuler').style.display = "inline-block";
+
+            // Reconstituer les lignes d'ingrédients stockés en texte (ou via un format parsable)
+            document.getElementById('liste-ingredients-container').innerHTML = '';
+            // Si vos ingrédients sont stockés sous forme de texte brut, on peut en rajouter une ligne vide par défaut
+            ajouterLigneIngredient();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function reinitialiserFormulaire() {
+            document.getElementById('form-recette').reset();
+            document.getElementById('recette-id').value = "";
+            document.getElementById('titre-formulaire').innerText = "🍳 Ajouter une nouvelle recette";
+            document.getElementById('btn-submit').innerText = "Enregistrer la recette";
+            document.getElementById('btn-annuler').style.display = "none";
+            document.getElementById('liste-ingredients-container').innerHTML = '';
+            ajouterLigneIngredient();
+            calculerNutrimentsRecette();
+        }
+
+        // Soumission du formulaire (Ajout ou Modification)
         document.getElementById('form-recette').addEventListener('submit', (e) => {
             e.preventDefault();
-            const nouvelleRecette = {
+            const id = document.getElementById('recette-id').value;
+            
+            // Rassembler les ingrédients textuels
+            let ingredientsTexte = [];
+            document.querySelectorAll('.ingredient-row').forEach(row => {
+                const select = row.querySelector('.ing-select');
+                const qte = row.querySelector('.ing-qte').value;
+                if (select.selectedIndex > 0 && qte) {
+                    const nomIng = select.options[select.selectedIndex].text;
+                    ingredientsTexte.push(`${nomIng} (${qte}g)`);
+                }
+            });
+
+            const recetteData = {
                 nom: document.getElementById('nom').value,
                 categorie: document.getElementById('categorie').value,
                 parts: parseInt(document.getElementById('parts').value),
-                ingredients: document.getElementById('ingredients').value,
+                ingredients: ingredientsTexte.join(', '),
                 etapes: document.getElementById('etapes').value,
                 cout: parseFloat(document.getElementById('cout').value),
-                calories: parseFloat(document.getElementById('calories').value),
-                proteines: 0,
-                glucides: 0,
-                lipides: 0
+                calories: parseFloat(document.getElementById('calc-calories').innerText),
+                proteines: parseFloat(document.getElementById('calc-proteines').innerText),
+                glucides: parseFloat(document.getElementById('calc-glucides').innerText),
+                lipides: parseFloat(document.getElementById('calc-lipides').innerText)
             };
 
-            fetch('/api/recettes', {
-                method: 'POST',
+            const url = id ? `/api/recettes/${id}` : '/api/recettes';
+            const method = id ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(nouvelleRecette)
+                body: JSON.stringify(recetteData)
             })
             .then(res => res.json())
             .then(() => {
-                document.getElementById('form-recette').reset();
+                reinitialiserFormulaire();
                 chargerRecettes();
             })
-            .catch(err => console.error("Erreur ajout recette:", err));
+            .catch(err => console.error("Erreur sauvegarde recette:", err));
         });
 
-        // Chargement initial et temps réel
-        chargerRecettes();
-        socket.on('data_updated', chargerRecettes);
+        function supprimerRecette(id) {
+            if (confirm("Voulez-vous vraiment supprimer cette recette ?")) {
+                fetch(`/api/recettes/${id}`, { method: 'DELETE' })
+                    .then(() => chargerRecettes())
+                    .catch(err => console.error("Erreur suppression:", err));
+            }
+        }
+
+        // Initialisation au chargement de la page
+        chargerIngredientsDisponibles(() => {
+            ajouterLigneIngredient();
+            chargerRecettes();
+        });
+
+        socket.on('data_updated', () => {
+            chargerRecettes();
+        });
     </script>
 </body>
 </html>
