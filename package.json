@@ -1,0 +1,13 @@
+{
+  "name": "menu-de-la-semaine",
+  "version": "1.0.0",
+  "description": "Site de gestion de menus et courses",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "sqlite3": "^5.1.7"
+  }
+}

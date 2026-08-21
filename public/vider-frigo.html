@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Vider ton frigo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-6xl mx-auto bg-white p-6 rounded-lg shadow space-y-6">
+        
+        <!-- Navigation -->
+        <div class="flex justify-between items-center border-b pb-4">
+            <h1 class="text-xl font-bold text-gray-800">🧊 Vider ton frigo</h1>
+            <div class="flex gap-3 text-sm">
+                <a href="index.html" class="text-blue-500 hover:underline">1. Menu</a>
+                <a href="recettes.html" class="text-blue-500 hover:underline">2. Recettes</a>
+                <a href="ingredients.html" class="text-blue-500 hover:underline">3. Ingrédients</a>
+                <a href="courses.html" class="text-blue-500 hover:underline">4. Courses</a>
+                <a href="vide-ton-frigo.html" class="font-bold text-blue-700 underline">5. Vide ton frigo</a>
+            </div>
+        </div>
+
+        <!-- Rappel du Profil Actif -->
+        <div class="bg-blue-50 p-3 rounded border border-blue-200 flex items-center justify-between text-xs">
+            <div class="flex items-center gap-2 w-full md:w-1/2">
+                <label class="font-bold text-blue-900">Profil Actif :</label>
+                <select id="select-profil" onchange="changerProfilActif()" class="border p-2 rounded bg-white flex-1 font-medium">
+                    <option value="">-- Aucun profil --</option>
+                </select>
+            </div>
+            <span class="text-blue-700 italic">Le stock de ton frigo est propre à ce profil.</span>
+        </div>
+
+        <!-- Saisie des ingrédients disponibles -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-gray-50 p-4 rounded-lg border space-y-4">
+                <h2 class="font-bold text-gray-700 text-sm">🛒 Ce qu'il me reste à la maison</h2>
+                
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold text-gray-600">Sélectionner un ingrédient :</label>
+                    <select id="select-ingredient" class="border p-2 rounded bg-white w-full text-xs"></select>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold text-gray-600">Quantité disponible :</label>
+                    <input type="number" step="any" id="input-quantite" placeholder="Ex: 500 (g ou ml)" class="border p-2 rounded bg-white w-full text-xs">
+                </div>
+
+                <button onclick="ajouterIngredientFrigo()" class="w-full bg-blue-600 text-white py-2 rounded text-xs font-bold hover:bg-blue-700">
+                    + Ajouter à mon frigo
+                </button>
+            </div>
+
+            <!-- Liste des ingrédients actuels du frigo -->
+            <div class="md:col-span-2 bg-gray-50 p-4 rounded-lg border space-y-3">
+                <h2 class="font-bold text-gray-700 text-sm">📋 Mon stock actuel (pour ce profil)</h2>
+                <div id="liste-frigo" class="space-y-2 max-h-60 overflow-y-auto pr-2">
+                    <p class="text-xs text-gray-400 italic">Aucun ingrédient renseigné pour le moment.</p>
+                </div>
+                <button onclick="trouverRecettes()" class="w-full bg-emerald-600 text-white py-2.5 rounded text-xs font-bold hover:bg-emerald-700 shadow-sm">
+                    🔍 Trouver des recettes faisables
+                </button>
+            </div>
+        </div>
+
+        <!-- Résultats / Suggestions de recettes -->
+        <div class="space-y-4">
+            <h2 class="font-bold text-gray-700 text-sm">💡 Recettes conseillées selon ton stock</h2>
+            <div id="resultats-recettes" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <p class="text-xs text-gray-400 italic col-span-full">Clique sur "Trouver des recettes faisables" pour lancer la recherche.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let ingredientsGlobal = [];
+        let recettesGlobal = [];
+        let profilsGlobal = [];
+        let stockFrigoParProfil = {}; // Structure : { profilId: { id_ingredient: quantite } }
+
+        async function init() {
+            await chargerDonnees();
+        }
+
+        async function chargerDonnees() {
+            // 1. Charger les profils
+            const resProfils = await fetch('/api/profils');
+            profilsGlobal = await resProfils.json();
+            renderProfils();
+
+            // 2. Charger les ingrédients et recettes
+            const resIng = await fetch('/api/ingredients');
+            ingredientsGlobal = await resIng.json();
+
+            const resRec = await fetch('/api/recettes');
+            recettesGlobal = await resRec.json();
+
+            // 3. Charger le stock lié au profil actif
+            chargerStockStocke();
+            renderSelectIngredients();
+            renderStockFrigo();
+        }
+
+        function renderProfils() {
+            const select = document.getElementById('select-profil');
+            const currentValue = select.value;
+
+            select.innerHTML = profilsGlobal.length === 0 
+                ? `<option value="">-- Aucun profil créé --</option>` 
+                : profilsGlobal.map(p => `<option value="${p.id}" ${p.id == currentValue ? 'selected' : ''}>${p.nom}</option>`).join('');
+
+            if (!select.value && profilsGlobal.length > 0) {
+                select.value = profilsGlobal[0].id;
+            }
+        }
+
+        function getProfilActifId() {
+            const select = document.getElementById('select-profil');
+            return select.value;
+        }
+
+        function changerProfilActif() {
+            renderStockFrigo();
+            document.getElementById('resultats-recettes').innerHTML = `<p class="text-xs text-gray-400 italic col-span-full">Clique sur "Trouver des recettes faisables" pour lancer la recherche.</p>`;
+        }
+
+        function renderSelectIngredients() {
+            const select = document.getElementById('select-ingredient');
+            select.innerHTML = ingredientsGlobal.length === 0 
+                ? `<option value="">-- Aucun ingrédient disponible --</option>` 
+                : ingredientsGlobal.map(i => `<option value="${i.id}">${i.nom} (${i.unite || ''})</option>`).join('');
+        }
+
+        function ajouterIngredientFrigo() {
+            const profilId = getProfilActifId();
+            if (!profilId) {
+                alert("Veuillez sélectionner ou créer un profil d'abord.");
+                return;
+            }
+
+            const select = document.getElementById('select-ingredient');
+            const qteInput = document.getElementById('input-quantite');
+            
+            const ingId = select.value;
+            const qte = parseFloat(qteInput.value);
+
+            if (!ingId) {
+                alert("Veuillez choisir un ingrédient.");
+                return;
+            }
+            if (isNaN(qte) || qte <= 0) {
+                alert("Veuillez entrer une quantité valide.");
+                return;
+            }
+
+            // S'assurer que l'objet pour ce profil existe
+            if (!stockFrigoParProfil[profilId]) {
+                stockFrigoParProfil[profilId] = {};
+            }
+
+            stockFrigoParProfil[profilId][ingId] = (stockFrigoParProfil[profilId][ingId] || 0) + qte;
+            qteInput.value = '';
+            
+            sauvegarderStockStocke();
+            renderStockFrigo();
+        }
+
+        function supprimerDuFrigo(ingId) {
+            const profilId = getProfilActifId();
+            if (!profilId || !stockFrigoParProfil[profilId]) return;
+
+            delete stockFrigoParProfil[profilId][ingId];
+            sauvegarderStockStocke();
+            renderStockFrigo();
+        }
+
+        function renderStockFrigo() {
+            const container = document.getElementById('liste-frigo');
+            const profilId = getProfilActifId();
+            
+            const frigoActuel = (profilId && stockFrigoParProfil[profilId]) ? stockFrigoParProfil[profilId] : {};
+            const ids = Object.keys(frigoActuel);
+
+            if (ids.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-400 italic">Aucun ingrédient renseigné pour ce profil.</p>`;
+                return;
+            }
+
+            container.innerHTML = ids.map(id => {
+                const ing = ingredientsGlobal.find(i => i.id == id);
+                const nom = ing ? ing.nom : "Inconnu";
+                const unite = ing ? (ing.unite || '') : '';
+                const qte = frigoActuel[id];
+
+                return `
+                    <div class="flex justify-between items-center bg-white p-2.5 rounded border text-xs">
+                        <span class="font-medium text-gray-800">${nom} : <strong class="text-blue-600">${qte} ${unite}</strong></span>
+                        <button onclick="supprimerDuFrigo(${id})" class="text-red-500 hover:text-red-700 font-bold px-2 py-1">❌ Retirer</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function trouverRecettes() {
+            const container = document.getElementById('resultats-recettes');
+            const profilId = getProfilActifId();
+            const frigoActuel = (profilId && stockFrigoParProfil[profilId]) ? stockFrigoParProfil[profilId] : {};
+
+            if (Object.keys(frigoActuel).length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-400 italic col-span-full">Veuillez d'abord ajouter des ingrédients dans votre frigo pour ce profil !</p>`;
+                return;
+            }
+
+            let recettesAnalysees = recettesGlobal.map(recette => {
+                let ingredientsRecette = recette.ingredients || [];
+                if (ingredientsRecette.length === 0) return { ...recette, faisable: false, taux: 0, manquant: [] };
+
+                let toutBon = true;
+                let manquant = [];
+                let ingredientsPossedesCount = 0;
+
+                ingredientsRecette.forEach(ingR => {
+                    let stockDispo = frigoActuel[ingR.id] || 0;
+                    if (stockDispo >= ingR.quantite) {
+                        ingredientsPossedesCount++;
+                    } else {
+                        toutBon = false;
+                        manquant.push({
+                            nom: ingR.nom,
+                            besoin: ingR.quantite,
+                            reste: stockDispo
+                        });
+                    }
+                });
+
+                let taux = Math.round((ingredientsPossedesCount / ingredientsRecette.length) * 100);
+                return { ...recette, faisable: toutBon, taux, manquant };
+            });
+
+            recettesAnalysees.sort((a, b) => b.taux - a.taux);
+
+            container.innerHTML = recettesAnalysees.map(r => {
+                let badgeColor = r.faisable ? "bg-emerald-100 text-emerald-800 border-emerald-300" : (r.taux >= 50 ? "bg-amber-100 text-amber-800 border-amber-300" : "bg-gray-100 text-gray-700 border-gray-300");
+                let badgeText = r.faisable ? "✅ Faisable à 100% !" : `⚠️ Faisable à ${r.taux}%`;
+
+                let detailsManquants = r.manquant.length > 0 ? `
+                    <div class="mt-2 text-[11px] text-gray-500 border-t pt-1">
+                        <span class="font-semibold text-red-600">Il te manque :</span>
+                        <ul class="list-disc list-inside">
+                            ${r.manquant.map(m => `<li>${m.nom} (Besoin: ${m.besoin}, Tu as: ${m.reste})</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : `<p class="mt-2 text-[11px] text-emerald-600 font-bold">Tu as tout ce qu'il faut en quantité suffisante !</p>`;
+
+                let listeIngs = (r.ingredients || []).map(i => `<li>${i.nom} : ${i.quantite} ${i.unite || ''}</li>`).join('');
+
+                return `
+                    <div class="bg-white p-4 rounded-lg border shadow-sm space-y-3 flex flex-col justify-between text-xs">
+                        <div>
+                            <div class="flex justify-between items-start gap-2">
+                                <h3 class="font-bold text-sm text-gray-800">${r.nom}</h3>
+                                <span class="px-2 py-0.5 rounded border text-[10px] font-bold ${badgeColor}">${badgeText}</span>
+                            </div>
+                            <div class="mt-2 text-gray-600">
+                                <span class="font-semibold">Ingrédients de la recette :</span>
+                                <ul class="list-disc list-inside text-gray-500 max-h-24 overflow-y-auto">${listeIngs}</ul>
+                            </div>
+                            ${detailsManquants}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function sauvegarderStockStocke() {
+            localStorage.setItem('stock_frigo_par_profil', JSON.stringify(stockFrigoParProfil));
+        }
+
+        function chargerStockStocke() {
+            const stock = localStorage.getItem('stock_frigo_par_profil');
+            if (stock) {
+                try {
+                    stockFrigoParProfil = JSON.parse(stock);
+                } catch(e) {
+                    stockFrigoParProfil = {};
+                }
+            }
+        }
+
+        socket.on('data_updated', async () => {
+            await chargerDonnees();
+        });
+
+        init();
+    </script>
+</body>
+</html>

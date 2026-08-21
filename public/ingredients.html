@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestion des Ingrédients</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Bibliothèque de scan QR Code -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-6xl mx-auto bg-white p-6 rounded-lg shadow space-y-6">
+        
+        <!-- Navigation -->
+        <div class="flex justify-between items-center border-b pb-4">
+            <h1 class="text-xl font-bold text-gray-800">🥕 Gestion des Ingrédients</h1>
+            <div class="flex gap-3 text-sm flex-wrap">
+                <a href="index.html" class="text-blue-500 hover:underline">1. Menu</a>
+                <a href="recettes.html" class="text-blue-500 hover:underline">2. Recettes</a>
+                <a href="ingredients.html" class="font-bold text-blue-700 underline">3. Ingrédients</a>
+                <a href="courses.html" class="text-blue-500 hover:underline">4. Courses</a>
+                <a href="vider-frigo.html" class="text-blue-500 hover:underline">5. Vide ton frigo</a>
+            </div>
+        </div>
+
+        <!-- Section Scanner & Formulaire Multi-Enseignes -->
+        <div class="bg-gray-50 p-4 rounded-lg border space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold text-gray-700 text-sm" id="titre-form-ing">Ajouter un ingrédient</h2>
+                <button type="button" onclick="toggleScanner()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded font-bold text-xs flex items-center gap-1">
+                    📷 Scanner un QR Code JSON
+                </button>
+            </div>
+
+            <!-- Bloc Caméra (Masqué par défaut) -->
+            <div id="scanner-container" class="hidden bg-white p-4 rounded border space-y-2">
+                <div id="reader" class="w-full max-w-sm mx-auto"></div>
+                <div class="text-center">
+                    <button type="button" onclick="fermerScanner()" class="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold hover:bg-red-600">Fermer la caméra</button>
+                </div>
+            </div>
+
+            <!-- Formulaire -->
+            <form id="form-ingredient" onsubmit="sauvegarderIngredient(event)" class="space-y-4">
+                <input type="hidden" id="ing-id">
+                
+                <!-- Infos principales -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <input type="text" id="ing-nom" placeholder="Nom de l'ingrédient" class="border p-2 rounded bg-white" required>
+                    <input type="text" id="ing-marque" placeholder="Marque" class="border p-2 rounded bg-white">
+                    <input type="text" id="ing-format" placeholder="Format (ex: 1kg, 500ml)" class="border p-2 rounded bg-white">
+                    <input type="text" id="ing-unite" placeholder="Unité (g, ml, unité)" class="border p-2 rounded bg-white" required>
+                    <input type="number" step="any" id="ing-calories" placeholder="Calories (pour 100g/ml)" class="border p-2 rounded bg-white" required>
+                    <input type="number" step="any" id="ing-proteines" placeholder="Protéines (g)" class="border p-2 rounded bg-white" required>
+                    <input type="number" step="any" id="ing-glucides" placeholder="Glucides (g)" class="border p-2 rounded bg-white" required>
+                    <input type="number" step="any" id="ing-lipides" placeholder="Lipides (g)" class="border p-2 rounded bg-white" required>
+                </div>
+
+                <!-- Section Prix par Enseigne -->
+                <div class="border-t pt-3 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label class="font-bold text-xs text-gray-700">Prix selon les différentes enseignes :</label>
+                        <button type="button" onclick="ajouterLigneEnseigne()" class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-bold">+ Ajouter une enseigne</button>
+                    </div>
+                    <div id="liste-enseignes-container" class="space-y-2">
+                        <!-- Lignes dynamiques enseigne/prix -->
+                    </div>
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-blue-700">Enregistrer l'ingrédient</button>
+                    <button type="button" onclick="reinitialiserFormulaire()" class="bg-gray-400 text-white px-4 py-2 rounded text-xs font-bold hover:bg-gray-50">Annuler / Réinitialiser</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Liste des Ingrédients -->
+        <div class="space-y-3">
+            <h2 class="font-bold text-gray-700 text-sm">📋 Liste de vos ingrédients et comparatif enseignes</h2>
+            <div class="overflow-x-auto border rounded-lg shadow-sm">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-gray-100 border-b text-gray-700">
+                            <th class="p-2 border-r">Nom & Marque</th>
+                            <th class="p-2 border-r">Format</th>
+                            <th class="p-2 border-r">Prix par Enseigne</th>
+                            <th class="p-2 border-r">Nutrition (/100g)</th>
+                            <th class="p-2 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableau-ingredients">
+                        <!-- Chargé dynamiquement -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let ingredientsGlobal = [];
+        let html5QrCode = null;
+
+        async function init() {
+            await chargerIngredients();
+            ajouterLigneEnseigne(); // Ajouter une ligne vide par défaut
+        }
+
+        async function chargerIngredients() {
+            const res = await fetch('/api/ingredients');
+            ingredientsGlobal = await res.json();
+            renderTableau();
+        }
+
+        function ajouterLigneEnseigne(enseigne = '', prix = '') {
+            const container = document.getElementById('liste-enseignes-container');
+            const div = document.createElement('div');
+            div.className = "flex gap-2 items-center enseigne-ligne";
+            div.innerHTML = `
+                <input type="text" placeholder="Nom enseigne (ex: Leclerc, Carrefour...)" value="${enseigne}" class="border p-1.5 rounded bg-white text-xs flex-1 nom-enseigne" required>
+                <input type="number" step="any" placeholder="Prix (€)" value="${prix}" class="border p-1.5 rounded bg-white text-xs w-28 prix-enseigne" required>
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-500 font-bold px-2 text-sm hover:text-red-700">✕</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function renderTableau() {
+            const tbody = document.getElementById('tableau-ingredients');
+            if (ingredientsGlobal.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400 italic">Aucun ingrédient enregistré.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = ingredientsGlobal.map(i => {
+                // i.enseignes supposé être un tableau d'objets [{nom: 'Lec', prix: 1.5}, ...] ou géré selon votre structure backend
+                let prixHTML = '-';
+                if (i.enseignes && Array.isArray(i.enseignes) && i.enseignes.length > 0) {
+                    prixHTML = i.enseignes.map(e => `<span class="bg-gray-100 border px-1.5 py-0.5 rounded mr-1 inline-block mb-1"><b>${e.nom}</b>: ${e.prix}€</span>`).join('');
+                } else if (i.prix_unitaire) {
+                    prixHTML = `<span>${i.prix_unitaire} €</span>`; // Rétrocompatibilité
+                }
+
+                return `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-2 border-r font-medium text-gray-800">${i.nom} <span class="text-gray-500 font-normal">(${i.marque || '-'})</span></td>
+                        <td class="p-2 border-r">${i.format || '-'} (${i.unite || ''})</td>
+                        <td class="p-2 border-r">${prixHTML}</td>
+                        <td class="p-2 border-r">${i.calories || 0} kcal (P:${i.proteines || 0} G:${i.glucides || 0} L:${i.lipides || 0})</td>
+                        <td class="p-2 text-center space-x-2">
+                            <button onclick="preparerModification(${i.id})" class="text-blue-600 hover:underline font-bold">Modifier</button>
+                            <button onclick="supprimerIngredient(${i.id})" class="text-red-500 hover:underline font-bold">Supprimer</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- SCANNER QR CODE ---
+        function toggleScanner() {
+            const container = document.getElementById('scanner-container');
+            container.classList.toggle('hidden');
+
+            if (!container.classList.contains('hidden')) {
+                html5QrCode = new Html5Qrcode("reader");
+                html5QrCode.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 220, height: 220 } },
+                    (decodedText) => {
+                        traiterQRScan(decodedText);
+                        fermerScanner();
+                    },
+                    (errorMessage) => {}
+                ).catch(err => {
+                    alert("Impossible d'accéder à la caméra : " + err);
+                    container.classList.add('hidden');
+                });
+            } else {
+                fermerScanner();
+            }
+        }
+
+        function fermerScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop().catch(() => {}).finally(() => {
+                    document.getElementById('scanner-container').classList.add('hidden');
+                });
+            } else {
+                document.getElementById('scanner-container').classList.add('hidden');
+            }
+        }
+
+        function traiterQRScan(text) {
+            try {
+                let data = JSON.parse(text);
+
+                document.getElementById('ing-nom').value = data.nom || '';
+                document.getElementById('ing-marque').value = data.marque || '';
+                document.getElementById('ing-format').value = data.format || '';
+                document.getElementById('ing-unite').value = data.unite || 'g';
+                document.getElementById('ing-calories').value = data.calories || 0;
+                document.getElementById('ing-proteines').value = data.proteines || 0;
+                document.getElementById('ing-glucides').value = data.glucides || 0;
+                document.getElementById('ing-lipides').value = data.lipides || 0;
+
+                // Charger les enseignes dynamiquement si présentes dans le JSON
+                document.getElementById('liste-enseignes-container').innerHTML = '';
+                if (data.enseignes && Array.isArray(data.enseignes)) {
+                    data.enseignes.forEach(e => ajouterLigneEnseigne(e.nom, e.prix));
+                } else {
+                    ajouterLigneEnseigne();
+                }
+
+                alert(`Succès ! Fiche de "${data.nom || 'l\'ingrédient'}" chargée via le QR Code.`);
+            } catch (e) {
+                alert("Le QR code ne contient pas un format JSON valide.\n\nContenu : " + text);
+            }
+        }
+
+        async function sauvegarderIngredient(e) {
+            e.preventDefault();
+            const id = document.getElementById('ing-id').value;
+
+            // Récupérer toutes les enseignes et leurs prix saisis
+            const enseignes = [];
+            document.querySelectorAll('.enseigne-ligne').forEach(ligne => {
+                const nom = ligne.querySelector('.nom-enseigne').value.trim();
+                const prix = parseFloat(ligne.querySelector('.prix-enseigne').value) || 0;
+                if (nom) enseignes.push({ nom, prix });
+            });
+
+            const data = {
+                nom: document.getElementById('ing-nom').value.trim(),
+                marque: document.getElementById('ing-marque').value.trim(),
+                format: document.getElementById('ing-format').value.trim(),
+                unite: document.getElementById('ing-unite').value.trim(),
+                calories: parseFloat(document.getElementById('ing-calories').value) || 0,
+                proteines: parseFloat(document.getElementById('ing-proteines').value) || 0,
+                glucides: parseFloat(document.getElementById('ing-glucides').value) || 0,
+                lipides: parseFloat(document.getElementById('ing-lipides').value) || 0,
+                enseignes: enseignes // Tableau multi-enseignes
+            };
+
+            const url = id ? `/api/ingredients/${id}` : '/api/ingredients';
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                reinitialiserFormulaire();
+                chargerIngredients();
+            } else {
+                alert("Erreur lors de l'enregistrement");
+            }
+        }
+
+        function preparerModification(id) {
+            const i = ingredientsGlobal.find(item => item.id == id);
+            if (!i) return;
+
+            document.getElementById('ing-id').value = i.id;
+            document.getElementById('ing-nom').value = i.nom;
+            document.getElementById('ing-marque').value = i.marque || '';
+            document.getElementById('ing-format').value = i.format || '';
+            document.getElementById('ing-unite').value = i.unite || '';
+            document.getElementById('ing-calories').value = i.calories || '';
+            document.getElementById('ing-proteines').value = i.proteines || '';
+            document.getElementById('ing-glucides').value = i.glucides || '';
+            document.getElementById('ing-lipides').value = i.lipides || '';
+
+            // Charger les enseignes de l'ingrédient
+            document.getElementById('liste-enseignes-container').innerHTML = '';
+            if (i.enseignes && Array.isArray(i.enseignes) && i.enseignes.length > 0) {
+                i.enseignes.forEach(e => ajouterLigneEnseigne(e.nom, e.prix));
+            } else {
+                ajouterLigneEnseigne();
+            }
+
+            document.getElementById('titre-form-ing').innerText = `Modifier l'ingrédient : ${i.nom}`;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function reinitialiserFormulaire() {
+            document.getElementById('ing-id').value = '';
+            document.getElementById('form-ingredient').reset();
+            document.getElementById('liste-enseignes-container').innerHTML = '';
+            ajouterLigneEnseigne();
+            document.getElementById('titre-form-ing').innerText = "Ajouter un ingrédient";
+        }
+
+        async function supprimerIngredient(id) {
+            if (confirm("Voulez-vous supprimer cet ingrédient ?")) {
+                await fetch(`/api/ingredients/${id}`, { method: 'DELETE' });
+                chargerIngredients();
+            }
+        }
+
+        socket.on('data_updated', () => {
+            chargerIngredients();
+        });
+
+        init();
+    </script>
+</body>
+</html>

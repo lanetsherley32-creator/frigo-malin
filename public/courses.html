@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Liste des Courses & Budget</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-7xl mx-auto bg-white p-6 rounded-lg shadow space-y-6">
+        
+        <!-- Navigation -->
+        <div class="flex justify-between items-center border-b pb-4">
+            <h1 class="text-xl font-bold text-gray-800">🛒 Liste de Courses & Budget</h1>
+            <div class="flex gap-3 text-sm">
+                <a href="index.html" class="text-blue-500 hover:underline">1. Menu</a>
+                <a href="recettes.html" class="text-blue-500 hover:underline">2. Recettes</a>
+                <a href="ingredients.html" class="text-blue-500 hover:underline">3. Ingrédients</a>
+                <a href="courses.html" class="font-bold text-blue-700 underline">4. Courses</a>
+                <div class="flex gap-3 text-sm">
+    <a href="index.html" class="text-blue-500 hover:underline">1. Menu</a>
+    <a href="recettes.html" class="text-blue-500 hover:underline">2. Recettes</a>
+    <a href="ingredients.html" class="text-blue-500 hover:underline">3. Ingrédients</a>
+    <a href="courses.html" class="text-blue-500 hover:underline">4. Courses</a>
+<a href="vider-frigo.html" class="font-bold text-blue-700 underline">5. Vide ton frigo</a>
+</div>
+            </div>
+        </div>
+
+        <!-- Filtre Magasin & Options -->
+        <div class="bg-gray-50 p-4 rounded-lg border flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
+            <div class="flex items-center gap-2 w-full md:w-1/3">
+                <label class="font-bold text-gray-700">Magasin prioritaire :</label>
+                <select id="select-magasin-principal" onchange="calculerCourses()" class="border p-2 rounded bg-white flex-1 font-medium">
+                    <option value="">-- Tous les magasins (Meilleur prix) --</option>
+                </select>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="calculerCourses()" class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700">🔄 Actualiser les courses</button>
+            </div>
+        </div>
+
+        <!-- Section : Ce que j'ai déjà en stock -->
+        <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-200 space-y-3 text-xs">
+            <h2 class="font-bold text-emerald-900 text-sm">🏠 Ce que j'ai déjà en stock</h2>
+            <div class="flex gap-2 items-center">
+                <select id="select-ingredient-stock" class="border p-2 rounded bg-white flex-1 font-medium">
+                    <option value="">-- Choisir un ingrédient de la liste prévue --</option>
+                </select>
+                <input type="number" step="any" id="input-quantite-stock" placeholder="Quantité possédée" class="border p-2 rounded bg-white w-40">
+                <button onclick="ajouterAuStock()" class="bg-emerald-600 text-white px-3 py-2 rounded font-bold hover:bg-emerald-700">+ Ajouter / Mettre à jour</button>
+            </div>
+            <!-- Liste des stocks enregistrés -->
+            <div id="liste-stock-badges" class="flex flex-wrap gap-2 pt-2">
+                <!-- Rempli dynamiquement -->
+            </div>
+        </div>
+
+        <!-- Section : Liste de Courses par Catégorie -->
+        <div class="space-y-4">
+            <h2 class="font-bold text-gray-700 text-sm">📋 Liste de Courses (Triée par catégorie)</h2>
+            <div id="conteneur-courses-categories" class="space-y-4">
+                <!-- Généré dynamiquement par catégorie -->
+            </div>
+        </div>
+
+        <!-- Bilan Budgétaire Réel (Acheté) -->
+        <div class="bg-gray-50 p-4 rounded-lg border space-y-2 text-xs">
+            <h2 class="font-bold text-gray-700 text-sm">💶 Bilan Budgétaire Réel (Basé sur les conditionnements achetés)</h2>
+            <div class="bg-white p-3 rounded border flex justify-between items-center font-bold text-sm">
+                <span>Coût total estimé des courses :</span>
+                <span id="bilan-budget-total" class="text-blue-700 text-base">0.00 €</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let recettesGlobal = [];
+        let ingredientsGlobal = [];
+        let menuActuel = {};
+        let stockActuel = {}; // { ingredientId: quantitePossedee }
+
+        async function init() {
+            await chargerDonnees();
+            chargerMenuStocke();
+            chargerStockStocke();
+            peuplerMagasins();
+            calculerCourses();
+        }
+
+        async function chargerDonnees() {
+            const resRecettes = await fetch('/api/recettes');
+            recettesGlobal = await resRecettes.json();
+
+            const resIngredients = await fetch('/api/ingredients');
+            ingredientsGlobal = await resIngredients.json();
+        }
+
+        function chargerMenuStocke() {
+            const stock = localStorage.getItem('menu_semaine');
+            if (stock) {
+                try {
+                    menuActuel = JSON.parse(stock);
+                } catch(e) {
+                    menuActuel = {};
+                }
+            }
+        }
+
+        function chargerStockStocke() {
+            const stock = localStorage.getItem('stock_perso');
+            if (stock) {
+                try {
+                    stockActuel = JSON.parse(stock);
+                } catch(e) {
+                    stockActuel = {};
+                }
+            }
+        }
+
+        function peuplerMagasins() {
+            const magasinsSet = new Set();
+            ingredientsGlobal.forEach(ing => {
+                if (ing.prix_magasins) {
+                    try {
+                        let prixObj = typeof ing.prix_magasins === 'string' ? JSON.parse(ing.prix_magasins) : ing.prix_magasins;
+                        Object.keys(prixObj).forEach(m => magasinsSet.add(m));
+                    } catch(e) {}
+                }
+            });
+
+            const select = document.getElementById('select-magasin-principal');
+            select.innerHTML = `<option value="">-- Tous les magasins (Meilleur prix) --</option>` + 
+                Array.from(magasinsSet).map(m => `<option value="${m}">${m}</option>`).join('');
+        }
+
+        function calculerCourses() {
+            // 1. Calculer les besoins bruts depuis le menu de la semaine
+            let besoinsBruts = {}; // { ingredientId: quantiteTotaleNecessaire }
+
+            Object.values(menuActuel).forEach(recetteId => {
+                const recette = recettesGlobal.find(r => r.id == recetteId);
+                if (recette && recette.ingredients) {
+                    recette.ingredients.forEach(item => {
+                        // item.id ou item.ingredient_id selon votre structure d'API recettes
+                        let ingId = item.ingredient_id || item.id;
+                        let qte = (item.quantite || 0);
+                        besoinsBruts[ingId] = (besoinsBruts[ingId] || 0) + qte;
+                    });
+                }
+            });
+
+            // Mettre à jour le sélecteur d'ingrédients pour le stock avec les éléments nécessaires
+            peuplerSelectStock(besoinsBruts);
+
+            // 2. Soustraire le stock possédé et grouper par catégorie
+            let coursesParCategorie = {};
+            let coutTotalEstime = 0;
+            const magasinChoisi = document.getElementById('select-magasin-principal').value;
+
+            ingredientsGlobal.forEach(ing => {
+                let besoinTotal = besoinsBruts[ing.id] || 0;
+                let enStock = stockActuel[ing.id] || 0;
+                let aAcheter = Math.max(0, besoinTotal - enStock);
+
+                if (aAcheter > 0) {
+                    let categorie = ing.categorie || "Autres";
+                    if (!coursesParCategorie[categorie]) {
+                        coursesParCategorie[categorie] = [];
+                    }
+
+                    // Analyser les prix par magasin
+                    let meilleurMagasin = "Inconnu";
+                    let meilleurPrixUnitaire = 0;
+                    let prixMagasinsObj = {};
+
+                    if (ing.prix_magasins) {
+                        try {
+                            prixMagasinsObj = typeof ing.prix_magasins === 'string' ? JSON.parse(ing.prix_magasins) : ing.prix_magasins;
+                        } catch(e) {}
+                    }
+
+                    let minPrix = Infinity;
+                    Object.entries(prixMagasinsObj).forEach(([mag, prix]) => {
+                        if (prix < minPrix) {
+                            minPrix = prix;
+                            meilleurMagasin = mag;
+                            meilleurPrixUnitaire = prix;
+                        }
+                    });
+
+                    // Si un magasin principal est choisi, on prend son prix s'il existe, sinon le meilleur prix
+                    let prixApplique = (magasinChoisi && prixMagasinsObj[magasinChoisi] !== undefined) 
+                        ? prixMagasinsObj[magasinChoisi] 
+                        : (minPrix !== Infinity ? minPrix : 0);
+
+                    let magasinApplique = (magasinChoisi && prixMagasinsObj[magasinChoisi] !== undefined) 
+                        ? magasinChoisi 
+                        : meilleurMagasin;
+
+                    // Calcul du budget basé sur l'unité d'achat (conditionnement)
+                    // Supposons que ing.conditionnement est la quantité par unité d'achat (ex: 1000g pour un sachet)
+                    let conditionnement = ing.conditionnement || 100; 
+                    let unitesAchetees = Math.ceil(aAcheter / conditionnement);
+                    let coutLigne = unitesAchetees * prixApplique;
+                    coutTotalEstime += coutLigne;
+
+                    coursesParCategorie[categorie].push({
+                        nom: ing.nom,
+                        besoin: Math.round(aAcheter),
+                        unite: ing.unite || 'g',
+                        magasinConseille: meilleurMagasin,
+                        magasinActuel: magasinApplique,
+                        cout: coutLigne.toFixed(2),
+                        conditionnementText: `${unitesAchetees} x (${conditionnement}${ing.unite || 'g'})`
+                    });
+                }
+            });
+
+            renderTableCourses(coursesParCategorie);
+            renderStockBadges();
+            document.getElementById('bilan-budget-total').innerText = `${coutTotalEstime.toFixed(2)} €`;
+        }
+
+        function peuplerSelectStock(besoinsBruts) {
+            const select = document.getElementById('select-ingredient-stock');
+            const currentValue = select.value;
+
+            let optionsHtml = `<option value="">-- Choisir un ingrédient de la liste prévue --</option>`;
+            Object.keys(besoinsBruts).forEach(ingId => {
+                const ing = ingredientsGlobal.find(i => i.id == ingId);
+                if (ing) {
+                    optionsHtml += `<option value="${ing.id}" ${ing.id == currentValue ? 'selected' : ''}>${ing.nom}</option>`;
+                }
+            });
+            select.innerHTML = optionsHtml;
+        }
+
+        function ajouterAuStock() {
+            const ingId = document.getElementById('select-ingredient-stock').value;
+            const qte = parseFloat(document.getElementById('input-quantite-stock').value) || 0;
+
+            if (!ingId) {
+                alert("Veuillez sélectionner un ingrédient.");
+                return;
+            }
+
+            if (qte <= 0) {
+                delete stockActuel[ingId];
+            } else {
+                stockActuel[ingId] = qte;
+            }
+
+            localStorage.setItem('stock_perso', JSON.stringify(stockActuel));
+            document.getElementById('input-quantite-stock').value = '';
+            calculerCourses();
+        }
+
+        function supprimerStock(ingId) {
+            delete stockActuel[ingId];
+            localStorage.setItem('stock_perso', JSON.stringify(stockActuel));
+            calculerCourses();
+        }
+
+        function renderStockBadges() {
+            const conteneur = document.getElementById('liste-stock-badges');
+            const entries = Object.entries(stockActuel);
+
+            if (entries.length === 0) {
+                conteneur.innerHTML = `<span class="text-gray-400 italic">Aucun stock enregistré pour l'instant.</span>`;
+                return;
+            }
+
+            conteneur.innerHTML = entries.map(([ingId, qte]) => {
+                const ing = ingredientsGlobal.find(i => i.id == ingId);
+                const nom = ing ? ing.nom : 'Ingrédient inconnu';
+                const unite = ing ? (ing.unite || 'g') : 'g';
+                return `
+                    <span class="bg-white border border-emerald-300 text-emerald-800 px-2 py-1 rounded flex items-center gap-2 font-medium">
+                        ${nom} : <strong>${qte} ${unite}</strong>
+                        <button onclick="supprimerStock('${ingId}')" class="text-red-500 font-bold hover:text-red-700 ml-1">×</button>
+                    </span>
+                `;
+            }).join('');
+        }
+
+        function renderTableCourses(coursesParCategorie) {
+            const conteneur = document.getElementById('conteneur-courses-categories');
+            const categories = Object.keys(coursesParCategorie);
+
+            if (categories.length === 0) {
+                conteneur.innerHTML = `<div class="bg-gray-50 p-4 rounded border text-gray-500 italic text-center">Aucun achat nécessaire, tout est déjà en stock ou aucun menu n'est défini !</div>`;
+                return;
+            }
+
+            conteneur.innerHTML = categories.map(cat => {
+                let itemsHtml = coursesParCategorie[cat].map(item => `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-2 font-medium text-gray-800">${item.nom}</td>
+                        <td class="p-2 text-center">${item.besoin} ${item.unite}</td>
+                        <td class="p-2 text-center text-gray-600">${item.conditionnementText}</td>
+                        <td class="p-2 text-center">
+                            <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium">${item.magasinActuel}</span>
+                            ${item.magasinConseille !== item.magasinActuel ? `<span class="text-[10px] text-gray-400 block" title="Meilleur prix global">(Moins cher : ${item.magasinConseille})</span>` : ''}
+                        </td>
+                        <td class="p-2 text-right font-bold text-gray-800">${item.cout} €</td>
+                    </tr>
+                `).join('');
+
+                return `
+                    <div class="border rounded-lg overflow-hidden shadow-sm">
+                        <div class="bg-gray-100 p-2 font-bold text-gray-700 border-b">📂 ${cat}</div>
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b bg-gray-50 text-gray-500 text-[11px]">
+                                    <th class="p-2">Ingrédient</th>
+                                    <th class="p-2 text-center">Quantité à acheter</th>
+                                    <th class="p-2 text-center">Conditionnement Acheté</th>
+                                    <th class="p-2 text-center">Magasin</th>
+                                    <th class="p-2 text-right">Coût estimé</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${itemsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        socket.on('data_updated', async () => {
+            await chargerDonnees();
+            peuplerMagasins();
+            calculerCourses();
+        });
+
+        init();
+    </script>
+</body>
+</html>

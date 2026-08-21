@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestion des Recettes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-6xl mx-auto bg-white p-6 rounded-lg shadow space-y-6">
+        
+        <!-- Navigation -->
+        <div class="flex justify-between items-center border-b pb-4">
+            <h1 class="text-xl font-bold text-gray-800">📖 Gestion des Recettes</h1>
+            <div class="flex gap-3 text-sm">
+                <a href="index.html" class="text-blue-500 hover:underline">1. Menu</a>
+                <a href="recettes.html" class="font-bold text-blue-700 underline">2. Recettes</a>
+                <a href="ingredients.html" class="text-blue-500 hover:underline">3. Ingrédients</a>
+                <a href="courses.html" class="text-blue-500 hover:underline">4. Courses</a>
+              <a href="vider-frigo.html" class="font-bold text-blue-700 underline">5. Vide ton frigo</a>
+            </div>
+        </div>
+
+        <!-- Recherche TheMealDB -->
+        <div class="bg-orange-50 p-4 rounded-lg border border-orange-200 space-y-3">
+            <h2 class="font-bold text-orange-800 text-sm">🔍 Rechercher une recette en ligne (TheMealDB)</h2>
+            <div class="flex gap-2">
+                <input type="text" id="mealdb-search" placeholder="Ex: Chicken Curry, Pasta, Salad..." class="border p-2 rounded bg-white flex-1 text-xs">
+                <button type="button" onclick="chercherMealDB()" class="bg-orange-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-orange-700">Rechercher</button>
+            </div>
+            <div id="mealdb-results" class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto"></div>
+        </div>
+
+        <!-- Formulaire Recette -->
+        <div class="bg-gray-50 p-4 rounded-lg border space-y-4">
+            <h2 id="form-title" class="font-bold text-gray-700 text-sm">➕ Ajouter une recette</h2>
+            <form id="form-recette" onsubmit="sauvegarderRecette(event)" class="space-y-4 text-xs">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input type="text" id="nom" placeholder="Nom de la recette" class="border p-2 rounded bg-white" required>
+                    <textarea id="description" placeholder="Description / Instructions" class="border p-2 rounded bg-white h-20"></textarea>
+                </div>
+
+                <!-- NOUVEAU : Catégories Multiples -->
+                <div class="bg-white p-3 rounded border space-y-2">
+                    <label class="block font-bold text-gray-700 text-sm">Catégories compatibles :</label>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="flex items-center gap-1"><input type="checkbox" name="repas_cat" value="PetitDej"> Petit-déjeuner</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" name="repas_cat" value="Repas"> Repas (Midi/Soir)</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" name="repas_cat" value="Collation"> Collation</label>
+                    </div>
+                </div>
+
+                <!-- Ingrédients -->
+                <div class="border-t pt-3 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label class="font-semibold text-gray-700 text-sm">Ingrédients nécessaires :</label>
+                        <button type="button" onclick="ajouterLigneIngredientRecette()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-2 py-1 rounded font-bold text-xs">+ Ajouter un ingrédient</button>
+                    </div>
+                    <div id="liste-ingredients-recette" class="space-y-2"></div>
+                </div>
+
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700">Enregistrer la recette</button>
+            </form>
+        </div>
+
+        <!-- Liste des Recettes -->
+        <div class="space-y-4">
+            <h2 class="font-bold text-gray-700 text-sm">📋 Liste des Recettes Enregistrées</h2>
+            <div id="liste-recettes-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <p class="text-gray-500 italic">Chargement...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let ingredientsDisponibles = [];
+
+        async function init() {
+            const resIng = await fetch('/api/ingredients');
+            ingredientsDisponibles = await resIng.json();
+            const resRec = await fetch('/api/recettes');
+            const recettes = await resRec.json();
+            renderRecettes(recettes);
+            if (document.getElementById('liste-ingredients-recette').children.length === 0) {
+                ajouterLigneIngredientRecette();
+            }
+        }
+
+        async function sauvegarderRecette(e) {
+            e.preventDefault();
+            
+            const rows = document.querySelectorAll('.recette-ing-row');
+            let ingredients = [];
+            rows.forEach(row => {
+                ingredients.push({
+                    ingredient_id: row.querySelector('.recette-ing-id').value,
+                    quantite: parseFloat(row.querySelector('.recette-ing-qte').value) || 0
+                });
+            });
+
+            // Récupération des catégories cochées
+            const checkboxes = document.querySelectorAll('input[name="repas_cat"]:checked');
+            const categoriesRepas = Array.from(checkboxes).map(cb => cb.value);
+
+            const data = {
+                nom: document.getElementById('nom').value.trim(),
+                description: document.getElementById('description').value.trim(),
+                categories_repas: categoriesRepas,
+                ingredients
+            };
+
+            const response = await fetch('/api/recettes', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                alert(errData.error || "Erreur lors de l'enregistrement");
+                return;
+            }
+
+            document.getElementById('form-recette').reset();
+            document.getElementById('liste-ingredients-recette').innerHTML = '';
+            ajouterLigneIngredientRecette();
+            init();
+        }
+
+        function renderRecettes(recettes) {
+            const container = document.getElementById('liste-recettes-container');
+            container.innerHTML = recettes.map(r => {
+                // Affichage des catégories
+                const cats = r.categories_repas ? r.categories_repas.join(', ') : 'Aucune';
+                
+                let totalKcal = 0, totalProt = 0, totalGluc = 0, totalLip = 0;
+                (r.ingredients || []).forEach(i => {
+                    let facteur = i.quantite / 100;
+                    totalKcal += (i.calories || 0) * facteur;
+                    totalProt += (i.proteines || 0) * facteur;
+                    totalGluc += (i.glucides || 0) * facteur;
+                    totalLip += (i.lipides || 0) * facteur;
+                });
+
+                return `
+                    <div class="bg-white border p-4 rounded-lg shadow-sm space-y-2 text-xs">
+                        <div class="flex justify-between">
+                            <h3 class="font-bold text-blue-800 text-sm">${r.nom}</h3>
+                            <button onclick="supprimerRecette(${r.id})" class="text-red-500 font-bold hover:underline">Supprimer</button>
+                        </div>
+                        <div class="text-gray-500 italic">Catégories: ${cats}</div>
+                        <p class="text-gray-600">${r.description || 'Pas de description.'}</p>
+                        <div class="bg-gray-50 p-2 rounded text-emerald-800 font-medium">
+                            🔥 ${Math.round(totalKcal)} kcal | P: ${Math.round(totalProt)}g | G: ${Math.round(totalGluc)}g | L: ${Math.round(totalLip)}g
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ... conserver vos fonctions existantes (chercherMealDB, remplirDepuisMealDB, ajouterLigneIngredientRecette, supprimerRecette)
+        // Note : Ajoutez simplement les autres fonctions existantes ici.
+        socket.on('data_updated', init);
+        init();
+    </script>
+</body>
+</html>
