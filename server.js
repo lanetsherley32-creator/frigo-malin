@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const axios = require('axios');
 
 const app = express();
 const server = http.createServer(app);
@@ -147,14 +148,13 @@ app.delete('/api/recettes/:id', (req, res) => {
     });
 });
 
-// Recherche Open Food Facts (avec fetch natif)
+// Recherche Open Food Facts
 app.get('/api/recherche-produit', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.json([]);
     try {
-        const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1`);
-        const data = await response.json();
-        const produits = (data.products || []).slice(0, 5).map(p => ({
+        const response = await axios.get(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1`);
+        const produits = response.data.products.slice(0, 5).map(p => ({
             nom: p.product_name || 'Inconnu',
             marque: p.brands || '',
             format: p.quantity || '',
