@@ -4,8 +4,9 @@ const path = require('path');
 const app = express();
 
 app.use(express.json());
-// Utilise le dossier courant pour trouver vos pages HTML
-app.use(express.static(__dirname));
+
+// Indique à Express de servir les fichiers HTML/CSS/JS depuis le dossier 'public'
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Connexion à la base de données
 const dbPath = path.resolve(__dirname, 'database.sqlite');
@@ -104,7 +105,7 @@ app.get('/api/recettes', (req, res) => {
     });
 });
 
-// Lancement du serveur sur le port configuré par Render ou 10000 par défaut
+// Lancement du serveur
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
     console.log(`Serveur démarré sur le port ${PORT}`);
