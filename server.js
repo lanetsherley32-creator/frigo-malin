@@ -99,9 +99,38 @@ function createTables() {
                 });
             }
         });
+
+        // Table Profils (UNIQUE sur le nom pour interdire les doublons et permettre l'UPSERT)
+        dbInstance.run(`CREATE TABLE IF NOT EXISTS profils (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nom TEXT UNIQUE,
+            calories REAL,
+            budget REAL,
+            proteines REAL,
+            glucides REAL,
+            lipides REAL
+        )`);
+
+        // Table Menus
+        dbInstance.run(`CREATE TABLE IF NOT EXISTS menus (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            profil TEXT,
+            jour TEXT,
+            petitDejeuner TEXT,
+            midiEntree TEXT,
+            midiPlat TEXT,
+            midiDesserts TEXT,
+            soirEntree TEXT,
+            soirPlat TEXT,
+            soirDesserts TEXT,
+            collation TEXT,
+            grignotage TEXT,
+            UNIQUE(profil, jour)
+        )`);
     });
 }
 
+// API Ingrédients
 app.get('/api/ingredients', (req, res) => {
     dbInstance.all("SELECT * FROM ingredients", [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -139,6 +168,7 @@ app.delete('/api/ingredients/:id', (req, res) => {
     });
 });
 
+// API Recettes
 app.get('/api/recettes', (req, res) => {
     dbInstance.all("SELECT * FROM recettes", [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -168,6 +198,94 @@ app.put('/api/recettes/:id', (req, res) => {
 
 app.delete('/api/recettes/:id', (req, res) => {
     dbInstance.run("DELETE FROM recettes WHERE id = ?", req.params.id, (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        io.emit('data_updated');
+        res.json({ success: true });
+    });
+});
+
+// API Profils (Anti-doublons avec mise à jour automatique si le nom existe déjà)
+app.get('/api/profils', (req, res) => {
+    dbInstance.all("SELECT * FROM profils", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.post('/api/profils', (req, res) => {
+    const { nom, calories, budget, proteines, glucides, lipides } = req.body;
+    if (!nom) return res.status(400).json({ error: "Le nom du profil est requis." });
+
+    const query = `INSERT INTO profils (nom, calories, budget, proteines, glucides, lipides) 
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(nom) DO UPDATE SET 
+                   calories=excluded.calories, 
+                   budget=excluded.budget, 
+                   proteines=excluded.proteines, 
+                   glucides=excluded.glucides, 
+                   lipides=excluded.lipides`;
+
+    dbInstance.run(query, [nom, calories, budget, proteines, glucides, lipides], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        io.emit('data_updated');
+        res.json({ success: true });
+    });
+});
+
+// API Menus
+app.get('/api/menu', (req, res) => {
+    const { jour, profil } = req.query;
+    if (!jour || !profil) return res.json({});
+
+    dbInstance.get("SELECT * FROM menus WHERE jour = ? AND profil = ?", [jour, profil], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.json({});
+
+        res.json({
+            petitDejeuner: row.petitDejeuner || '',
+            midiEntree: row.midiEntree || '',
+            midiPlat: row.midiPlat || '',
+            midiDesserts: row.midiDesserts ? JSON.parse(row.midiDesserts) : [],
+            soirEntree: row.soirEntree || '',
+            soirPlat: row.soirPlat || '',
+            soirDesserts: row.soirDesserts ? JSON.parse(row.soirDesserts) : [],
+            collation: row.collation ? JSON.parse(row.collation) : [],
+            grignotage: row.grignotage || ''
+        });
+    });
+});
+
+app.post('/api/menu', (req, res) => {
+    const { jour, profil, petitDejeuner, midiEntree, midiPlat, midiDesserts, soirEntree, soirPlat, soirDesserts, collation, grignotage } = req.body;
+    if (!jour || !profil) return res.status(400).json({ error: "Jour et profil requis." });
+
+    const query = `INSERT INTO menus (profil, jour, petitDejeuner, midiEntree, midiPlat, midiDesserts, soirEntree, soirPlat, soirDesserts, collation, grignotage) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(profil, jour) DO UPDATE SET 
+                   petitDejeuner=excluded.petitDejeuner,
+                   midiEntree=excluded.midiEntree, 
+                   midiPlat=excluded.midiPlat, 
+                   midiDesserts=excluded.midiDesserts, 
+                   soirEntree=excluded.soirEntree, 
+                   soirPlat=excluded.soirPlat, 
+                   soirDesserts=excluded.soirDesserts, 
+                   collation=excluded.collation, 
+                   grignotage=excluded.grignotage`;
+
+    const params = [
+        profil, jour,
+        petitDejeuner || '',
+        midiEntree || '',
+        midiPlat || '',
+        JSON.stringify(midiDesserts || []),
+        soirEntree || '',
+        soirPlat || '',
+        JSON.stringify(soirDesserts || []),
+        JSON.stringify(collation || []),
+        grignotage || ''
+    ];
+
+    dbInstance.run(query, params, function(err) {
         if (err) return res.status(500).json({ error: err.message });
         io.emit('data_updated');
         res.json({ success: true });
