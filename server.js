@@ -25,19 +25,39 @@ const dbInstance = new sqlite3.Database(dbPath, (err) => {
 
 function createTables() {
     dbInstance.serialize(() => {
+        // Table Ingrédients
         dbInstance.run(`CREATE TABLE IF NOT EXISTS ingredients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom TEXT, marque TEXT, format TEXT, unite TEXT, rayon TEXT,
-            prixLeclerc REAL, prixCarrefour REAL, prixLidl REAL,
-            calories REAL, proteines REAL, glucides REAL, lipides REAL
+            nom TEXT,
+            marque TEXT,
+            format TEXT,
+            unite TEXT,
+            rayon TEXT,
+            prixLeclerc REAL,
+            prixCarrefour REAL,
+            prixLidl REAL,
+            calories REAL,
+            proteines REAL,
+            glucides REAL,
+            lipides REAL
         )`);
 
+        // Table Recettes avec tous les champs complets
         dbInstance.run(`CREATE TABLE IF NOT EXISTS recettes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom TEXT, categorie TEXT, parts INTEGER, ingredients TEXT, etapes TEXT,
-            calories REAL, proteines REAL, glucides REAL, lipides REAL, cout REAL
+            nom TEXT,
+            categorie TEXT,
+            parts INTEGER,
+            ingredients TEXT,
+            etapes TEXT,
+            calories REAL,
+            proteines REAL,
+            glucides REAL,
+            lipides REAL,
+            cout REAL
         )`, (err) => {
             if (!err) {
+                // Vérifier si des recettes existent déjà, sinon en insérer par défaut
                 dbInstance.get("SELECT COUNT(*) as count FROM recettes", (err, row) => {
                     if (row && row.count === 0) {
                         const stmtRec = dbInstance.prepare(`INSERT INTO recettes (nom, categorie, parts, ingredients, etapes, calories, proteines, glucides, lipides, cout) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
@@ -52,6 +72,7 @@ function createTables() {
     });
 }
 
+// --- API Ingrédients ---
 app.get('/api/ingredients', (req, res) => {
     dbInstance.all("SELECT * FROM ingredients", [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -63,6 +84,7 @@ app.post('/api/ingredients', (req, res) => {
     const data = req.body;
     const query = `INSERT INTO ingredients (nom, marque, format, unite, rayon, prixLeclerc, prixCarrefour, prixLidl, calories, proteines, glucides, lipides) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     const params = [data.nom, data.marque, data.format, data.unite, data.rayon, data.prixLeclerc, data.prixCarrefour, data.prixLidl, data.calories, data.proteines, data.glucides, data.lipides];
+    
     dbInstance.run(query, params, function(err) {
         if (err) return res.status(500).json({ error: err.message });
         io.emit('data_updated');
@@ -74,6 +96,7 @@ app.put('/api/ingredients/:id', (req, res) => {
     const data = req.body;
     const query = `UPDATE ingredients SET nom = ?, marque = ?, format = ?, unite = ?, rayon = ?, prixLeclerc = ?, prixCarrefour = ?, prixLidl = ?, calories = ?, proteines = ?, glucides = ?, lipides = ? WHERE id = ?`;
     const params = [data.nom, data.marque, data.format, data.unite, data.rayon, data.prixLeclerc, data.prixCarrefour, data.prixLidl, data.calories, data.proteines, data.glucides, data.lipides, req.params.id];
+    
     dbInstance.run(query, params, function(err) {
         if (err) return res.status(500).json({ error: err.message });
         io.emit('data_updated');
@@ -89,6 +112,7 @@ app.delete('/api/ingredients/:id', (req, res) => {
     });
 });
 
+// --- API Recettes Complètes ---
 app.get('/api/recettes', (req, res) => {
     dbInstance.all("SELECT * FROM recettes", [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -124,6 +148,7 @@ app.delete('/api/recettes/:id', (req, res) => {
     });
 });
 
+// Recherche Open Food Facts
 app.get('/api/recherche-produit', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.json([]);
