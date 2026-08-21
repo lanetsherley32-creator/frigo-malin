@@ -7,7 +7,8 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
+    "express": "^4.22.2",
+    "socket.io": "^4.8.3",
     "sqlite3": "^5.1.7"
   }
 }
