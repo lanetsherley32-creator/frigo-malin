@@ -12,10 +12,7 @@ const io = new Server(server);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Connexion Base de Données SQLite
-const db = new SQLiteDatabaseOrCreate(); // ou new sqlite3.Database... selon votre setup existant
-
-// Initialisation de la Base de Données
+// Initialisation propre de la Base de Données SQLite
 const dbPath = path.join(__dirname, 'database.sqlite');
 const dbInstance = new sqlite3.Database(dbPath, (err) => {
     if (err) {
@@ -157,7 +154,7 @@ app.get('/api/recherche-produit', async (req, res) => {
     if (!query) return res.json([]);
     try {
         const response = await axios.get(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1`);
-        const produits = response.data.products.slice(p => p).slice(0, 5).map(p => ({
+        const produits = response.data.products.slice(0, 5).map(p => ({
             nom: p.product_name || 'Inconnu',
             marque: p.brands || '',
             format: p.quantity || '',
