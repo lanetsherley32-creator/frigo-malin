@@ -3,7 +3,6 @@ const http = require('http');
 const { Server } = require('socket.io');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const axios = require('axios');
 
 const app = express();
 const server = http.createServer(app);
@@ -12,10 +11,7 @@ const io = new Server(server);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Connexion Base de Données SQLite
-const db = new SQLiteDatabaseOrCreate(); // ou new sqlite3.Database... selon votre setup existant
-
-// Initialisation de la Base de Données
+// Initialisation de la Base de Données SQLite
 const dbPath = path.join(__dirname, 'database.sqlite');
 const dbInstance = new sqlite3.Database(dbPath, (err) => {
     if (err) {
@@ -151,18 +147,19 @@ app.delete('/api/recettes/:id', (req, res) => {
     });
 });
 
-// Recherche Open Food Facts
+// Recherche Open Food Facts (avec fetch natif Node.js)
 app.get('/api/recherche-produit', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.json([]);
     try {
-        const response = await axios.get(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1`);
-        const produits = response.data.products.slice(p => p).slice(0, 5).map(p => ({
+        const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1`);
+        const data = await response.json();
+        const produits = (data.products || []).slice(0, 5).map(p => ({
             nom: p.product_name || 'Inconnu',
             marque: p.brands || '',
             format: p.quantity || '',
             calories: p.nutriments && p.nutriments['energy-kcal_100g'] ? p.nutriments['energy-kcal_100g'] : 0,
-            proteines: p.nutriments && p.nutriments['proteins_100g'] ? p.nutriments['proteins_100g'] : 0,
+            proteines: p.nutriments && p.nutrivents && p.nutriments['proteins_100g'] ? p.nutriments['proteins_100g'] : (p.nutriments ? p.nutriments['proteins_100g'] || 0 : 0),
             glucides: p.nutriments && p.nutriments['carbohydrates_100g'] ? p.nutriments['carbohydrates_100g'] : 0,
             lipides: p.nutriments && p.nutriments['fat_100g'] ? p.nutriments['fat_100g'] : 0
         }));
