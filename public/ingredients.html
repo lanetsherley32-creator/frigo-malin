@@ -23,22 +23,33 @@
             </div>
         </div>
 
-        <!-- Section Scanner & Formulaire -->
+        <!-- Section Actions (QR Code & Open Food Facts) -->
         <div class="bg-gray-50 p-4 rounded-lg border space-y-4">
-            <div class="flex justify-between items-center">
+            <div class="flex justify-between items-center flex-wrap gap-2">
                 <h2 class="font-bold text-gray-700 text-sm" id="titre-form-ing">Ajouter un ingrédient</h2>
-                <button type="button" onclick="toggleScanner()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded font-bold text-xs flex items-center gap-1">
-                    📷 Scanner un Produit (Code-barres)
-                </button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="toggleScanner('qrcode')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded font-bold text-xs">
+                        📷 Scanner un QR Code
+                    </button>
+                    <button type="button" onclick="toggleScanner('barcode')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded font-bold text-xs">
+                        🛒 Scanner Code-barres (Open Food Facts)
+                    </button>
+                </div>
             </div>
 
-            <!-- Bloc Caméra -->
+            <!-- Bloc Caméra unique pour les deux -->
             <div id="scanner-container" class="hidden bg-white p-4 rounded border space-y-2">
                 <div id="reader" class="w-full max-w-sm mx-auto"></div>
-                <div class="text-center text-xs text-gray-500">Pointez vers le code-barres</div>
+                <div class="text-center text-xs text-gray-500" id="scanner-instruction">Pointez vers le code</div>
                 <div class="text-center">
-                    <button type="button" onclick="fermerScanner()" class="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold hover:bg-red-600">Fermer</button>
+                    <button type="button" onclick="fermerScanner()" class="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold">Fermer la caméra</button>
                 </div>
+            </div>
+
+            <!-- Recherche textuelle Open Food Facts alternative -->
+            <div class="flex gap-2 items-center bg-white p-2 rounded border">
+                <input type="text" id="recherche-off" placeholder="Ou chercher un produit sur Open Food Facts (ex: Nutella)..." class="border p-1.5 rounded text-xs flex-1">
+                <button type="button" onclick="chercherTexteOpenFoodFacts()" class="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold">Rechercher</button>
             </div>
 
             <!-- Formulaire -->
@@ -61,7 +72,7 @@
                     <button type="button" onclick="ajouterLigneEnseigne()" class="mt-2 bg-green-600 text-white px-2 py-1 rounded text-xs font-bold">+ Ajouter</button>
                 </div>
 
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-xs font-bold">Enregistrer</button>
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-xs font-bold">Enregistrer l'ingrédient</button>
             </form>
         </div>
 
@@ -79,6 +90,7 @@
     <script>
         const socket = io();
         let html5QrCode = null;
+        let modeActuelScan = 'qrcode';
 
         function ajouterLigneEnseigne(nom = '', prix = '') {
             const div = document.createElement('div');
@@ -87,39 +99,106 @@
             document.getElementById('liste-enseignes-container').appendChild(div);
         }
 
-        function toggleScanner() {
+        function toggleScanner(mode) {
+            modeActuelScan = mode;
             const container = document.getElementById('scanner-container');
+            const instruction = document.getElementById('scanner-instruction');
+            
             container.classList.remove('hidden');
+            instruction.innerText = mode === 'qrcode' ? "Pointez vers le QR Code JSON" : "Pointez vers le Code-barres du produit";
+
             html5QrCode = new Html5Qrcode("reader");
-            html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 200 }, (code) => {
-                fermerScanner();
-                rechercherOpenFoodFacts(code);
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: 200 }, 
+                (code) => {
+                    fermerScanner();
+                    if (modeActuelScan === 'qrcode') {
+                        traiterQRScan(code);
+                    } else {
+                        rechercherOpenFoodFactsParBarcode(code);
+                    }
+                }
+            ).catch(err => {
+                alert("Erreur caméra : " + err);
+                container.classList.add('hidden');
             });
         }
 
         function fermerScanner() {
-            if (html5QrCode) html5QrCode.stop().then(() => document.getElementById('scanner-container').classList.add('hidden'));
+            if (html5QrCode) {
+                html5QrCode.stop().catch(() => {}).finally(() => {
+                    document.getElementById('scanner-container').classList.add('hidden');
+                });
+            } else {
+                document.getElementById('scanner-container').classList.add('hidden');
+            }
         }
 
-        async function rechercherOpenFoodFacts(barcode) {
+        // 1. GESTION DU QR CODE (Format JSON de vos fiches)
+        function traiterQRScan(text) {
+            try {
+                let data = JSON.parse(text);
+                document.getElementById('ing-nom').value = data.nom || '';
+                document.getElementById('ing-marque').value = data.marque || '';
+                document.getElementById('ing-format').value = data.format || '';
+                document.getElementById('ing-unite').value = data.unite || 'g';
+                document.getElementById('ing-calories').value = data.calories || 0;
+                document.getElementById('ing-proteines').value = data.proteines || 0;
+                document.getElementById('ing-glucides').value = data.glucides || 0;
+                document.getElementById('ing-lipides').value = data.lipides || 0;
+
+                document.getElementById('liste-enseignes-container').innerHTML = '';
+                if (data.enseignes && Array.isArray(data.enseignes)) {
+                    data.enseignes.forEach(e => ajouterLigneEnseigne(e.nom, e.prix));
+                } else {
+                    ajouterLigneEnseigne();
+                }
+                alert("QR Code chargé avec succès !");
+            } catch (e) {
+                alert("Le contenu scanné n'est pas un QR code JSON valide : " + text);
+            }
+        }
+
+        // 2. GESTION OPEN FOOD FACTS (Par Code-barres)
+        async function rechercherOpenFoodFactsParBarcode(barcode) {
             try {
                 const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
                 const data = await res.json();
                 if (data.status === 1) {
-                    const p = data.product;
-                    document.getElementById('ing-nom').value = p.product_name || '';
-                    document.getElementById('ing-marque').value = p.brands || '';
-                    document.getElementById('ing-format').value = p.quantity || '';
-                    const n = p.nutriments || {};
-                    document.getElementById('ing-calories').value = n['energy-kcal_100g'] || 0;
-                    document.getElementById('ing-proteines').value = n['proteins_100g'] || 0;
-                    document.getElementById('ing-glucides').value = n['carbohydrates_100g'] || 0;
-                    document.getElementById('ing-lipides').value = n['fat_100g'] || 0;
-                    alert("Produit trouvé : " + (p.product_name || 'Inconnu'));
+                    remplirChampsOpenFoodFacts(data.product);
                 } else {
-                    alert("Produit inconnu dans la base.");
+                    alert("Produit inconnu dans Open Food Facts.");
                 }
-            } catch (e) { alert("Erreur réseau"); }
+            } catch (e) { alert("Erreur réseau Open Food Facts"); }
+        }
+
+        // 3. GESTION OPEN FOOD FACTS (Par Recherche Texte)
+        async function chercherTexteOpenFoodFacts() {
+            const query = document.getElementById('recherche-off').value.trim();
+            if (!query) return;
+            try {
+                const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1`);
+                const data = await res.json();
+                if (data.products && data.products.length > 0) {
+                    remplirChampsOpenFoodFacts(data.products[0]);
+                } else {
+                    alert("Aucun produit trouvé pour : " + query);
+                }
+            } catch (e) { alert("Erreur lors de la recherche texte"); }
+        }
+
+        function remplirChampsOpenFoodFacts(p) {
+            document.getElementById('ing-nom').value = p.product_name || '';
+            document.getElementById('ing-marque').value = p.brands || '';
+            document.getElementById('ing-format').value = p.quantity || '';
+            document.getElementById('ing-unite').value = 'g';
+            const n = p.nutriments || {};
+            document.getElementById('ing-calories').value = n['energy-kcal_100g'] || 0;
+            document.getElementById('ing-proteines').value = n['proteins_100g'] || 0;
+            document.getElementById('ing-glucides').value = n['carbohydrates_100g'] || 0;
+            document.getElementById('ing-lipides').value = n['fat_100g'] || 0;
+            alert("Produit Open Food Facts chargé : " + (p.product_name || 'Inconnu'));
         }
 
         async function sauvegarderIngredient(e) {
@@ -140,11 +219,10 @@
                 enseignes: enseignes
             };
             await fetch('/api/ingredients', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-            alert("Enregistré !");
+            alert("Ingrédient enregistré !");
             location.reload();
         }
 
-        // Appel initial
         ajouterLigneEnseigne();
     </script>
 </body>
