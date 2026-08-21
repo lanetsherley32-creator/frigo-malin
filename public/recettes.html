@@ -5,32 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mes Recettes</title>
     <style>
-        /* Mobile First Design */
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 10px; background: #f4f4f9; color: #333; }
         h1, h2 { font-size: 1.5rem; color: #2c3e50; }
-        
         .nav { display: flex; overflow-x: auto; gap: 10px; margin-bottom: 20px; padding-bottom: 5px; }
         .nav a { white-space: nowrap; text-decoration: none; color: #007bff; font-weight: bold; font-size: 0.9rem; }
-        
         .card { background: white; padding: 15px; margin-bottom: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         form label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.9rem; }
-        form input, form textarea, form select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; /* Empêche le zoom auto sur iPhone */ }
-        
-        .categories-container { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
-        .categories-container label { font-weight: normal; font-size: 0.85rem; display: flex; align-items: center; gap: 5px; }
-
+        form input, form textarea, form select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; margin-top: 10px; font-weight: bold; }
         .btn-success { background: #28a745; color: white; }
         .btn-danger { background: #dc3545; color: white; }
         .btn-secondary { background: #6c757d; color: white; }
         .btn-warning { background: #ffc107; color: #333; }
-
         .recette-card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #007bff; }
         .badge { background: #e9ecef; padding: 4px 8px; border-radius: 15px; font-size: 0.75rem; display: inline-block; margin: 2px; }
-        
         .ingredient-row { display: flex; gap: 5px; margin-bottom: 8px; }
-        .ingredient-row select { flex: 2; padding: 10px; }
-        .ingredient-row input { flex: 1; padding: 10px; }
     </style>
 </head>
 <body>
@@ -51,14 +40,17 @@
             <label>Nom :</label>
             <input type="text" id="nom" required>
 
-            <label>Catégories :</label>
-            <div class="categories-container">
-                <label><input type="checkbox" name="categorie" value="Petit déj"> Petit déj</label>
-                <label><input type="checkbox" name="categorie" value="Repas froid"> Repas froid</label>
-                <label><input type="checkbox" name="categorie" value="Encas"> Encas</label>
-                <label><input type="checkbox" name="categorie" value="Dessert"> Dessert</label>
-                <label><input type="checkbox" name="categorie" value="Repas chaud"> Repas chaud</label>
-            </div>
+            <label>Étapes de préparation :</label>
+            <textarea id="etapes" rows="3"></textarea>
+
+            <label>Catégories (Sélection multiple) :</label>
+            <select id="categorie" multiple style="height: 120px;">
+                <option value="Petit déj">Petit déj</option>
+                <option value="Repas froid">Repas froid</option>
+                <option value="Encas">Encas</option>
+                <option value="Dessert">Dessert</option>
+                <option value="Repas chaud">Repas chaud</option>
+            </select>
 
             <label>Parts :</label>
             <input type="number" id="parts" value="4" oninput="calculerCoutEtNutriments()">
@@ -71,7 +63,7 @@
             <input type="number" step="0.01" id="cout" oninput="calculerCoutEtNutriments()">
 
             <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.9rem;">
-                💰 Coût/part : <span id="calc-cout-part">0.00</span>€ | 🔥 Calories : <span id="calc-calories">0</span>kcal
+                💰 Coût/part : <span id="calc-cout-part">0.00</span>€
             </div>
 
             <button type="submit" class="btn btn-success" id="btn-submit">Enregistrer</button>
@@ -94,7 +86,7 @@
         function ajouterLigneIngredient(idIng = "", quantite = "") {
             const div = document.createElement('div'); div.className = 'ingredient-row';
             let options = '<option value="">Ingrédient</option>' + tousLesIngredients.map(i => `<option value="${i.id}" ${i.id==idIng?'selected':''}>${i.nom}</option>`).join('');
-            div.innerHTML = `<select class="ing-select" onchange="calculerCoutEtNutriments()">${options}</select><input type="number" class="ing-qte" placeholder="g/ml" value="${quantite}" oninput="calculerCoutEtNutriments()"><button type="button" class="btn btn-danger" style="width:auto" onclick="this.parentElement.remove(); calculerCoutEtNutriments();">X</button>`;
+            div.innerHTML = `<select class="ing-select">${options}</select><input type="number" class="ing-qte" placeholder="g" value="${quantite}"><button type="button" class="btn btn-danger" style="width:auto; margin:0;" onclick="this.parentElement.remove();">X</button>`;
             document.getElementById('liste-ingredients-container').appendChild(div);
         }
 
@@ -102,32 +94,20 @@
             const parts = parseInt(document.getElementById('parts').value) || 1;
             const coutTotal = parseFloat(document.getElementById('cout').value) || 0;
             document.getElementById('calc-cout-part').innerText = (coutTotal / parts).toFixed(2);
-            let totalCal = 0;
-            document.querySelectorAll('.ingredient-row').forEach(row => {
-                const ing = tousLesIngredients.find(i => i.id == row.querySelector('.ing-select').value);
-                if (ing) totalCal += (ing.calories * (parseFloat(row.querySelector('.ing-qte').value) || 0)) / 100;
-            });
-            document.getElementById('calc-calories').innerText = totalCal.toFixed(0);
         }
 
         document.getElementById('form-recette').addEventListener('submit', (e) => {
             e.preventDefault();
             const id = document.getElementById('recette-id').value;
-            const cats = Array.from(document.querySelectorAll('input[name="categorie"]:checked')).map(c => c.value);
+            const select = document.getElementById('categorie');
+            const cats = Array.from(select.selectedOptions).map(opt => opt.value);
             
-            let ingredients = [];
-            document.querySelectorAll('.ingredient-row').forEach(row => {
-                const s = row.querySelector('.ing-select');
-                if(s.selectedIndex > 0) ingredients.push(`${s.options[s.selectedIndex].text} (${row.querySelector('.ing-qte').value}g)`);
-            });
-
             const data = {
                 nom: document.getElementById('nom').value,
                 categorie: cats.join(', '),
                 parts: parseInt(document.getElementById('parts').value),
-                ingredients: ingredients.join(', '),
-                cout: parseFloat(document.getElementById('cout').value),
-                calories: parseFloat(document.getElementById('calc-calories').innerText)
+                etapes: document.getElementById('etapes').value,
+                cout: parseFloat(document.getElementById('cout').value)
             };
 
             fetch(id ? `/api/recettes/${id}` : '/api/recettes', {
@@ -142,10 +122,9 @@
                 document.getElementById('container-recettes').innerHTML = data.map(r => `
                     <div class="recette-card">
                         <h3>${r.nom}</h3>
-                        <p>${r.categorie.split(',').map(c => `<span class="badge">${c}</span>`).join('')}</p>
-                        <p><strong>Coût/part :</strong> ${(r.cout/r.parts).toFixed(2)}€ | <strong>Cal :</strong> ${r.calories}kcal</p>
+                        <p>${r.categorie.split(',').map(c => `<span class="badge">${c.trim()}</span>`).join('')}</p>
+                        <p><strong>Coût/part :</strong> ${(r.cout/r.parts).toFixed(2)}€</p>
                         <button class="btn btn-warning" onclick='preparerModification(${JSON.stringify(r)})'>Modifier</button>
-                        <button class="btn btn-danger" onclick="fetch('/api/recettes/${r.id}', {method:'DELETE'}).then(chargerRecettes)">Supprimer</button>
                     </div>
                 `).join('');
             });
@@ -156,17 +135,21 @@
             document.getElementById('nom').value = r.nom;
             document.getElementById('parts').value = r.parts;
             document.getElementById('cout').value = r.cout;
-            document.querySelectorAll('input[name="categorie"]').forEach(cb => cb.checked = r.categorie.includes(cb.value));
+            document.getElementById('etapes').value = r.etapes || '';
+            const select = document.getElementById('categorie');
+            const cats = r.categorie ? r.categorie.split(',').map(c => c.trim()) : [];
+            Array.from(select.options).forEach(opt => opt.selected = cats.includes(opt.value));
+            document.getElementById('btn-annuler').style.display = "block";
             window.scrollTo(0, 0);
         }
 
         function reinitialiserFormulaire() {
             document.getElementById('form-recette').reset();
             document.getElementById('recette-id').value = "";
+            document.getElementById('btn-annuler').style.display = "none";
         }
 
         chargerIngredientsDisponibles(chargerRecettes);
-        socket.on('data_updated', chargerRecettes);
     </script>
 </body>
 </html>
