@@ -4,16 +4,21 @@ const path = require('path');
 const app = express();
 
 app.use(express.json());
-app.use(express.static('public')); // Assurez-vous que vos fichiers HTML sont dans le dossier /public
+// Utilise le dossier courant pour trouver vos pages HTML
+app.use(express.static(__dirname));
 
 // Connexion à la base de données
 const dbPath = path.resolve(__dirname, 'database.sqlite');
 const db = new sqlite3.Database(dbPath);
 
-// Initialisation automatique de la base avec les bons champs
+// Initialisation automatique et forcée de la base de données
 db.serialize(() => {
-    // Table Ingrédients (adaptée à votre page ingredients.html)
-    db.run(`CREATE TABLE IF NOT EXISTS ingredients (
+    // Suppression des anciennes tables pour repartir sur du propre
+    db.run(`DROP TABLE IF EXISTS ingredients`);
+    db.run(`DROP TABLE IF EXISTS recettes`);
+
+    // Recréation des tables avec les bons champs
+    db.run(`CREATE TABLE ingredients (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nom TEXT,
         marque TEXT,
@@ -29,21 +34,18 @@ db.serialize(() => {
         lipides REAL
     )`);
 
-    // Table Recettes (adaptée à votre page recettes.html)
-    db.run(`CREATE TABLE IF NOT EXISTS recettes (
+    db.run(`CREATE TABLE recettes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nom TEXT,
         calories REAL,
         proteines REAL,
         glucides REAL,
         lipides REAL
-    )`);
-
-    // Remplissage automatique si la table ingrédients est vide
-    db.get("SELECT count(*) as count FROM ingredients", (err, row) => {
-        if (!err && row.count === 0) {
-            console.log("Base vide : initialisation des ingrédients...");
+    )`, (err) => {
+        if (!err) {
+            console.log("Tables créées, insertion des données par défaut...");
             
+            // Insertion des ingrédients
             const stmtIng = db.prepare(`INSERT INTO ingredients (nom, marque, format, unite, rayon, prixLeclerc, prixCarrefour, prixLidl, calories, proteines, glucides, lipides) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
             
             const ingredientsDefaut = [
@@ -56,6 +58,7 @@ db.serialize(() => {
             ingredientsDefaut.forEach(i => stmtIng.run(i));
             stmtIng.finalize();
 
+            // Insertion des recettes
             const stmtRec = db.prepare(`INSERT INTO recettes (nom, calories, proteines, glucides, lipides) VALUES (?, ?, ?, ?, ?)`);
             const recettesDefaut = [
                 ['Pâtes Bolognaises', 620, 32, 75, 18],
@@ -101,6 +104,7 @@ app.get('/api/recettes', (req, res) => {
     });
 });
 
+// Lancement du serveur sur le port configuré par Render ou 10000 par défaut
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
     console.log(`Serveur démarré sur le port ${PORT}`);
