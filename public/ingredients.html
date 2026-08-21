@@ -134,13 +134,30 @@
         </section>
     </div>
 
-    <script>
-        const socket = io();
+   <script>
+        // Connexion sécurisée Socket.io (fonctionne même si le chemin change)
+        let socket;
+        try {
+            socket = io();
+            socket.on('data_updated', init);
+        } catch (e) {
+            console.warn("Socket.io non initialisé", e);
+        }
 
         async function init() {
-            const res = await fetch('/api/ingredients');
-            const ingredients = await res.json();
-            renderIngredients(ingredients);
+            try {
+                const container = document.getElementById('liste-ingredients-container');
+                container.innerHTML = `<p class="text-slate-400 italic text-xs">Chargement en cours...</p>`;
+
+                const res = await fetch('/api/ingredients');
+                if (!res.ok) throw new Error("Erreur réseau lors de la récupération");
+                
+                const ingredients = await res.json();
+                renderIngredients(ingredients);
+            } catch (err) {
+                console.error("Erreur dans init():", err);
+                document.getElementById('liste-ingredients-container').innerHTML = `<p class="text-rose-500 italic text-xs">Erreur de chargement des données.</p>`;
+            }
         }
 
         async function rechercherOffIngredient() {
@@ -163,7 +180,7 @@
                             <span class="font-bold text-slate-800">${p.nom}</span>
                             ${p.marque ? `<span class="text-slate-400 text-[10px] block">Marque : ${p.marque}</span>` : ''}
                         </div>
-                        <button type="button" onclick='remplirDepuisOFF(${JSON.stringify(p)})' class="bg-indigo-600 active:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold">Sélectionner</button>
+                        <button type="button" onclick='remplirDepuisOFF(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="bg-indigo-600 active:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold">Sélectionner</button>
                     </div>
                 `).join('');
             } catch (err) {
@@ -287,7 +304,7 @@
             }
         }
 
-        socket.on('data_updated', init);
+        // Lancement direct au chargement de la page
         init();
     </script>
 </body>
