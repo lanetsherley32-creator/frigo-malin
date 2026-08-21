@@ -10,7 +10,7 @@ const io = socketIo(server);
 const db = new sqlite3.Database('./database.sqlite');
 
 app.use(bodyParser.json());
-app.use(express.static('public')); // Assurez-vous que index.html est dans le dossier 'public'
+app.use(express.static('public'));
 
 // --- INITIALISATION BDD ---
 db.serialize(() => {
@@ -20,22 +20,31 @@ db.serialize(() => {
         calories REAL, budget REAL, proteines REAL, glucides REAL, lipides REAL
     )`);
 
-    // Table Recettes
+    // Table Recettes (préservée si elle existe déjà)
     db.run(`CREATE TABLE IF NOT EXISTS recettes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nom TEXT, calories REAL, proteines REAL, glucides REAL, lipides REAL, prix REAL
     )`);
 
-    // Table Menus : on stocke tout en TEXT (JSON strings)
-    db.run(`CREATE TABLE IF NOT EXISTS menus (
+    // Table Menu Prévu : 1 seul choix par catégorie (pour PDF et Courses)
+    db.run(`CREATE TABLE IF NOT EXISTS menu_prevu (
         profil TEXT,
         jour TEXT,
         petitDejeuner TEXT,
         repas1 TEXT,
         repas2 TEXT,
         dessertCollation TEXT,
-        grignotage TEXT,
         PRIMARY KEY (profil, jour)
+    )`);
+
+    // Table Suivi Consommé : Permet d'ajouter plusieurs éléments avec une quantité réelle (pour Bilan Nutri)
+    db.run(`CREATE TABLE IF NOT EXISTS suivi_consomme (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        profil TEXT,
+        jour TEXT,
+        categorie TEXT,
+        recette_id INTEGER,
+        quantite REAL
     )`);
 });
 
@@ -61,49 +70,71 @@ app.post('/api/profils', (req, res) => {
     });
 });
 
-// --- API MENU ---
-app.get('/api/menu', (req, res) => {
+// --- API MENU PRÉVU (Pour PDF et Courses) ---
+app.get('/api/menu-prevu', (req, res) => {
     const { jour, profil } = req.query;
-    db.get("SELECT * FROM menus WHERE jour = ? AND profil = ?", [jour, profil], (err, row) => {
+    db.get("SELECT * FROM menu_prevu WHERE jour = ? AND profil = ?", [jour, profil], (err, row) => {
         if (!row) {
-            res.json({ petitDejeuner: [], repas1: [], repas2: [], dessertCollation: [], grignotage: [] });
+            res.json({ petitDejeuner: '', repas1: '', repas2: '', dessertCollation: '' });
         } else {
-            // Conversion des chaînes JSON en tableaux
             res.json({
-                petitDejeuner: JSON.parse(row.petitDejeuner || '[]'),
-                repas1: JSON.parse(row.repas1 || '[]'),
-                repas2: JSON.parse(row.repas2 || '[]'),
-                dessertCollation: JSON.parse(row.dessertCollation || '[]'),
-                grignotage: JSON.parse(row.grignotage || '[]')
+                petitDejeuner: row.petitDejeuner || '',
+                repas1: row.repas1 || '',
+                repas2: row.repas2 || '',
+                dessertCollation: row.dessertCollation || ''
             });
         }
     });
 });
 
-app.post('/api/menu', (req, res) => {
-    const { jour, profil, petitDejeuner, repas1, repas2, dessertCollation, grignotage } = req.body;
+app.post('/api/menu-prevu', (req, res) => {
+    const { jour, profil, petitDejeuner, repas1, repas2, dessertCollation } = req.body;
 
-    const query = `INSERT INTO menus (profil, jour, petitDejeuner, repas1, repas2, dessertCollation, grignotage) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?)
+    const query = `INSERT INTO menu_prevu (profil, jour, petitDejeuner, repas1, repas2, dessertCollation) 
+                   VALUES (?, ?, ?, ?, ?, ?)
                    ON CONFLICT(profil, jour) DO UPDATE SET 
                    petitDejeuner=excluded.petitDejeuner,
                    repas1=excluded.repas1,
                    repas2=excluded.repas2,
-                   dessertCollation=excluded.dessertCollation,
-                   grignotage=excluded.grignotage`;
+                   dessertCollation=excluded.dessertCollation`;
 
-    const params = [
-        profil, jour,
-        JSON.stringify(petitDejeuner || []),
-        JSON.stringify(repas1 || []),
-        JSON.stringify(repas2 || []),
-        JSON.stringify(dessertCollation || []),
-        JSON.stringify(grignotage || [])
-    ];
-
-    db.run(query, params, (err) => {
+    db.run(query, [profil, jour, petitDejeuner || '', repas1 || '', repas2 || '', dessertCollation || ''], (err) => {
         if (err) res.status(500).json({ error: err.message });
-        else res.sendStatus(200);
+        else {
+            io.emit('data_updated');
+            res.sendStatus(200);
+        }
+    });
+});
+
+// --- API SUIVI CONSOMMÉ (Pour le Bilan Nutritionnel avec Quantités) ---
+app.get('/api/suivi-consomme', (req, res) => {
+    const { jour, profil } = req.query;
+    db.all("SELECT * FROM suivi_consomme WHERE jour = ? AND profil = ?", [jour, profil], (err, rows) => {
+        if (err) res.status(500).json({ error: err.message });
+        else res.json(rows || []);
+    });
+});
+
+app.post('/api/suivi-consomme', (req, res) => {
+    const { profil, jour, categorie, recette_id, quantite } = req.body;
+    db.run(`INSERT INTO suivi_consomme (profil, jour, categorie, recette_id, quantite) VALUES (?, ?, ?, ?, ?)`,
+    [profil, jour, categorie, recette_id, quantite || 1], (err) => {
+        if (err) res.status(500).json({ error: err.message });
+        else {
+            io.emit('data_updated');
+            res.sendStatus(200);
+        }
+    });
+});
+
+app.delete('/api/suivi-consomme/:id', (req, res) => {
+    db.run("DELETE FROM suivi_consomme WHERE id = ?", [req.params.id], (err) => {
+        if (err) res.status(500).json({ error: err.message });
+        else {
+            io.emit('data_updated');
+            res.sendStatus(200);
+        }
     });
 });
 
