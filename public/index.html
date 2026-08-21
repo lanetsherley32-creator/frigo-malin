@@ -3,146 +3,378 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Menu Semaine Simplifié</title>
+    <title>Menu de la Semaine</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body class="bg-slate-50 min-h-screen pb-12">
     <div class="max-w-3xl mx-auto p-4 space-y-4">
         
-        <!-- Header & Profil -->
-        <header class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-            <div class="flex justify-between items-center mb-4">
-                <h1 class="font-bold text-slate-800 text-lg">🍽️ Mon Menu</h1>
-                <select id="select-profil" onchange="changerProfil()" class="bg-blue-50 text-blue-700 font-bold px-3 py-1 rounded-xl text-xs border border-blue-100"></select>
+        <!-- Navigation & Profil -->
+        <header class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+            <div class="flex justify-between items-center flex-wrap gap-2">
+                <h1 class="font-bold text-slate-800 text-lg flex items-center gap-2">🍽️ Mon Menu</h1>
+                <div class="flex items-center gap-2">
+                    <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600">
+                        <option value="">-- Choisir un profil --</option>
+                    </select>
+                    <button onclick="ouvrirModalProfil()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">+ Profil</button>
+                </div>
             </div>
             
-            <!-- Bilan Nutritionnel -->
-            <div id="dashboard-nutri" class="grid grid-cols-4 gap-2 text-center text-[10px] sm:text-xs">
-                <div class="bg-slate-50 p-2 rounded-xl">Kcal<br><strong id="stat-cal" class="text-slate-800">0</strong></div>
-                <div class="bg-slate-50 p-2 rounded-xl">Prot<br><strong id="stat-prot" class="text-slate-800">0</strong>g</div>
-                <div class="bg-slate-50 p-2 rounded-xl">Gluc<br><strong id="stat-gluc" class="text-slate-800">0</strong>g</div>
-                <div class="bg-slate-50 p-2 rounded-xl">Lip<br><strong id="stat-lip" class="text-slate-800">0</strong>g</div>
+            <!-- Bilan Nutritionnel du Jour -->
+            <div id="dashboard-nutri" class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-bold">Calories</span>
+                    <strong id="stat-cal" class="text-slate-800">0</strong> / <span id="obj-cal" class="text-blue-600">0</span> kcal
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-bold">Protéines</span>
+                    <strong id="stat-prot" class="text-slate-800">0</strong> / <span id="obj-prot" class="text-blue-600">0</span> g
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-bold">Glucides</span>
+                    <strong id="stat-gluc" class="text-slate-800">0</strong> / <span id="obj-gluc" class="text-blue-600">0</span> g
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-bold">Lipides</span>
+                    <strong id="stat-lip" class="text-slate-800">0</strong> / <span id="obj-lip" class="text-blue-600">0</span> g
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 col-span-2 sm:col-span-1">
+                    <span class="block text-[10px] text-slate-400 font-bold">Budget Semaine</span>
+                    <strong id="stat-budget" class="text-emerald-700">0€</strong> / <span id="obj-budget" class="text-slate-700">0€</span>
+                </div>
             </div>
+
+            <!-- Liens de navigation rapides -->
+            <nav class="grid grid-cols-6 gap-1 text-center text-[11px] font-medium pt-2">
+                <a href="index.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Menu</a>
+                <a href="semaine.html" class="p-2 rounded-xl bg-indigo-50 text-indigo-700 font-bold hover:bg-indigo-100">📅 Semaine</a>
+                <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
+                <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
+                <a href="courses.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Courses</a>
+                <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
+            </nav>
         </header>
 
-        <!-- Sélecteur de jour -->
-        <div class="flex gap-2 overflow-x-auto pb-2">
-            <script>
-                ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'].forEach(jour => {
-                    document.write(`<button onclick="changerJour('${jour}')" id="btn-${jour}" class="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200">${jour}</button>`);
-                });
-            </script>
+        <!-- Sélecteur de Jour -->
+        <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex overflow-x-auto gap-2 no-scrollbar">
+            <button onclick="changerJour('Lundi')" id="btn-Lundi" class="jour-btn px-4 py-2 rounded-xl text-xs font-bold shrink-0 bg-slate-100 text-slate-600">Lundi</button>
+            <button onclick="changerJour('Mardi')" id="btn-Mardi" class="jour-btn px-4 py-2 rounded-xl text-xs font-bold shrink-0 bg-slate-100 text-slate-600">Mardi</button>
+            <button onclick="changerJour('Mercredi')" id="btn-Mercredi" class="jour-btn px-4 py-2 rounded-xl text-xs font-bold shrink-0 bg-slate-100 text-slate-600">Mercredi</button>
+            <button onclick="changerJour('Jeudi')" id="btn-Jeudi" class="jour-btn px-4 py-2 rounded-xl text-xs font-bold shrink-0 bg-slate-100 text-slate-600">Jeudi</button>
+            <button onclick="changerJour('Vendredi')" id="btn-Vendredi" class="jour-btn px-4 py-2 rounded-xl text-xs font-bold shrink-0 bg-slate-100 text-slate-600">Vendredi</button>
+            <button onclick="changerJour('Samedi')" id="btn-Samedi" class="jour-btn px-4 py-2 rounded-xl text-xs font-bold shrink-0 bg-slate-100 text-slate-600">Samedi</button>
+            <button onclick="changerJour('Dimanche')" id="btn-Dimanche" class="jour-btn px-4 py-2 rounded-xl text-xs font-bold shrink-0 bg-slate-100 text-slate-600">Dimanche</button>
         </div>
 
-        <!-- Formulaire Unifié -->
-        <form id="form-menu" onsubmit="sauvegarderMenu(event)" class="space-y-4">
-            <div id="sections-repas" class="space-y-3">
-                <!-- Les sections seront générées en JS -->
-            </div>
-            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm">Enregistrer la journée</button>
-        </form>
+        <!-- Formulaire de Saisie du Menu du Jour -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+            <h2 id="titre-jour-form" class="font-bold text-slate-700 text-sm">📝 Modifier les repas du jour</h2>
+            <form id="form-menu" onsubmit="sauvegarderMenu(event)" class="space-y-4 text-xs">
+                
+                <div id="sections-repas" class="space-y-3">
+                    <!-- Généré dynamiquement en JS -->
+                </div>
+
+                <button type="submit" class="w-full bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">Enregistrer le menu du jour</button>
+            </form>
+        </section>
+    </div>
+
+    <!-- Modal de Création / Modification de Profil -->
+    <div id="modal-profil" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-2xl max-w-md w-full space-y-4 text-xs">
+            <h3 id="modal-profil-title" class="font-bold text-slate-800 text-sm">👤 Créer ou modifier un profil</h3>
+            <form id="form-profil" onsubmit="sauvegarderProfil(event)" class="space-y-3">
+                <div>
+                    <label class="font-bold text-slate-700 block mb-1">Nom du profil :</label>
+                    <input type="text" id="profil-nom" placeholder="Ex: Thomas" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium" required>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1">Objectif Calories (kcal)</label>
+                        <input type="number" id="profil-cal" placeholder="2000" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
+                    </div>
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1">Budget Semaine (€)</label>
+                        <input type="number" id="profil-budget" placeholder="50" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1">Protéines (g)</label>
+                        <input type="number" id="profil-prot" placeholder="100" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
+                    </div>
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1">Glucides (g)</label>
+                        <input type="number" id="profil-gluc" placeholder="250" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
+                    </div>
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1">Lipides (g)</label>
+                        <input type="number" id="profil-lip" placeholder="70" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
+                    </div>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="submit" class="flex-1 bg-blue-600 text-white p-2.5 rounded-xl font-bold">Enregistrer</button>
+                    <button type="button" onclick="fermerModalProfil()" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold">Annuler</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script>
         const socket = io();
         let jourActuel = 'Lundi';
-        let recettes = [];
+        let recettesDisponibles = [];
+        let profilsDisponibles = [];
+
+        function getProfilActuel() {
+            return document.getElementById('select-profil').value;
+        }
 
         async function init() {
-            const res = await fetch('/api/recettes');
-            recettes = await res.json();
+            try {
+                const [resRecettes, resProfils] = await Promise.all([
+                    fetch('/api/recettes'),
+                    fetch('/api/profils')
+                ]);
+                recettesDisponibles = await resRecettes.json();
+                profilsDisponibles = await resProfils.json();
+
+                peuplerSelectProfils();
+                construireSectionsRepas();
+                await chargerMenuJour();
+            } catch (err) {
+                console.error("Erreur initialisation", err);
+            }
+        }
+
+        function peuplerSelectProfils() {
+            const select = document.getElementById('select-profil');
+            const saved = localStorage.getItem('profil_actif');
             
-            // Générer les 4 sections (Petit Déj, Repas 1, Repas 2, Dessert/Collation)
+            select.innerHTML = `<option value="">-- Choisir un profil --</option>` + 
+                profilsDisponibles.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+
+            if (saved && profilsDisponibles.some(p => p.nom === saved)) {
+                select.value = saved;
+            } else if (profilsDisponibles.length > 0) {
+                select.value = profilsDisponibles[0].nom;
+                localStorage.setItem('profil_actif', select.value);
+            }
+        }
+
+        function changerProfil() {
+            localStorage.setItem('profil_actif', getProfilActuel());
+            chargerMenuJour();
+        }
+
+        function ouvrirModalProfil() {
+            const modal = document.getElementById('modal-profil');
+            modal.classList.remove('hidden');
+            const actuel = getProfilActuel();
+            const p = profilsDisponibles.find(x => x.nom === actuel);
+            if (p) {
+                document.getElementById('profil-nom').value = p.nom;
+                document.getElementById('profil-cal').value = p.calories || '';
+                document.getElementById('profil-budget').value = p.budget || '';
+                document.getElementById('profil-prot').value = p.proteines || '';
+                document.getElementById('profil-gluc').value = p.glucides || '';
+                document.getElementById('profil-lip').value = p.lipides || '';
+            } else {
+                document.getElementById('form-profil').reset();
+            }
+        }
+
+        function fermerModalProfil() {
+            document.getElementById('modal-profil').classList.add('hidden');
+        }
+
+        async function sauvegarderProfil(e) {
+            e.preventDefault();
+            const nom = document.getElementById('profil-nom').value.trim();
+            const data = {
+                nom,
+                calories: parseFloat(document.getElementById('profil-cal').value) || 0,
+                budget: parseFloat(document.getElementById('profil-budget').value) || 0,
+                proteines: parseFloat(document.getElementById('profil-prot').value) || 0,
+                glucides: parseFloat(document.getElementById('profil-gluc').value) || 0,
+                lipides: parseFloat(document.getElementById('profil-lip').value) || 0
+            };
+
+            const res = await fetch('/api/profils', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                alert(err.error || "Erreur enregistrement profil");
+                return;
+            }
+
+            fermerModalProfil();
+            localStorage.setItem('profil_actif', nom);
+            init();
+        }
+
+        function construireSectionsRepas() {
             const container = document.getElementById('sections-repas');
+            const optionsRecettes = recettesDisponibles.map(r => `<option value="${r.id}">${r.nom}</option>`).join('');
+            
             const sections = [
                 { id: 'petitDejeuner', label: '☕ Petit Déjeuner' },
                 { id: 'repas1', label: '☀️ Repas 1' },
                 { id: 'repas2', label: '🌙 Repas 2' },
-                { id: 'dessertCollation', label: '🍎 Dessert / Collation' }
+                { id: 'dessertCollation', label: '🍎 Dessert / Collation' },
+                { id: 'grignotage', label: '🍫 Grignotage' }
             ];
 
             container.innerHTML = sections.map(s => `
-                <div class="bg-white p-4 rounded-2xl border border-slate-200">
-                    <label class="block font-bold text-slate-700 text-xs mb-2 uppercase">${s.label}</label>
-                    <select multiple id="${s.id}" class="w-full p-2 border border-slate-200 rounded-xl text-sm h-32">
-                        ${recettes.map(r => `<option value="${r.id}">${r.nom}</option>`).join('')}
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+                    <label class="block font-bold text-slate-800 text-xs uppercase tracking-wider">${s.label}</label>
+                    <select multiple id="${s.id}" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium h-28">
+                        ${optionsRecettes}
                     </select>
+                    <span class="block text-[10px] text-slate-400">Maintenez Ctrl ou Cmd pour en sélectionner plusieurs</span>
                 </div>
-            `).join('') + `
-            <div class="bg-white p-4 rounded-2xl border border-slate-200">
-                <label class="block font-bold text-slate-700 text-xs mb-2 uppercase">🍫 Grignotage (libre)</label>
-                <textarea id="grignotage" class="w-full p-2 border border-slate-200 rounded-xl text-sm" placeholder="Notes..."></textarea>
-            </div>`;
-
-            // Ajout des écouteurs pour calcul temps réel
-            document.querySelectorAll('select').forEach(el => el.addEventListener('change', calculerNutris));
-            
-            chargerMenu();
+            `).join('');
         }
 
-        async function chargerMenu() {
-            const res = await fetch(`/api/menu?jour=${jourActuel}&profil=${localStorage.getItem('profil_actif')}`);
-            const data = await res.json();
-            
-            // Sélectionner les options dans les selects multiples
-            ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation'].forEach(id => {
+        function changerJour(jour) {
+            jourActuel = jour;
+            document.querySelectorAll('.jour-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
+                btn.classList.add('bg-slate-100', 'text-slate-600');
+            });
+            const activeBtn = document.getElementById(`btn-${jour}`);
+            if(activeBtn) {
+                activeBtn.classList.remove('bg-slate-100', 'text-slate-600');
+                activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
+            }
+            document.getElementById('titre-jour-form').innerText = `📝 Modifier les repas de ${jour}`;
+            chargerMenuJour();
+        }
+
+        async function chargerMenuJour() {
+            const profil = getProfilActuel();
+            if(!profil) {
+                document.getElementById('dashboard-nutri').classList.add('hidden');
+                return;
+            }
+            try {
+                const res = await fetch(`/api/menu?jour=${jourActuel}&profil=${encodeURIComponent(profil)}`);
+                const menu = dataNormalisee(await res.json());
+                
+                ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation', 'grignotage'].forEach(id => {
+                    const select = document.getElementById(id);
+                    if (select) {
+                        const valeurs = menu[id] || [];
+                        Array.from(select.options).forEach(opt => {
+                            opt.selected = valeurs.map(String).includes(opt.value);
+                        });
+                    }
+                });
+
+                calculerNutrisJour();
+            } catch (err) {
+                console.error("Erreur chargement menu", err);
+            }
+        }
+
+        function dataNormalisee(menu) {
+            // Rétrocompatibilité avec les anciennes structures en base si nécessaire
+            return {
+                petitDejeuner: Array.isArray(menu.petitDejeuner) ? menu.petitDejeuner : (menu.petitDejeuner ? [menu.petitDejeuner] : []),
+                repas1: Array.isArray(menu.repas1) ? menu.repas1 : [],
+                repas2: Array.isArray(menu.repas2) ? menu.repas2 : [],
+                dessertCollation: Array.isArray(menu.dessertCollation) ? menu.dessertCollation : [],
+                grignotage: Array.isArray(menu.grignotage) ? menu.grignotage : []
+            };
+        }
+
+        function calculerNutrisJour() {
+            const profilNom = getProfilActuel();
+            const profil = profilsDisponibles.find(p => p.nom === profilNom);
+            const dashboard = document.getElementById('dashboard-nutri');
+
+            if (!profil) {
+                dashboard.classList.add('hidden');
+                return;
+            }
+
+            dashboard.classList.remove('hidden');
+            document.getElementById('obj-cal').innerText = profil.calories || 0;
+            document.getElementById('obj-prot').innerText = profil.proteines || 0;
+            document.getElementById('obj-gluc').innerText = profil.glucides || 0;
+            document.getElementById('obj-lip').innerText = profil.lipides || 0;
+            document.getElementById('obj-budget').innerText = (profil.budget || 0) + '€';
+
+            let totalCal = 0, totalProt = 0, totalGluc = 0, totalLip = 0;
+            const idsRecettes = [];
+
+            ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation', 'grignotage'].forEach(id => {
                 const select = document.getElementById(id);
-                const valeurs = data[id] || [];
-                Array.from(select.options).forEach(opt => opt.selected = valeurs.includes(opt.value));
-            });
-            document.getElementById('grignotage').value = data.grignotage || '';
-            calculerNutris();
-        }
-
-        function calculerNutris() {
-            let cal=0, prot=0, gluc=0, lip=0;
-            const ids = [];
-            document.querySelectorAll('select').forEach(s => {
-                Array.from(s.selectedOptions).forEach(o => ids.push(o.value));
-            });
-
-            ids.forEach(id => {
-                const r = recettes.find(x => x.id == id);
-                if(r) {
-                    cal += parseFloat(r.calories);
-                    prot += parseFloat(r.proteines);
-                    gluc += parseFloat(r.glucides);
-                    lip += parseFloat(r.lipides);
+                if (select) {
+                    Array.from(select.selectedOptions).forEach(opt => idsRecettes.push(opt.value));
                 }
             });
 
-            document.getElementById('stat-cal').innerText = Math.round(cal);
-            document.getElementById('stat-prot').innerText = Math.round(prot);
-            document.getElementById('stat-gluc').innerText = Math.round(gluc);
-            document.getElementById('stat-lip').innerText = Math.round(lip);
+            idsRecettes.forEach(id => {
+                const r = recettesDisponibles.find(x => x.id == id);
+                if (r) {
+                    totalCal += parseFloat(r.calories || 0);
+                    totalProt += parseFloat(r.proteines || 0);
+                    totalGluc += parseFloat(r.glucides || 0);
+                    totalLip += parseFloat(r.lipides || 0);
+                }
+            });
+
+            document.getElementById('stat-cal').innerText = totalCal.toFixed(0);
+            document.getElementById('stat-prot').innerText = totalProt.toFixed(0);
+            document.getElementById('stat-gluc').innerText = totalGluc.toFixed(0);
+            document.getElementById('stat-lip').innerText = totalLip.toFixed(0);
+            document.getElementById('stat-budget').innerText = `0€`;
         }
 
         async function sauvegarderMenu(e) {
             e.preventDefault();
-            const body = {
+            const profil = getProfilActuel();
+            if(!profil) return;
+
+            const getSelectedValues = (id) => Array.from(document.getElementById(id).selectedOptions).map(o => o.value);
+
+            const data = {
                 jour: jourActuel,
-                profil: localStorage.getItem('profil_actif'),
-                petitDejeuner: Array.from(document.getElementById('petitDejeuner').selectedOptions).map(o => o.value),
-                repas1: Array.from(document.getElementById('repas1').selectedOptions).map(o => o.value),
-                repas2: Array.from(document.getElementById('repas2').selectedOptions).map(o => o.value),
-                dessertCollation: Array.from(document.getElementById('dessertCollation').selectedOptions).map(o => o.value),
-                grignotage: document.getElementById('grignotage').value
+                profil,
+                petitDejeuner: getSelectedValues('petitDejeuner'),
+                repas1: getSelectedValues('repas1'),
+                repas2: getSelectedValues('repas2'),
+                dessertCollation: getSelectedValues('dessertCollation'),
+                grignotage: getSelectedValues('grignotage')
             };
-            
-            await fetch('/api/menu', {
+
+            const res = await fetch('/api/menu', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(body)
+                body: JSON.stringify(data)
             });
-            alert("Enregistré !");
+
+            if(res.ok) {
+                alert("✅ Menu du jour enregistré !");
+                calculerNutrisJour();
+            }
         }
 
-        function changerJour(j) {
-            jourActuel = j;
-            chargerMenu();
-        }
+        document.addEventListener('change', (e) => {
+            if(e.target.tagName === 'SELECT' && e.target.id !== 'select-profil') {
+                calculerNutrisJour();
+            }
+        });
 
+        socket.on('data_updated', init);
         init();
     </script>
 </body>
