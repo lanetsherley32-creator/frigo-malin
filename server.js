@@ -11,7 +11,6 @@ const io = new Server(server);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const path = require('path');
 const db = new sqlite3.Database(path.resolve(__dirname, 'database.sqlite'));
 
 db.serialize(() => {
