@@ -14,19 +14,21 @@ app.use(express.static('public'));
 
 // --- INITIALISATION BDD ---
 db.serialize(() => {
-    // Table Profils
     db.run(`CREATE TABLE IF NOT EXISTS profils (
         nom TEXT PRIMARY KEY,
         calories REAL, budget REAL, proteines REAL, glucides REAL, lipides REAL
     )`);
 
-    // Table Recettes (préservée si elle existe déjà)
     db.run(`CREATE TABLE IF NOT EXISTS recettes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nom TEXT, calories REAL, proteines REAL, glucides REAL, lipides REAL, prix REAL
     )`);
 
-    // Table Menu Prévu : 1 seul choix par catégorie (pour PDF et Courses)
+    db.run(`CREATE TABLE IF NOT EXISTS ingredients (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom TEXT, calories REAL, proteines REAL, glucides REAL, lipides REAL, prix REAL
+    )`);
+
     db.run(`CREATE TABLE IF NOT EXISTS menu_prevu (
         profil TEXT,
         jour TEXT,
@@ -37,7 +39,6 @@ db.serialize(() => {
         PRIMARY KEY (profil, jour)
     )`);
 
-    // Table Suivi Consommé : Permet d'ajouter plusieurs éléments avec une quantité réelle (pour Bilan Nutri)
     db.run(`CREATE TABLE IF NOT EXISTS suivi_consomme (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         profil TEXT,
@@ -48,9 +49,13 @@ db.serialize(() => {
     )`);
 });
 
-// --- API RECETTES ---
+// --- API RECETTES & INGREDIENTS ---
 app.get('/api/recettes', (req, res) => {
     db.all("SELECT * FROM recettes", [], (err, rows) => res.json(rows));
+});
+
+app.get('/api/ingredients', (req, res) => {
+    db.all("SELECT * FROM ingredients", [], (err, rows) => res.json(rows));
 });
 
 // --- API PROFILS ---
@@ -58,19 +63,56 @@ app.get('/api/profils', (req, res) => {
     db.all("SELECT * FROM profils", [], (err, rows) => res.json(rows));
 });
 
+// Créer ou Modifier un profil (Vérifie les doublons si c'est une création)
 app.post('/api/profils', (req, res) => {
-    const { nom, calories, budget, proteines, glucides, lipides } = req.body;
-    db.run(`INSERT OR REPLACE INTO profils VALUES (?, ?, ?, ?, ?, ?)`, 
-    [nom, calories, budget, proteines, glucides, lipides], (err) => {
-        if (err) res.status(500).json({ error: err.message });
-        else {
-            io.emit('data_updated');
-            res.sendStatus(200);
+    const { ancienNom, nom, calories, budget, proteines, glucides, lipides } = req.body;
+
+    // Si on change de nom, on vérifie que le nouveau n'existe pas déjà
+    if (ancienNom && ancienNom !== nom) {
+        db.get("SELECT * FROM profils WHERE nom = ?", [nom], (err, row) => {
+            if (row) {
+                return res.status(400).json({ error: "Ce pseudo existe déjà !" });
+            }
+            executerSauvegardeProfil();
+        });
+    } else {
+        executerSauvegardeProfil();
+    }
+
+    function executerSauvegardeProfil() {
+        if (ancienNom && ancienNom !== nom) {
+            // Si le nom a changé, on supprime l'ancien et on insère le nouveau
+            db.run("DELETE FROM profils WHERE nom = ?", [ancienNom]);
         }
+
+        db.run(`INSERT OR REPLACE INTO profils (nom, calories, budget, proteines, glucides, lipides) VALUES (?, ?, ?, ?, ?, ?)`, 
+        [nom, calories, budget, proteines, glucides, lipides], (err) => {
+            if (err) res.status(500).json({ error: err.message });
+            else {
+                io.emit('data_updated');
+                res.json({ success: true, nom });
+            }
+        });
+    }
+});
+
+// Supprimer un profil
+app.delete('/api/profils/:nom', (req, res) => {
+    const nom = req.params.nom;
+    db.serialize(() => {
+        db.run("DELETE FROM profils WHERE nom = ?", [nom]);
+        db.run("DELETE FROM menu_prevu WHERE profil = ?", [nom]);
+        db.run("DELETE FROM suivi_consomme WHERE profil = ?", [nom], (err) => {
+            if (err) res.status(500).json({ error: err.message });
+            else {
+                io.emit('data_updated');
+                res.sendStatus(200);
+            }
+        });
     });
 });
 
-// --- API MENU PRÉVU (Pour PDF et Courses) ---
+// --- API MENU PRÉVU ---
 app.get('/api/menu-prevu', (req, res) => {
     const { jour, profil } = req.query;
     db.get("SELECT * FROM menu_prevu WHERE jour = ? AND profil = ?", [jour, profil], (err, row) => {
@@ -89,7 +131,6 @@ app.get('/api/menu-prevu', (req, res) => {
 
 app.post('/api/menu-prevu', (req, res) => {
     const { jour, profil, petitDejeuner, repas1, repas2, dessertCollation } = req.body;
-
     const query = `INSERT INTO menu_prevu (profil, jour, petitDejeuner, repas1, repas2, dessertCollation) 
                    VALUES (?, ?, ?, ?, ?, ?)
                    ON CONFLICT(profil, jour) DO UPDATE SET 
@@ -107,7 +148,7 @@ app.post('/api/menu-prevu', (req, res) => {
     });
 });
 
-// --- API SUIVI CONSOMMÉ (Pour le Bilan Nutritionnel avec Quantités) ---
+// --- API SUIVI CONSOMMÉ ---
 app.get('/api/suivi-consomme', (req, res) => {
     const { jour, profil } = req.query;
     db.all("SELECT * FROM suivi_consomme WHERE jour = ? AND profil = ?", [jour, profil], (err, rows) => {

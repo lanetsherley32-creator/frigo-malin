@@ -18,11 +18,12 @@
                     <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600">
                         <option value="">-- Choisir un profil --</option>
                     </select>
-                    <button onclick="ouvrirModalProfil()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">+ Profil</button>
+                    <button onclick="ouvrirModalProfil('nouveau')" class="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">+ Profil</button>
+                    <button onclick="ouvrirModalProfil('modifier')" id="btn-modifier-profil" class="bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm hidden">⚙️ Modifier</button>
                 </div>
             </div>
             
-            <!-- Bilan Nutritionnel du Jour (Basé sur le Suivi Consommé) -->
+            <!-- Bilan Nutritionnel du Jour -->
             <div id="dashboard-nutri" class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
                 <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                     <span class="block text-[10px] text-slate-400 font-bold">Calories</span>
@@ -68,7 +69,7 @@
             <button onclick="changerJour('Dimanche')" id="btn-Dimanche" class="jour-btn px-4 py-2 rounded-xl text-xs font-bold shrink-0 bg-slate-100 text-slate-600">Dimanche</button>
         </div>
 
-        <!-- Onglets de Vue (Menu Prévu vs Suivi Consommé) -->
+        <!-- Onglets de Vue -->
         <div class="flex bg-slate-200 p-1 rounded-2xl gap-1 text-xs font-bold">
             <button onclick="changerOnglet('prevu')" id="tab-prevu" class="flex-1 py-2.5 rounded-xl bg-white text-blue-600 shadow-sm transition-all">📅 Menu Prévu (PDF & Courses)</button>
             <button onclick="changerOnglet('conso')" id="tab-conso" class="flex-1 py-2.5 rounded-xl text-slate-600 transition-all">🍽️ Suivi Consommé & Bilan</button>
@@ -140,7 +141,6 @@
                 </div>
             </form>
 
-            <!-- Liste des éléments consommés -->
             <div class="space-y-2">
                 <h3 class="font-bold text-slate-600 text-xs uppercase tracking-wider">Historique de la journée</h3>
                 <div id="liste-conso-container" class="space-y-2">
@@ -154,8 +154,9 @@
     <!-- Modal de Profil -->
     <div id="modal-profil" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white p-5 rounded-2xl max-w-md w-full space-y-4 text-xs">
-            <h3 class="font-bold text-slate-800 text-sm">👤 Créer ou modifier un profil</h3>
+            <h3 id="modal-profil-title" class="font-bold text-slate-800 text-sm">👤 Gestion de Profil</h3>
             <form id="form-profil" onsubmit="sauvegarderProfil(event)" class="space-y-3">
+                <input type="hidden" id="profil-ancien-nom">
                 <div>
                     <label class="font-bold text-slate-700 block mb-1">Nom du profil :</label>
                     <input type="text" id="profil-nom" placeholder="Ex: Thomas" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium" required>
@@ -186,6 +187,7 @@
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button type="submit" class="flex-1 bg-blue-600 text-white p-2.5 rounded-xl font-bold">Enregistrer</button>
+                    <button type="button" id="btn-supprimer-profil" onclick="supprimerProfilActuel()" class="bg-red-100 text-red-600 px-3 py-2.5 rounded-xl font-bold hidden">Supprimer</button>
                     <button type="button" onclick="fermerModalProfil()" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold">Annuler</button>
                 </div>
             </form>
@@ -227,11 +229,18 @@
             select.innerHTML = `<option value="">-- Choisir un profil --</option>` + 
                 profilsDisponibles.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
 
+            const btnModifier = document.getElementById('btn-modifier-profil');
+
             if (saved && profilsDisponibles.some(p => p.nom === saved)) {
                 select.value = saved;
+                btnModifier.classList.remove('hidden');
             } else if (profilsDisponibles.length > 0) {
                 select.value = profilsDisponibles[0].nom;
                 localStorage.setItem('profil_actif', select.value);
+                btnModifier.classList.remove('hidden');
+            } else {
+                select.value = "";
+                btnModifier.classList.add('hidden');
             }
         }
 
@@ -246,8 +255,90 @@
         }
 
         function changerProfil() {
-            localStorage.setItem('profil_actif', getProfilActuel());
+            const val = getProfilActuel();
+            localStorage.setItem('profil_actif', val);
+            document.getElementById('btn-modifier-profil').classList.toggle('hidden', !val);
             chargerDonneesJour();
+        }
+
+        function ouvrirModalProfil(mode) {
+            const modal = document.getElementById('modal-profil');
+            modal.classList.remove('hidden');
+            const btnSupprimer = document.getElementById('btn-supprimer-profil');
+            
+            if (mode === 'modifier') {
+                const actuel = getProfilActuel();
+                const p = profilsDisponibles.find(x => x.nom === actuel);
+                if (p) {
+                    document.getElementById('profil-ancien-nom').value = p.nom;
+                    document.getElementById('profil-nom').value = p.nom;
+                    document.getElementById('profil-cal').value = p.calories || '';
+                    document.getElementById('profil-budget').value = p.budget || '';
+                    document.getElementById('profil-prot').value = p.proteines || '';
+                    document.getElementById('profil-gluc').value = p.glucides || '';
+                    document.getElementById('profil-lip').value = p.lipides || '';
+                    btnSupprimer.classList.remove('hidden');
+                }
+            } else {
+                document.getElementById('form-profil').reset();
+                document.getElementById('profil-ancien-nom').value = '';
+                btnSupprimer.classList.add('hidden');
+            }
+        }
+
+        function fermerModalProfil() {
+            document.getElementById('modal-profil').classList.add('hidden');
+        }
+
+        async function sauvegarderProfil(e) {
+            e.preventDefault();
+            const ancienNom = document.getElementById('profil-ancien-nom').value;
+            const nom = document.getElementById('profil-nom').value.trim();
+            
+            const data = {
+                ancienNom: ancienNom || null,
+                nom,
+                calories: parseFloat(document.getElementById('profil-cal').value) || 0,
+                budget: parseFloat(document.getElementById('profil-budget').value) || 0,
+                proteines: parseFloat(document.getElementById('profil-prot').value) || 0,
+                glucides: parseFloat(document.getElementById('profil-gluc').value) || 0,
+                lipides: parseFloat(document.getElementById('profil-lip').value) || 0
+            };
+
+            const res = await fetch('/api/profils', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                alert(errData.error || "Erreur lors de l'enregistrement du profil.");
+                return;
+            }
+
+            fermerModalProfil();
+            localStorage.setItem('profil_actif', nom);
+            init();
+        }
+
+        async function supprimerProfilActuel() {
+            const profil = getProfilActuel();
+            if (!profil) return;
+
+            if (confirm(`Voulez-vous vraiment supprimer le profil "${profil}" ainsi que toutes ses données associées ?`)) {
+                const res = await fetch(`/api/profils/${encodeURIComponent(profil)}`, {
+                    method: 'DELETE'
+                });
+
+                if (res.ok) {
+                    localStorage.removeItem('profil_actif');
+                    fermerModalProfil();
+                    init();
+                } else {
+                    alert("Erreur lors de la suppression du profil.");
+                }
+            }
         }
 
         function changerOnglet(onglet) {
@@ -281,7 +372,6 @@
             }
 
             try {
-                // Charger le Menu Prévu
                 const resPrevu = await fetch(`/api/menu-prevu?jour=${jourActuel}&profil=${encodeURIComponent(profil)}`);
                 const prevu = await resPrevu.json();
                 document.getElementById('prevu-petitDejeuner').value = prevu.petitDejeuner || '';
@@ -289,7 +379,6 @@
                 document.getElementById('prevu-repas2').value = prevu.repas2 || '';
                 document.getElementById('prevu-dessertCollation').value = prevu.dessertCollation || '';
 
-                // Charger le Suivi Consommé
                 const resConso = await fetch(`/api/suivi-consomme?jour=${jourActuel}&profil=${encodeURIComponent(profil)}`);
                 suiviActuel = await resConso.json();
                 afficherSuiviConsomme();
@@ -320,7 +409,7 @@
                 body: JSON.stringify(data)
             });
 
-            if(res.ok) alert("✅ Menu prévu enregistré (utilisé pour les courses & le PDF) !");
+            if(res.ok) alert("✅ Menu prévu enregistré !");
         }
 
         async function ajouterConsommation(e) {
@@ -413,51 +502,6 @@
             document.getElementById('stat-gluc').innerText = totalGluc.toFixed(0);
             document.getElementById('stat-lip').innerText = totalLip.toFixed(0);
             document.getElementById('stat-budget').innerText = `0€`;
-        }
-
-        function ouvrirModalProfil() {
-            document.getElementById('modal-profil').classList.remove('hidden');
-            const actuel = getProfilActuel();
-            const p = profilsDisponibles.find(x => x.nom === actuel);
-            if (p) {
-                document.getElementById('profil-nom').value = p.nom;
-                document.getElementById('profil-cal').value = p.calories || '';
-                document.getElementById('profil-budget').value = p.budget || '';
-                document.getElementById('profil-prot').value = p.proteines || '';
-                document.getElementById('profil-gluc').value = p.glucides || '';
-                document.getElementById('profil-lip').value = p.lipides || '';
-            } else {
-                document.getElementById('form-profil').reset();
-            }
-        }
-
-        function fermerModalProfil() {
-            document.getElementById('modal-profil').classList.add('hidden');
-        }
-
-        async function sauvegarderProfil(e) {
-            e.preventDefault();
-            const nom = document.getElementById('profil-nom').value.trim();
-            const data = {
-                nom,
-                calories: parseFloat(document.getElementById('profil-cal').value) || 0,
-                budget: parseFloat(document.getElementById('profil-budget').value) || 0,
-                proteines: parseFloat(document.getElementById('profil-prot').value) || 0,
-                glucides: parseFloat(document.getElementById('profil-gluc').value) || 0,
-                lipides: parseFloat(document.getElementById('profil-lip').value) || 0
-            };
-
-            const res = await fetch('/api/profils', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
-
-            if (res.ok) {
-                fermerModalProfil();
-                localStorage.setItem('profil_actif', nom);
-                init();
-            }
         }
 
         socket.on('data_updated', init);
