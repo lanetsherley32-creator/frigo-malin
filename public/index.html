@@ -10,29 +10,63 @@
 <body class="bg-slate-100 min-h-screen pb-12">
     <div class="max-w-4xl mx-auto p-3 sm:p-6 space-y-4">
         
-        <!-- Navigation Mobile Friendly -->
+        <!-- Navigation -->
         <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
-            <div class="flex justify-between items-center">
+            <div class="flex justify-between items-center flex-wrap gap-2">
                 <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🍽️ Menu de la Semaine</h1>
-                <!-- Sélecteur de profil -->
-                <div class="flex items-center gap-1.5">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase">Profil :</span>
-                    <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-bold text-blue-600">
-                        <option value="Commun">Commun</option>
-                        <option value="Papa">Papa</option>
-                        <option value="Maman">Maman</option>
-                        <option value="Enfant">Enfant</option>
+                
+                <!-- Gestion & Sélection du Profil -->
+                <div class="flex items-center gap-2">
+                    <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600">
+                        <option value="">-- Choisir un profil --</option>
                     </select>
+                    <button onclick="ouvrirModalProfil()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">+ Profil</button>
                 </div>
             </div>
-            <nav class="grid grid-cols-5 gap-1 text-center text-xs font-medium">
+            <nav class="grid grid-cols-6 gap-1 text-center text-[11px] font-medium">
                 <a href="index.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Menu</a>
+                <a href="semaine.html" class="p-2 rounded-xl bg-indigo-50 text-indigo-700 font-bold hover:bg-indigo-100">📅 Semaine PDF</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
                 <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
                 <a href="courses.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Courses</a>
                 <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
             </nav>
         </header>
+
+        <!-- Tableau de Bord Nutritionnel & Budget -->
+        <section id="dashboard-nutri" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-2 hidden">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold text-slate-700 text-xs uppercase tracking-wider">📊 Bilan Nutritionnel du Jour & Budget</h2>
+                <button onclick="ouvrirModalProfil(true)" class="text-[11px] text-blue-600 font-bold hover:underline">Modifier mon profil</button>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-bold">Calories</span>
+                    <strong id="stat-cal" class="text-slate-800">0</strong> / <span id="obj-cal" class="text-blue-600">0</span> kcal
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-bold">Protéines</span>
+                    <strong id="stat-prot" class="text-slate-800">0</strong> / <span id="obj-prot" class="text-blue-600">0</span> g
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-bold">Glucides</span>
+                    <strong id="stat-gluc" class="text-slate-800">0</strong> / <span id="obj-gluc" class="text-blue-600">0</span> g
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-bold">Lipides</span>
+                    <strong id="stat-lip" class="text-slate-800">0</strong> / <span id="obj-lip" class="text-blue-600">0</span> g
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 col-span-2 sm:col-span-1">
+                    <span class="block text-[10px] text-slate-400 font-bold">Budget Semaine</span>
+                    <strong id="stat-budget" class="text-emerald-700">0€</strong> / <span id="obj-budget" class="text-slate-700">0€</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Actions rapides (Génération aléatoire) -->
+        <div class="flex gap-2">
+            <button onclick="genererMenuAleatoire()" class="flex-1 bg-emerald-600 active:bg-emerald-700 text-white p-3 rounded-2xl font-bold text-xs shadow-sm">🎲 Générer le menu de la semaine aléatoirement</button>
+        </div>
 
         <!-- Sélecteur de Jour -->
         <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex overflow-x-auto gap-2 no-scrollbar">
@@ -96,59 +130,163 @@
                     </div>
                     <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
                         <label class="block font-bold text-slate-800 text-xs uppercase tracking-wider">🍫 Grignotage / À-côtés</label>
-                        <textarea id="grignotage" placeholder="Ex: Chocolat, biscuits mangés dans la journée..." class="border border-slate-200 p-2.5 rounded-xl bg-white w-full font-medium h-24"></textarea>
+                        <textarea id="grignotage" placeholder="Ex: Chocolat..." class="border border-slate-200 p-2.5 rounded-xl bg-white w-full font-medium h-24"></textarea>
                     </div>
                 </div>
 
-                <button type="submit" class="w-full bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">Enregistrer le menu</button>
+                <button type="submit" class="w-full bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">Enregistrer le menu du jour</button>
             </form>
         </section>
+    </div>
+
+    <!-- Modal de Création / Modification de Profil -->
+    <div id="modal-profil" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-2xl max-w-md w-full space-y-4 text-xs">
+            <h3 id="modal-profil-title" class="font-bold text-slate-800 text-sm">👤 Créer ou modifier un profil</h3>
+            <form id="form-profil" onsubmit="sauvegarderProfil(event)" class="space-y-3">
+                <div>
+                    <label class="font-bold text-slate-700 block mb-1">Nom du profil :</label>
+                    <input type="text" id=" profil-nom" placeholder="Ex: Thomas" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium" required>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1">Objectif Calories (kcal)</label>
+                        <input type="number" id="profil-cal" placeholder="2000" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
+                    </div>
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1">Budget Semaine (€)</label>
+                        <input type="number" id="profil-budget" placeholder="50" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1">Protéines (g)</label>
+                        <input type="number" id="profil-prot" placeholder="100" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
+                    </div>
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1">Glucides (g)</label>
+                        <input type="number" id="profil-gluc" placeholder="250" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
+                    </div>
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1">Lipides (g)</label>
+                        <input type="number" id="profil-lip" placeholder="70" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
+                    </div>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="submit" class="flex-1 bg-blue-600 text-white p-2.5 rounded-xl font-bold">Enregistrer</button>
+                    <button type="button" onclick="fermerModalProfil()" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold">Annuler</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script>
         const socket = io();
         let jourActuel = 'Lundi';
         let recettesDisponibles = [];
+        let profilsDisponibles = [];
 
         function getProfilActuel() {
             return document.getElementById('select-profil').value;
         }
 
-        function changerProfil() {
-            localStorage.setItem('profil_menu', getProfilActuel());
-            chargerDonnees();
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            const saved = localStorage.getItem('profil_menu');
-            if(saved) {
-                document.getElementById('select-profil').value = saved;
-            }
-            chargerDonnees();
-        });
-
-        async function chargerDonnees() {
+        async function init() {
             try {
-                // Charger les recettes disponibles
-                const resRecettes = await fetch('/api/recettes');
+                const [resRecettes, resProfils] = await Promise.all([
+                    fetch('/api/recettes'),
+                    fetch('/api/profils')
+                ]);
                 recettesDisponibles = await resRecettes.json();
-                
-                peuplerSelects();
+                profilsDisponibles = await resProfils.json();
+
+                peuplerSelectProfils();
+                peuplerSelectsRecettes();
                 chargerMenuJour();
+                calculerNutrisJour();
             } catch (err) {
-                console.error("Erreur de chargement", err);
+                console.error("Erreur initialisation", err);
             }
         }
 
-        function peuplerSelects() {
-            const optionsRecettes = `<option value="">-- Aucun --</option>` + recettesDisponibles.map(r => `<option value="${r.id}">${r.nom}</option>`).join('');
+        function peuplerSelectProfils() {
+            const select = document.getElementById('select-profil');
+            const saved = localStorage.getItem('profil_actif');
             
-            // Selects simples (Entrées / Plats)
+            select.innerHTML = `<option value="">-- Choisir un profil --</option>` + 
+                profilsDisponibles.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+
+            if (saved && profilsDisponibles.some(p => p.nom === saved)) {
+                select.value = saved;
+            } else if (profilsDisponibles.length > 0) {
+                select.value = profilsDisponibles[0].nom;
+                localStorage.setItem('profil_actif', select.value);
+            }
+        }
+
+        function changerProfil() {
+            localStorage.setItem('profil_actif', getProfilActuel());
+            chargerMenuJour();
+            calculerNutrisJour();
+        }
+
+        function ouvrirModalProfil(isEdit = false) {
+            const modal = document.getElementById('modal-profil');
+            modal.classList.remove('hidden');
+            if (isEdit) {
+                const actuel = getProfilActuel();
+                const p = profilsDisponibles.find(x => x.nom === actuel);
+                if (p) {
+                    document.getElementById(' profil-nom').value = p.nom;
+                    document.getElementById('profil-cal').value = p.calories || '';
+                    document.getElementById('profil-budget').value = p.budget || '';
+                    document.getElementById('profil-prot').value = p.proteines || '';
+                    document.getElementById('profil-gluc').value = p.glucides || '';
+                    document.getElementById('profil-lip').value = p.lipides || '';
+                }
+            } else {
+                document.getElementById('form-profil').reset();
+            }
+        }
+
+        function fermerModalProfil() {
+            document.getElementById('modal-profil').classList.add('hidden');
+        }
+
+        async function sauvegarderProfil(e) {
+            e.preventDefault();
+            const nom = document.getElementById(' profil-nom').value.trim();
+            const data = {
+                nom,
+                calories: parseFloat(document.getElementById('profil-cal').value) || 0,
+                budget: parseFloat(document.getElementById('profil-budget').value) || 0,
+                proteines: parseFloat(document.getElementById('profil-prot').value) || 0,
+                glucides: parseFloat(document.getElementById('profil-gluc').value) || 0,
+                lipides: parseFloat(document.getElementById('profil-lip').value) || 0
+            };
+
+            const res = await fetch('/api/profils', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                alert(err.error || "Erreur enregistrement profil");
+                return;
+            }
+
+            fermerModalProfil();
+            localStorage.setItem('profil_actif', nom);
+            init();
+        }
+
+        function peuplerSelectsRecettes() {
+            const optionsRecettes = `<option value="">-- Aucun --</option>` + recettesDisponibles.map(r => `<option value="${r.id}">${r.nom}</option>`).join('');
             ['midi-entree', 'midi-plat', 'soir-entree', 'soir-plat'].forEach(id => {
                 document.getElementById(id).innerHTML = optionsRecettes;
             });
 
-            // Conteneurs à choix multiples (Desserts / Collations)
             const checkboxesHtml = recettesDisponibles.map(r => `
                 <label class="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
                     <input type="checkbox" value="${r.id}" class="rounded text-blue-600 w-4 h-4">
@@ -178,24 +316,24 @@
 
         async function chargerMenuJour() {
             const profil = getProfilActuel();
+            if(!profil) return;
             try {
                 const res = await fetch(`/api/menu?jour=${jourActuel}&profil=${encodeURIComponent(profil)}`);
                 const menu = await res.json();
                 
-                // Remplir les selects simples
                 document.getElementById('midi-entree').value = menu.midiEntree || '';
                 document.getElementById('midi-plat').value = menu.midiPlat || '';
                 document.getElementById('soir-entree').value = menu.soirEntree || '';
                 document.getElementById('soir-plat').value = menu.soirPlat || '';
                 document.getElementById('grignotage').value = menu.grignotage || '';
 
-                // Cocher les cases multiples
                 cocherCasesMultiples('midi-dessert-container', menu.midiDesserts);
                 cocherCasesMultiples('soir-dessert-container', menu.soirDesserts);
                 cocherCasesMultiples('collation-container', menu.collation);
 
+                calculerNutrisJour();
             } catch (err) {
-                console.error("Erreur chargement menu du jour", err);
+                console.error("Erreur chargement menu", err);
             }
         }
 
@@ -203,10 +341,7 @@
             const container = document.getElementById(containerId);
             const checkboxes = container.querySelectorAll('input[type="checkbox"]');
             const listeVal = Array.isArray(valeurs) ? valeurs.map(String) : [];
-            
-            checkboxes.forEach(cb => {
-                cb.checked = listeVal.includes(cb.value);
-            });
+            checkboxes.forEach(cb => cb.checked = listeVal.includes(cb.value));
         }
 
         function recupererCasesMultiples(containerId) {
@@ -215,13 +350,96 @@
             return Array.from(checkboxes).map(cb => cb.value);
         }
 
+        async function calculerNutrisJour() {
+            const profilNom = getProfilActuel();
+            const profil = profilsDisponibles.find(p => p.nom === profilNom);
+            const dashboard = document.getElementById('dashboard-nutri');
+
+            if (!profil) {
+                dashboard.classList.add('hidden');
+                return;
+            }
+
+            dashboard.classList.remove('hidden');
+            document.getElementById('obj-cal').innerText = profil.calories || 0;
+            document.getElementById('obj-prot').innerText = profil.proteines || 0;
+            document.getElementById('obj-gluc').innerText = profil.glucides || 0;
+            document.getElementById('obj-lip').innerText = profil.lipides || 0;
+            document.getElementById('obj-budget').innerText = (profil.budget || 0) + '€';
+
+            // Récupérer le menu actuel du formulaire pour calcul en direct
+            let totalCal = 0, totalProt = 0, totalGluc = 0, totalLip = 0;
+            const idsRecettes = [
+                document.getElementById('midi-entree').value,
+                document.getElementById('midi-plat').value,
+                document.getElementById('soir-entree').value,
+                document.getElementById('soir-plat').value,
+                ...recupererCasesMultiples('midi-dessert-container'),
+                ...recupererCasesMultiples('soir-dessert-container'),
+                ...recupererCasesMultiples('collation-container')
+            ].filter(Boolean);
+
+            idsRecettes.forEach(id => {
+                const r = recettesDisponibles.find(x => x.id == id);
+                if (r) {
+                    totalCal += parseFloat(r.calories || 0);
+                    totalProt += parseFloat(r.proteines || 0);
+                    totalGluc += parseFloat(r.glucides || 0);
+                    totalLip += parseFloat(r.lipides || 0);
+                }
+            });
+
+            document.getElementById('stat-cal').innerText = totalCal.toFixed(0);
+            document.getElementById('stat-prot').innerText = totalProt.toFixed(0);
+            document.getElementById('stat-gluc').innerText = totalGluc.toFixed(0);
+            document.getElementById('stat-lip').innerText = totalLip.toFixed(0);
+            document.getElementById('stat-budget').innerText = `0€`; // Estimé global
+        }
+
+        async function genererMenuAleatoire() {
+            const profil = getProfilActuel();
+            if(!profil) {
+                alert("Veuillez sélectionner un profil.");
+                return;
+            }
+            if(recettesDisponibles.length === 0) {
+                alert("Aucune recette disponible pour générer un menu.");
+                return;
+            }
+
+            const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+            for (const jour of jours) {
+                const randomRecette = () => recettesDisponibles[Math.floor(Math.random() * recettesDisponibles.length)].id;
+                const data = {
+                    jour,
+                    profil,
+                    midiEntree: randomRecette(),
+                    midiPlat: randomRecette(),
+                    midiDesserts: [randomRecette()],
+                    soirEntree: randomRecette(),
+                    soirPlat: randomRecette(),
+                    soirDesserts: [randomRecette()],
+                    collation: [randomRecette()],
+                    grignotage: ''
+                };
+                await fetch('/api/menu', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+            }
+            chargerMenuJour();
+            alert("🎲 Menu de la semaine généré aléatoirement avec succès !");
+        }
+
         async function sauvegarderMenu(e) {
             e.preventDefault();
             const profil = getProfilActuel();
+            if(!profil) return;
 
             const data = {
                 jour: jourActuel,
-                profil: profil,
+                profil,
                 midiEntree: document.getElementById('midi-entree').value,
                 midiPlat: document.getElementById('midi-plat').value,
                 midiDesserts: recupererCasesMultiples('midi-dessert-container'),
@@ -232,22 +450,21 @@
                 grignotage: document.getElementById('grignotage').value.trim()
             };
 
-            const response = await fetch('/api/menu', {
+            const res = await fetch('/api/menu', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             });
 
-            if (response.ok) {
-                alert("✅ Menu enregistré avec succès !");
-            } else {
-                alert("❌ Erreur lors de l'enregistrement.");
+            if(res.ok) {
+                alert("✅ Menu du jour enregistré !");
+                calculerNutrisJour();
             }
         }
 
-        socket.on('data_updated', () => {
-            chargerDonnees();
-        });
+        document.querySelectorAll('select, input').forEach(el => el.addEventListener('change', calculerNutrisJour));
+        socket.on('data_updated', init);
+        init();
     </script>
 </body>
 </html>

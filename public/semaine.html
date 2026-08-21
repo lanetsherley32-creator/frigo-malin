@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Prévu pour la Semaine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen pb-12">
+    <div class="max-w-5xl mx-auto p-3 sm:p-6 space-y-4">
+        
+        <!-- Navigation -->
+        <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3 print:hidden">
+            <div class="flex justify-between items-center">
+                <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">📅 Menu Prévu de la Semaine</h1>
+                <div class="flex items-center gap-2">
+                    <select id="select-profil" onchange="chargerSemaine()" class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600"></select>
+                    <button onclick="telechargerPDF()" class="bg-emerald-600 active:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">📥 Télécharger PDF</button>
+                </div>
+            </div>
+            <nav class="grid grid-cols-6 gap-1 text-center text-[11px] font-medium">
+                <a href="index.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
+                <a href="semaine.html" class="p-2 rounded-xl bg-indigo-600 text-white font-bold shadow-sm">📅 Semaine PDF</a>
+                <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
+                <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
+                <a href="courses.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Courses</a>
+                <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
+            </nav>
+        </header>
+
+        <!-- Zone du Tableau à exporter en PDF -->
+        <div id="pdf-container" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+            <div class="text-center pb-2 border-b border-slate-100">
+                <h2 class="text-base font-bold text-slate-800">🍽️ Planning des Repas de la Semaine</h2>
+                <p id="label-profil-pdf" class="text-xs text-blue-600 font-bold mt-0.5"></p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                            <th class="p-2.5 font-bold">Jour</th>
+                            <th class="p-2.5 font-bold">Petit-déjeuner</th>
+                            <th class="p-2.5 font-bold">Repas 1 (Midi)</th>
+                            <th class="p-2.5 font-bold">Repas 2 (Soir)</th>
+                            <th class="p-2.5 font-bold">Collation / Dessert</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableau-semaine-body" class="divide-y divide-slate-100 text-slate-700">
+                        <!-- Généré en JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let recettesMap = {};
+
+        async function init() {
+            try {
+                const [resRecettes, resProfils] = await Promise.all([
+                    fetch('/api/recettes'),
+                    fetch('/api/profils')
+                ]);
+                const recettes = await resRecettes.json();
+                const profils = await resProfils.json();
+
+                recettesMap = recettes.reduce((acc, r) => ({ ...acc, [r.id]: r.nom }), {});
+
+                const select = document.getElementById('select-profil');
+                const saved = localStorage.getItem('profil_actif');
+                select.innerHTML = profils.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+                if (saved && profils.some(p => p.nom === saved)) select.value = saved;
+                else if (profils.length > 0) select.value = profils[0].nom;
+
+                chargerSemaine();
+            } catch (err) {
+                console.error("Erreur init", err);
+            }
+        }
+
+        async function chargerSemaine() {
+            const profil = document.getElementById('select-profil').value;
+            localStorage.setItem('profil_actif', profil);
+            document.getElementById('label-profil-pdf').innerText = `Profil : ${profil}`;
+
+            const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+            const tbody = document.getElementById('tableau-semaine-body');
+            tbody.innerHTML = '';
+
+            for (const jour of jours) {
+                try {
+                    const res = await fetch(`/api/menu?jour=${jour}&profil=${encodeURIComponent(profil)}`);
+                    const menu = await res.json();
+
+                    const midi = [menu.midiEntree, menu.midiPlat].map(id => recettesMap[id]).filter(Boolean).join(' + ') || '-';
+                    const soir = [menu.soirEntree, menu.soirPlat].map(id => recettesMap[id]).filter(Boolean).join(' + ') || '-';
+                    
+                    const dessertsMidi = (menu.midiDesserts || []).map(id => recettesMap[id]).filter(Boolean);
+                    const dessertsSoir = (menu.soirDesserts || []).map(id => recettesMap[id]).filter(Boolean);
+                    const collations = (menu.collation || []).map(id => recettesMap[id]).filter(Boolean);
+                    const collationDessert = [...collations, ...dessertsMidi, ...dessertsSoir].join(', ') || '-';
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-2.5 font-bold text-slate-800">${jour}</td>
+                            <td class="p-2.5 text-slate-400 italic">Non renseigné</td>
+                            <td class="p-2.5">${midi}</td>
+                            <td class="p-2.5">${soir}</td>
+                            <td class="p-2.5">${collationDessert}</td>
+                        </tr>
+                    `;
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        }
+
+        function telechargerPDF() {
+            const element = document.getElementById('pdf-container');
+            const opt = {
+                margin:       10,
+                filename:     `menu-semaine-${document.getElementById('select-profil').value}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+            html2pdf().from(element).set(opt).save();
+        }
+
+        socket.on('data_updated', chargerSemaine);
+        init();
+    </script>
+</body>
+</html>

@@ -14,19 +14,17 @@
         <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
             <div class="flex justify-between items-center">
                 <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🛒 Liste de Courses</h1>
-                <!-- Sélecteur de profil synchronisé (Commun, Papa, Maman, Enfant) -->
+                <!-- Sélecteur de profil dynamique relié aux profils créés -->
                 <div class="flex items-center gap-1.5">
                     <span class="text-[10px] font-bold text-slate-400 uppercase">Profil :</span>
                     <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-bold text-blue-600">
-                        <option value="Commun">Commun</option>
-                        <option value="Papa">Papa</option>
-                        <option value="Maman">Maman</option>
-                        <option value="Enfant">Enfant</option>
+                        <option value="">Chargement...</option>
                     </select>
                 </div>
             </div>
-            <nav class="grid grid-cols-5 gap-1 text-center text-xs font-medium">
+            <nav class="grid grid-cols-6 gap-1 text-center text-[11px] font-medium">
                 <a href="index.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
+                <a href="semaine.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">📅 Semaine</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
                 <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
                 <a href="courses.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Courses</a>
@@ -92,25 +90,40 @@
         }
 
         function changerProfil() {
-            // Utilisation de la même clé partagée avec le Menu et le Frigo
             localStorage.setItem('profil_actif', getProfilActuel());
             chargerCourses();
         }
 
-        // Chargement initial du profil partagé
-        window.addEventListener('DOMContentLoaded', () => {
-            const saved = localStorage.getItem('profil_actif');
-            if(saved) {
-                document.getElementById('select-profil').value = saved;
+        async function init() {
+            try {
+                const resProfils = await fetch('/api/profils');
+                const profils = await resProfils.json();
+                
+                const select = document.getElementById('select-profil');
+                const saved = localStorage.getItem('profil_actif');
+
+                select.innerHTML = profils.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+
+                if (saved && profils.some(p => p.nom === saved)) {
+                    select.value = saved;
+                } else if (profils.length > 0) {
+                    select.value = profils[0].nom;
+                    localStorage.setItem('profil_actif', select.value);
+                }
+
+                chargerCourses();
+            } catch (err) {
+                console.error("Erreur chargement profils", err);
             }
-            chargerCourses();
-        });
+        }
 
         async function chargerCourses() {
             const enseigne = document.getElementById('select-enseigne').value;
             const inclureDeja = document.getElementById('check-deja').checked;
             const profil = getProfilActuel();
             
+            if (!profil) return;
+
             try {
                 const res = await fetch(`/api/courses?enseigne=${enseigne}&inclureDeja=${inclureDeja}&profil=${encodeURIComponent(profil)}`);
                 const courses = await res.json();
@@ -214,7 +227,8 @@
             chargerCourses();
         }
 
-        socket.on('data_updated', chargerCourses);
+        socket.on('data_updated', init);
+        init();
     </script>
 </body>
 </html>
