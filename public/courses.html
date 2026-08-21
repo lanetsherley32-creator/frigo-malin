@@ -5,21 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Liste de Courses</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen pb-12">
     <div class="max-w-4xl mx-auto p-3 sm:p-6 space-y-4">
         
         <!-- Navigation Mobile Friendly -->
-        <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
-            <div class="flex justify-between items-center">
+        <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3 print:hidden">
+            <div class="flex justify-between items-center flex-wrap gap-2">
                 <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🛒 Liste de Courses</h1>
-                <!-- Sélecteur de profil dynamique relié aux profils créés -->
-                <div class="flex items-center gap-1.5">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase">Profil :</span>
-                    <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-bold text-blue-600">
-                        <option value="">Chargement...</option>
-                    </select>
+                <!-- Sélecteur de profil dynamique & Bouton PDF -->
+                <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">Profil :</span>
+                        <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-bold text-blue-600">
+                            <option value="">Chargement...</option>
+                        </select>
+                    </div>
+                    <button onclick="telechargerPDF()" class="bg-emerald-600 active:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">📥 Télécharger PDF</button>
                 </div>
             </div>
             <nav class="grid grid-cols-6 gap-1 text-center text-[11px] font-medium">
@@ -32,8 +36,8 @@
             </nav>
         </header>
 
-        <!-- Formulaire et Options -->
-        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+        <!-- Formulaire et Options (Masqués à l'export PDF) -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4 print:hidden">
             
             <!-- Ajout manuel d'un article à la volée -->
             <div class="space-y-1.5">
@@ -71,15 +75,23 @@
             </div>
         </section>
 
-        <!-- Total estimé -->
-        <div id="total-affichage" class="text-xs font-bold text-slate-600 px-2"></div>
-
-        <!-- Liste triée par rayons -->
-        <section class="space-y-4">
-            <div id="liste-courses-container" class="space-y-4">
-                <p class="text-slate-400 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Chargement de la liste...</p>
+        <!-- Zone capturée pour le PDF -->
+        <div id="pdf-container" class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h2 class="text-sm font-bold text-slate-800">📋 Liste des courses à effectuer</h2>
+                <span id="label-profil-pdf" class="text-xs text-blue-600 font-bold"></span>
             </div>
-        </section>
+
+            <!-- Total estimé -->
+            <div id="total-affichage" class="text-xs font-bold text-slate-600 px-1"></div>
+
+            <!-- Liste triée par rayons -->
+            <section class="space-y-4">
+                <div id="liste-courses-container" class="space-y-4">
+                    <p class="text-slate-400 italic text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center">Chargement de la liste...</p>
+                </div>
+            </section>
+        </div>
     </div>
 
     <script>
@@ -123,6 +135,7 @@
             const profil = getProfilActuel();
             
             if (!profil) return;
+            document.getElementById('label-profil-pdf').innerText = `Profil : ${profil}`;
 
             try {
                 const res = await fetch(`/api/courses?enseigne=${enseigne}&inclureDeja=${inclureDeja}&profil=${encodeURIComponent(profil)}`);
@@ -138,7 +151,7 @@
             
             if (!courses || courses.length === 0) {
                 document.getElementById('total-affichage').innerText = '';
-                container.innerHTML = `<p class="text-slate-400 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Votre liste de courses est vide pour ce profil.</p>`;
+                container.innerHTML = `<p class="text-slate-400 italic text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center">Votre liste de courses est vide pour ce profil.</p>`;
                 return;
             }
 
@@ -157,7 +170,7 @@
                     <h3 class="text-[11px] font-bold text-slate-500 uppercase px-1 tracking-wider">📌 ${rayon}</h3>
                     <div class="space-y-2">
                         ${groupes[rayon].map(item => `
-                            <div class="bg-white border border-slate-200 p-3.5 rounded-2xl shadow-sm flex items-center justify-between gap-3 text-xs">
+                            <div class="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl shadow-sm flex items-center justify-between gap-3 text-xs">
                                 <label class="flex items-center gap-3 flex-1 cursor-pointer select-none">
                                     <input type="checkbox" ${item.achete ? 'checked' : ''} onchange="toggleAchete(${item.id}, this.checked)" class="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
                                     <span class="font-bold text-slate-800 text-sm ${item.achete ? 'line-through text-slate-400' : ''}">${item.nom}</span>
@@ -165,13 +178,25 @@
                                 <div class="flex items-center gap-2">
                                     <span class="font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-xl border border-blue-100 whitespace-nowrap">${item.quantite || 1} ${item.unite || ''}</span>
                                     <span class="font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-xl border border-emerald-100 whitespace-nowrap">${item.prix ? item.prix + '€' : '0€'}</span>
-                                    <button onclick="supprimerItem(${item.id})" class="bg-rose-50 active:bg-rose-100 text-rose-600 p-2 rounded-xl font-bold border border-rose-200">✕</button>
+                                    <button onclick="supprimerItem(${item.id})" class="bg-rose-50 active:bg-rose-100 text-rose-600 p-2 rounded-xl font-bold border border-rose-200 print:hidden">✕</button>
                                 </div>
                             </div>
                         `).join('')}
                     </div>
                 </div>
             `).join('');
+        }
+
+        function telechargerPDF() {
+            const element = document.getElementById('pdf-container');
+            const opt = {
+                margin:       10,
+                filename:     `liste-courses-${document.getElementById('select-profil').value}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().from(element).set(opt).save();
         }
 
         async function ajouterArticleManuel() {
