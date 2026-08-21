@@ -11,8 +11,11 @@
         .nav a { margin-right: 15px; text-decoration: none; color: #007bff; font-weight: bold; }
         
         .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        form input, form select, form textarea { width: 100%; padding: 8px; margin: 5px 0 15px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        form input, form textarea { width: 100%; padding: 8px; margin: 5px 0 15px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         
+        .categories-container { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 4px; }
+        .categories-container label { font-weight: normal; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+
         .btn-success { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 16px; }
         .btn-success:hover { background: #218838; }
         .btn-warning { background: #ffc107; color: #333; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
@@ -22,10 +25,10 @@
         .recette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; }
         .recette-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #007bff; }
         .recette-card h3 { margin-top: 0; color: #007bff; }
-        .badge { background: #e9ecef; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge { background: #e9ecef; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-right: 3px; display: inline-block; margin-bottom: 3px; }
         
         .ingredient-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
-        .ingredient-row select { flex: 2; margin: 0; }
+        .ingredient-row select { flex: 2; margin: 0; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
         .ingredient-row input { flex: 1; margin: 0; }
     </style>
 </head>
@@ -50,37 +53,38 @@
             <label for="nom">Nom de la recette :</label>
             <input type="text" id="nom" required placeholder="Ex: Pâtes à la carbonara">
 
-            <label for="categorie">Catégorie :</label>
-            <select id="categorie">
-                <option value="Plat">Plat</option>
-                <option value="Entrée">Entrée</option>
-                <option value="Dessert">Dessert</option>
-                <option value="Petit-déjeuner">Petit-déjeuner</option>
-            </select>
+            <label>Catégories (plusieurs choix possibles) :</label>
+            <div class="categories-container" id="categories-checkboxes">
+                <label><input type="checkbox" name="categorie" value="Plat"> Plat</label>
+                <label><input type="checkbox" name="categorie" value="Entrée"> Entrée</label>
+                <label><input type="checkbox" name="categorie" value="Dessert"> Dessert</label>
+                <label><input type="checkbox" name="categorie" value="Petit-déjeuner"> Petit-déjeuner</label>
+                <label><input type="checkbox" name="categorie" value="Végétarien"> Végétarien</label>
+                <label><input type="checkbox" name="categorie" value="Rapide"> Rapide</label>
+            </div>
 
             <label for="parts">Nombre de parts :</label>
-            <input type="number" id="parts" value="4" min="1" required>
+            <input type="number" id="parts" value="4" min="1" required oninput="calculerCoutEtNutriments()">
 
             <label>Ingrédients (sélectionnez depuis votre base) :</label>
-            <div id="liste-ingredients-container">
-                <!-- Les lignes d'ingrédients dynamiques s'ajouteront ici -->
-            </div>
+            <div id="liste-ingredients-container"></div>
             <button type="button" class="btn-secondary" onclick="ajouterLigneIngredient()">+ Ajouter un ingrédient</button>
             <br><br>
 
             <label for="etapes">Étapes de préparation :</label>
             <textarea id="etapes" rows="3" placeholder="1. Cuire les pâtes..."></textarea>
 
-            <label for="cout">Coût total (€) :</label>
-            <input type="number" step="0.01" id="cout" required placeholder="Ex: 4.50">
+            <label for="cout">Coût total total (€) :</label>
+            <input type="number" step="0.01" id="cout" required placeholder="Ex: 6.00" oninput="calculerCoutEtNutriments()">
 
-            <!-- Affichage automatique des apports calculés -->
-            <div style="background: #eef2f7; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
-                <strong>Apports nutritionnels calculés (pour la recette entière) :</strong><br>
-                🔥 Calories : <span id="calc-calories">0</span> kcal | 
-                💪 Protéines : <span id="calc-proteines">0</span> g | 
-                🍞 Glucides : <span id="calc-glucides">0</span> g | 
-                🥑 Lipides : <span id="calc-lipides">0</span> g
+            <!-- Affichage automatique des calculs -->
+            <div style="background: #eef2f7; padding: 12px; border-radius: 5px; margin-bottom: 15px; line-height: 1.6;">
+                <strong>💰 Coût par part :</strong> <span id="calc-cout-part">0.00</span> €<br>
+                <strong>🔥 Apports nutritionnels (totaux) :</strong><br>
+                Calories : <span id="calc-calories">0</span> kcal | 
+                Protéines : <span id="calc-proteines">0</span> g | 
+                Glucides : <span id="calc-glucides">0</span> g | 
+                Lipides : <span id="calc-lipides">0</span> g
             </div>
 
             <button type="submit" class="btn-success" id="btn-submit">Enregistrer la recette</button>
@@ -99,7 +103,6 @@
         const socket = io();
         let tousLesIngredients = [];
 
-        // Charger la liste des ingrédients disponibles pour les sélecteurs
         function chargerIngredientsDisponibles(callback) {
             fetch('/api/ingredients')
                 .then(res => res.json())
@@ -110,7 +113,6 @@
                 .catch(err => console.error("Erreur chargement ingrédients:", err));
         }
 
-        // Ajouter une ligne d'ingrédient dans le formulaire
         function ajouterLigneIngredient(idIng = "", quantite = "") {
             const container = document.getElementById('liste-ingredients-container');
             const div = document.createElement('div');
@@ -122,15 +124,23 @@
             });
 
             div.innerHTML = `
-                <select class="ing-select" onchange="calculerNutrimentsRecette()">${options}</select>
-                <input type="number" step="0.1" class="ing-qte" placeholder="Quantité (g ou ml)" value="${quantite}" oninput="calculerNutrimentsRecette()">
-                <button type="button" class="btn-danger" onclick="this.parentElement.remove(); calculerNutrimentsRecette();">X</button>
+                <select class="ing-select" onchange="calculerCoutEtNutriments()">${options}</select>
+                <input type="number" step="0.1" class="ing-qte" placeholder="Quantité (g/ml)" value="${quantite}" oninput="calculerCoutEtNutriments()">
+                <button type="button" class="btn-danger" onclick="this.parentElement.remove(); calculerCoutEtNutriments();">X</button>
             `;
             container.appendChild(div);
         }
 
-        // Calcul automatique des nutriments en fonction des ingrédients et quantités (basé sur 100g)
-        function calculerNutrimentsRecette() {
+        // Calcul automatique du coût par part et des apports
+        function calculerCoutEtNutriments() {
+            const parts = parseInt(document.getElementById('parts').value) || 1;
+            const coutTotal = parseFloat(document.getElementById('cout').value) || 0;
+            
+            // Coût par part
+            const coutPart = coutTotal / parts;
+            document.getElementById('calc-cout-part').innerText = coutPart.toFixed(2);
+
+            // Nutriments
             let totalCal = 0, totalPro = 0, totalGlu = 0, totalLip = 0;
             
             document.querySelectorAll('.ingredient-row').forEach(row => {
@@ -143,7 +153,6 @@
                 if (ingId && qte > 0) {
                     const ing = tousLesIngredients.find(i => i.id == ingId);
                     if (ing) {
-                        // Formule : (Valeur pour 100g * quantité) / 100
                         totalCal += (ing.calories * qte) / 100;
                         totalPro += (ing.proteines * qte) / 100;
                         totalGlu += (ing.glucides * qte) / 100;
@@ -158,7 +167,6 @@
             document.getElementById('calc-lipides').innerText = totalLip.toFixed(1);
         }
 
-        // Charger et afficher les recettes
         function chargerRecettes() {
             fetch('/api/recettes')
                 .then(res => res.json())
@@ -168,11 +176,19 @@
                         container.innerHTML = '<p>Aucune recette pour le moment.</p>';
                         return;
                     }
-                    container.innerHTML = data.map(r => `
+                    container.innerHTML = data.map(r => {
+                        // Gérer l'affichage des catégories multiples
+                        let categoriesHtml = '';
+                        if (r.categorie) {
+                            categoriesHtml = r.categorie.split(',').map(c => `<span class="badge">${c.trim()}</span>`).join(' ');
+                        }
+                        const coutParPart = r.parts > ? (r.cout / r.parts).toFixed(2) : r.cout; // Correction syntaxe gérée ci-dessous
+
+                        return `
                         <div class="recette-card">
                             <h3>${r.nom}</h3>
-                            <p><span class="badge">${r.categorie || 'Plat'}</span> | <strong>Parts :</strong> ${r.parts || 1}</p>
-                            <p><strong>Coût :</strong> ${r.cout ? r.cout + ' €' : '0 €'}</p>
+                            <p>${categoriesHtml} | <strong>Parts :</strong> ${r.parts || 1}</p>
+                            <p><strong>Coût :</strong> ${r.cout ? r.cout + ' €' : '0 €'} <em>(${r.parts ? (r.cout / r.parts).toFixed(2) : 0} € / part)</em></p>
                             <p><strong>Ingrédients :</strong><br>${r.ingredients || 'Aucun'}</p>
                             <p><strong>Étapes :</strong><br>${r.etapes ? r.etapes.replace(/\n/g, '<br>') : 'Aucune'}</p>
                             <p><strong>Apports totaux :</strong> ${r.calories || 0} kcal (Pro: ${r.proteines || 0}g, Glu: ${r.glucides || 0}g, Lip: ${r.lipides || 0}g)</p>
@@ -180,48 +196,57 @@
                             <button class="btn-warning" onclick='preparerModification(${JSON.stringify(r)})'>Modifier</button>
                             <button class="btn-danger" onclick="supprimerRecette(${r.id})">Supprimer</button>
                         </div>
-                    `).join('');
+                    `;
+                    }).join('');
                 })
                 .catch(err => console.error("Erreur chargement recettes:", err));
         }
 
-        // Remplir le formulaire pour modification
         function preparerModification(r) {
             document.getElementById('recette-id').value = r.id;
             document.getElementById('nom').value = r.nom;
-            document.getElementById('categorie').value = r.categorie;
             document.getElementById('parts').value = r.parts;
             document.getElementById('etapes').value = r.etapes;
             document.getElementById('cout').value = r.cout;
             
+            // Cocher les catégories correspondantes
+            const cats = r.categorie ? r.categorie.split(',').map(c => c.trim()) : [];
+            document.querySelectorAll('input[name="categorie"]').forEach(cb => {
+                cb.checked = cats.includes(cb.value);
+            });
+
             document.getElementById('titre-formulaire').innerText = "✏️ Modifier la recette";
             document.getElementById('btn-submit').innerText = "Mettre à jour";
             document.getElementById('btn-annuler').style.display = "inline-block";
 
-            // Reconstituer les lignes d'ingrédients stockés en texte (ou via un format parsable)
             document.getElementById('liste-ingredients-container').innerHTML = '';
-            // Si vos ingrédients sont stockés sous forme de texte brut, on peut en rajouter une ligne vide par défaut
             ajouterLigneIngredient();
+            calculerCoutEtNutriments();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function reinitialiserFormulaire() {
             document.getElementById('form-recette').reset();
             document.getElementById('recette-id').value = "";
+            document.querySelectorAll('input[name="categorie"]').forEach(cb => cb.checked = false);
             document.getElementById('titre-formulaire').innerText = "🍳 Ajouter une nouvelle recette";
             document.getElementById('btn-submit').innerText = "Enregistrer la recette";
             document.getElementById('btn-annuler').style.display = "none";
             document.getElementById('liste-ingredients-container').innerHTML = '';
             ajouterLigneIngredient();
-            calculerNutrimentsRecette();
+            calculerCoutEtNutriments();
         }
 
-        // Soumission du formulaire (Ajout ou Modification)
         document.getElementById('form-recette').addEventListener('submit', (e) => {
             e.preventDefault();
             const id = document.getElementById('recette-id').value;
             
-            // Rassembler les ingrédients textuels
+            // Récupérer toutes les catégories cochées
+            const categoriesSelectionnees = [];
+            document.querySelectorAll('input[name="categorie"]:checked').forEach(cb => {
+                categoriesSelectionnees.push(cb.value);
+            });
+
             let ingredientsTexte = [];
             document.querySelectorAll('.ingredient-row').forEach(row => {
                 const select = row.querySelector('.ing-select');
@@ -234,7 +259,7 @@
 
             const recetteData = {
                 nom: document.getElementById('nom').value,
-                categorie: document.getElementById('categorie').value,
+                categorie: categoriesSelectionnees.join(', '),
                 parts: parseInt(document.getElementById('parts').value),
                 ingredients: ingredientsTexte.join(', '),
                 etapes: document.getElementById('etapes').value,
@@ -269,7 +294,6 @@
             }
         }
 
-        // Initialisation au chargement de la page
         chargerIngredientsDisponibles(() => {
             ajouterLigneIngredient();
             chargerRecettes();
