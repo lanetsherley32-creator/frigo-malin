@@ -10,9 +10,9 @@
 <body class="bg-slate-100 min-h-screen pb-12">
     <div class="max-w-4xl mx-auto p-3 sm:p-6 space-y-4">
         
-        <!-- Navigation Mobile Friendly -->
+        <!-- Navigation -->
         <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
-            <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">📖 Gestion des Recettes</h1>
+            <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🍲 Gestion des Recettes</h1>
             <nav class="grid grid-cols-5 gap-1 text-center text-xs font-medium">
                 <a href="index.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Recettes</a>
@@ -22,115 +22,94 @@
             </nav>
         </header>
 
-        <!-- Recherche TheMealDB -->
-        <section class="bg-amber-50 p-4 rounded-2xl shadow-sm border border-amber-200 space-y-3">
-            <h2 class="font-bold text-amber-900 text-sm flex items-center gap-1.5">🔍 Rechercher en ligne (TheMealDB)</h2>
-            <div class="flex flex-col sm:flex-row gap-2">
-                <input type="text" id="mealdb-search" placeholder="Ex: Chicken Curry, Pasta, Salad..." class="border border-amber-200 p-2.5 rounded-xl bg-white flex-1 text-xs font-medium">
-                <button type="button" onclick="chercherMealDB()" class="bg-amber-600 active:bg-amber-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm whitespace-nowrap">Rechercher</button>
-            </div>
-            <div id="mealdb-results" class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto"></div>
-        </section>
-
         <!-- Formulaire Recette -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-            <h2 id="form-title" class="font-bold text-slate-700 text-sm">➕ Ajouter une recette</h2>
+            <h2 id="form-title" class="font-bold text-slate-700 text-sm">➕ Ajouter ou modifier une recette</h2>
             <form id="form-recette" onsubmit="sauvegarderRecette(event)" class="space-y-4 text-xs">
-                <div class="space-y-3">
-                    <input type="text" id="nom" placeholder="Nom de la recette" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium" required>
-                    <textarea id="description" placeholder="Description / Instructions" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full h-20 font-medium"></textarea>
+                <input type="hidden" id="recette-id">
+                
+                <div class="space-y-1.5">
+                    <label class="font-bold text-slate-700 text-xs">Nom de la recette :</label>
+                    <input type="text" id="nom" placeholder="Ex: Tarte aux pommes" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium" required>
                 </div>
 
-                <!-- Catégories Multiples -->
-                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
-                    <label class="block font-bold text-slate-700 text-xs">Catégories compatibles :</label>
-                    <div class="flex flex-wrap gap-4 text-slate-600">
-                        <label class="flex items-center gap-1.5 font-medium"><input type="checkbox" name="repas_cat" value="PetitDej" class="rounded border-slate-300"> Petit-déjeuner</label>
-                        <label class="flex items-center gap-1.5 font-medium"><input type="checkbox" name="repas_cat" value="Repas" class="rounded border-slate-300"> Repas (Midi/Soir)</label>
-                        <label class="flex items-center gap-1.5 font-medium"><input type="checkbox" name="repas_cat" value="Collation" class="rounded border-slate-300"> Collation</label>
+                <!-- Valeurs nutritionnelles -->
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+                    <span class="block font-bold text-slate-700 text-xs">Valeurs nutritionnelles totales :</span>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div>
+                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Calories (kcal)</label>
+                            <input type="number" step="any" id="calories" placeholder="0" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Protéines (g)</label>
+                            <input type="number" step="any" id="proteines" placeholder="0" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Glucides (g)</label>
+                            <input type="number" step="any" id="glucides" placeholder="0" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Lipides (g)</label>
+                            <input type="number" step="any" id="lipides" placeholder="0" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
+                        </div>
                     </div>
                 </div>
 
-                <!-- Ingrédients -->
-                <div class="border-t border-slate-100 pt-3 space-y-2">
-                    <div class="flex justify-between items-center">
-                        <label class="font-bold text-slate-700 text-xs">Ingrédients nécessaires :</label>
-                        <button type="button" onclick="ajouterLigneIngredientRecette()" class="bg-slate-100 active:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl font-bold text-xs">+ Ajouter</button>
-                    </div>
-                    <div id="liste-ingredients-recette" class="space-y-2"></div>
+                <div class="flex gap-2">
+                    <button type="submit" class="flex-1 bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">Enregistrer la recette</button>
+                    <button type="button" id="btn-annuler" onclick="reinitialiserFormulaire()" class="hidden bg-slate-200 active:bg-slate-300 text-slate-700 px-4 py-3 rounded-xl font-bold">Annuler</button>
                 </div>
-
-                <button type="submit" class="w-full bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">Enregistrer la recette</button>
             </form>
         </section>
 
         <!-- Liste des Recettes -->
         <section class="space-y-3">
             <h2 class="font-bold text-slate-700 text-sm">📋 Liste des Recettes Enregistrées</h2>
-            <div id="liste-recettes-container" class="space-y-3">
+            <div id="liste-recettes-container" class="space-y-2">
                 <p class="text-slate-400 italic text-xs">Chargement...</p>
             </div>
         </section>
     </div>
 
     <script>
-        const socket = io();
-        let ingredientsDisponibles = [];
-
-        async function init() {
-            const resIng = await fetch('/api/ingredients');
-            ingredientsDisponibles = await resIng.json();
-            const resRec = await fetch('/api/recettes');
-            const recettes = await resRec.json();
-            renderRecettes(recettes);
-            if (document.getElementById('liste-ingredients-recette').children.length === 0) {
-                ajouterLigneIngredientRecette();
-            }
+        let socket;
+        try {
+            socket = io();
+            socket.on('data_updated', init);
+        } catch (e) {
+            console.warn("Socket.io non initialisé", e);
         }
 
-        function ajouterLigneIngredientRecette(ingId = '', quantite = '') {
-            const container = document.getElementById('liste-ingredients-recette');
-            const div = document.createElement('div');
-            div.className = "flex gap-2 items-center recette-ing-row";
-
-            let options = ingredientsDisponibles.map(i => `<option value="${i.id}" ${i.id == ingId ? 'selected' : ''}>${i.nom} (${i.unite || 'g'})</option>`).join('');
-
-            div.innerHTML = `
-                <select class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 flex-1 recette-ing-id font-medium">
-                    <option value="">-- Choisir un ingrédient --</option>
-                    ${options}
-                </select>
-                <input type="number" step="any" placeholder="Quantité" value="${quantite}" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-28 recette-ing-qte font-medium">
-                <button type="button" onclick="this.parentElement.remove()" class="bg-rose-100 text-rose-600 active:bg-rose-200 px-3 py-2.5 rounded-xl font-bold">✕</button>
-            `;
-            container.appendChild(div);
+        async function init() {
+            try {
+                const res = await fetch('/api/recettes');
+                if (!res.ok) throw new Error("Erreur réseau");
+                const recettes = await res.json();
+                renderRecettes(recettes);
+            } catch (err) {
+                console.error("Erreur chargement recettes:", err);
+                document.getElementById('liste-recettes-container').innerHTML = `<p class="text-rose-500 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Erreur de chargement des recettes.</p>`;
+            }
         }
 
         async function sauvegarderRecette(e) {
             e.preventDefault();
             
-            const rows = document.querySelectorAll('.recette-ing-row');
-            let ingredients = [];
-            rows.forEach(row => {
-                let id = row.querySelector('.recette-ing-id').value;
-                let qte = parseFloat(row.querySelector('.recette-ing-qte').value) || 0;
-                if (id) {
-                    ingredients.push({ ingredient_id: id, quantite: qte });
-                }
-            });
-
-            const checkboxes = document.querySelectorAll('input[name="repas_cat"]:checked');
-            const categoriesRepas = Array.from(checkboxes).map(cb => cb.value);
-
+            const id = document.getElementById('recette-id').value;
             const data = {
                 nom: document.getElementById('nom').value.trim(),
-                description: document.getElementById('description').value.trim(),
-                categories_repas: categoriesRepas,
-                ingredients
+                calories: parseFloat(document.getElementById('calories').value) || 0,
+                proteines: parseFloat(document.getElementById('proteines').value) || 0,
+                glucides: parseFloat(document.getElementById('glucides').value) || 0,
+                lipides: parseFloat(document.getElementById('lipides').value) || 0
             };
 
-            const response = await fetch('/api/recettes', {
-                method: 'POST',
+            const url = id ? `/api/recettes/${id}` : '/api/recettes';
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             });
@@ -141,10 +120,49 @@
                 return;
             }
 
-            document.getElementById('form-recette').reset();
-            document.getElementById('liste-ingredients-recette').innerHTML = '';
-            ajouterLigneIngredientRecette();
+            reinitialiserFormulaire();
             init();
+        }
+
+        function renderRecettes(recettes) {
+            const container = document.getElementById('liste-recettes-container');
+            if (!recettes || recettes.length === 0) {
+                container.innerHTML = `<p class="text-slate-400 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Aucune recette enregistrée.</p>`;
+                return;
+            }
+
+            container.innerHTML = recettes.map(r => `
+                <div class="bg-white border border-slate-200 p-3.5 rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
+                    <div class="space-y-1">
+                        <h3 class="font-bold text-slate-800 text-sm">${r.nom}</h3>
+                        <p class="text-emerald-700 font-medium">🔥 ${r.calories || 0} kcal | P: ${r.proteines || 0}g | G: ${r.glucides || 0}g | L: ${r.lipides || 0}g</p>
+                    </div>
+                    <div class="flex gap-2 w-full sm:w-auto justify-end">
+                        <button onclick='preparerModification(${JSON.stringify(r)})' class="bg-slate-100 active:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl font-bold">Modifier</button>
+                        <button onclick="supprimerRecette(${r.id})" class="bg-rose-100 active:bg-rose-200 text-rose-600 px-3 py-1.5 rounded-xl font-bold">Supprimer</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function preparerModification(r) {
+            document.getElementById('recette-id').value = r.id;
+            document.getElementById('nom').value = r.nom || '';
+            document.getElementById('calories').value = r.calories || 0;
+            document.getElementById('proteines').value = r.proteines || 0;
+            document.getElementById('glucides').value = r.glucides || 0;
+            document.getElementById('lipides').value = r.lipides || 0;
+            
+            document.getElementById('form-title').innerText = "✏️ Modifier la recette";
+            document.getElementById('btn-annuler').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function reinitialiserFormulaire() {
+            document.getElementById('form-recette').reset();
+            document.getElementById('recette-id').value = '';
+            document.getElementById('form-title').innerText = "➕ Ajouter ou modifier une recette";
+            document.getElementById('btn-annuler').classList.add('hidden');
         }
 
         async function supprimerRecette(id) {
@@ -154,84 +172,6 @@
             }
         }
 
-        async function chercherMealDB() {
-            const query = document.getElementById('mealdb-search').value.trim();
-            if (!query) return;
-
-            const res = await fetch(`https://www.themealdb.com/api/json/v1/1/search.php?s=${query}`);
-            const data = await res.json();
-            const resultsContainer = document.getElementById('mealdb-results');
-
-            if (!data.meals) {
-                resultsContainer.innerHTML = `<div class="text-amber-800 italic text-xs p-2">Aucune recette trouvée.</div>`;
-                return;
-            }
-
-            resultsContainer.innerHTML = data.meals.map(meal => `
-                <div class="bg-white border border-amber-200 p-2.5 rounded-xl flex justify-between items-center text-xs">
-                    <span class="font-bold text-slate-800">${meal.strMeal}</span>
-                    <button type="button" onclick='importerMealDB(${JSON.stringify(meal).replace(/'/g, "&#39;")})' class="bg-amber-600 active:bg-amber-700 text-white px-3 py-1.5 rounded-lg font-bold">Importer</button>
-                </div>
-            `).join('');
-        }
-
-        function importerMealDB(meal) {
-            document.getElementById('nom').value = meal.strMeal;
-            document.getElementById('description').value = meal.strInstructions || '';
-            document.getElementById('liste-ingredients-recette').innerHTML = '';
-
-            for (let i = 1; i <= 20; i++) {
-                let ingredientName = meal[`strIngredient${i}`];
-                let measure = meal[`strMeasure${i}`];
-                if (ingredientName && ingredientName.trim() !== "") {
-                    let match = ingredientsDisponibles.find(ing => ing.nom.toLowerCase().includes(ingredientName.toLowerCase()));
-                    let ingId = match ? match.id : '';
-                    let qte = parseFloat(measure) || 100;
-                    ajouterLigneIngredientRecette(ingId, qte);
-                }
-            }
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function renderRecettes(recettes) {
-            const container = document.getElementById('liste-recettes-container');
-            if (recettes.length === 0) {
-                container.innerHTML = `<div class="bg-white p-4 rounded-2xl border border-slate-200 text-slate-400 italic text-center text-xs">Aucune recette enregistrée.</div>`;
-                return;
-            }
-
-            container.innerHTML = recettes.map(r => {
-                const cats = r.categories_repas ? r.categories_repas.join(', ') : 'Aucune';
-                
-                let totalKcal = 0, totalProt = 0, totalGluc = 0, totalLip = 0;
-                (r.ingredients || []).forEach(i => {
-                    let facteur = i.quantite / 100;
-                    totalKcal += (i.calories || 0) * facteur;
-                    totalProt += (i.proteines || 0) * facteur;
-                    totalGluc += (i.glucides || 0) * facteur;
-                    totalLip += (i.lipides || 0) * facteur;
-                });
-
-                return `
-                    <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-2 text-xs">
-                        <div class="flex justify-between items-start gap-2">
-                            <h3 class="font-bold text-blue-900 text-sm">${r.nom}</h3>
-                            <button onclick="supprimerRecette(${r.id})" class="text-rose-500 font-bold whitespace-nowrap">Supprimer</button>
-                        </div>
-                        <div class="text-slate-400 italic">Catégories : ${cats}</div>
-                        <p class="text-slate-600 line-clamp-2">${r.description || 'Pas de description.'}</p>
-                        <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-xl text-emerald-800 font-medium flex flex-wrap gap-2 justify-between">
-                            <span>🔥 ${Math.round(totalKcal)} kcal</span>
-                            <span>P : ${Math.round(totalProt)}g</span>
-                            <span>G : ${Math.round(totalGluc)}g</span>
-                            <span>L : ${Math.round(totalLip)}g</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        socket.on('data_updated', init);
         init();
     </script>
 </body>
