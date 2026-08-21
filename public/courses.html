@@ -10,9 +10,21 @@
 <body class="bg-slate-100 min-h-screen pb-12">
     <div class="max-w-4xl mx-auto p-3 sm:p-6 space-y-4">
         
-        <!-- Navigation Mobile Friendly identique aux autres pages -->
+        <!-- Navigation Mobile Friendly -->
         <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
-            <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🛒 Liste de Courses</h1>
+            <div class="flex justify-between items-center">
+                <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🛒 Liste de Courses</h1>
+                <!-- Sélecteur de profil propre à chacun -->
+                <div class="flex items-center gap-1.5">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase">Profil :</span>
+                    <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-bold text-blue-600">
+                        <option value="Commun">Commun</option>
+                        <option value="Papa">Papa</option>
+                        <option value="Maman">Maman</option>
+                        <option value="Enfant">Enfant</option>
+                    </select>
+                </div>
+            </div>
             <nav class="grid grid-cols-5 gap-1 text-center text-xs font-medium">
                 <a href="index.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
@@ -22,24 +34,49 @@
             </nav>
         </header>
 
-        <!-- Actions / Génération style carte moderne -->
-        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-            <h2 class="font-bold text-slate-700 text-sm">⚡ Actions rapides</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <button onclick="genererCourses()" class="w-full bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm flex items-center justify-center gap-2">
-                    🔄 Générer depuis le Menu
-                </button>
-                <button onclick="viderCourses()" class="w-full bg-rose-50 active:bg-rose-100 text-rose-600 border border-rose-200 p-3 rounded-xl font-bold flex items-center justify-center gap-2">
-                    🗑️ Vider toute la liste
-                </button>
+        <!-- Actions & Ajout manuel / Open Food Facts -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+            <div class="space-y-1.5">
+                <label class="text-[10px] font-bold text-slate-500 uppercase">Ajouter un article à la volée :</label>
+                <div class="flex gap-2">
+                    <input type="text" id="ajout-nom" placeholder="Ex: Lait, PQ..." class="flex-1 bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium">
+                    <input type="number" step="any" id="ajout-prix" placeholder="Prix (€)" class="w-20 bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium">
+                    <button onclick="ajouterArticleManuel()" class="bg-emerald-600 active:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-sm">Ajouter</button>
+                </div>
+            </div>
+
+            <!-- Choix d'enseignes & Option "Ce que j'ai déjà" -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase">Choix d'enseigne :</label>
+                    <select id="select-enseigne" onchange="chargerCourses()" class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium mt-1">
+                        <option value="toutes">Toutes les enseignes</option>
+                        <option value="Leclerc">Leclerc</option>
+                        <option value="Carrefour">Carrefour</option>
+                        <option value="Lidl">Lidl</option>
+                    </select>
+                </div>
+                <div class="flex items-center pt-4">
+                    <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                        <input type="checkbox" id="check-deja" onchange="chargerCourses()" class="w-4 h-4 rounded text-blue-600">
+                        Inclure "Ce que j'ai déjà"
+                    </label>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-2">
+                <button onclick="genererCourses()" class="w-full bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">🔄 Générer depuis le Menu</button>
+                <button onclick="viderCourses()" class="w-full bg-rose-50 active:bg-rose-100 text-rose-600 border border-rose-200 p-3 rounded-xl font-bold">🗑️ Vider la liste</button>
             </div>
         </section>
 
-        <!-- Liste des Articles -->
-        <section class="space-y-3">
-            <h2 class="font-bold text-slate-700 text-sm">📋 Articles à acheter</h2>
-            <div id="liste-courses-container" class="space-y-2">
-                <p class="text-slate-400 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Chargement de la liste de courses...</p>
+        <!-- Total estimé -->
+        <div id="total-affichage" class="text-xs font-bold text-slate-600 px-2"></div>
+
+        <!-- Liste triée par rayons -->
+        <section class="space-y-4">
+            <div id="liste-courses-container" class="space-y-4">
+                <p class="text-slate-400 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Chargement...</p>
             </div>
         </section>
     </div>
@@ -47,39 +84,93 @@
     <script>
         const socket = io();
 
-        async function init() {
+        function getProfilActuel() {
+            return document.getElementById('select-profil').value;
+        }
+
+        function changerProfil() {
+            localStorage.setItem('profil_courses', getProfilActuel());
             chargerCourses();
         }
 
+        window.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('profil_courses');
+            if(saved) {
+                document.getElementById('select-profil').value = saved;
+            }
+            chargerCourses();
+        });
+
         async function chargerCourses() {
+            const enseigne = document.getElementById('select-enseigne').value;
+            const inclureDeja = document.getElementById('check-deja').checked;
+            const profil = getProfilActuel();
+            
             try {
-                const res = await fetch('/api/courses');
+                const res = await fetch(`/api/courses?enseigne=${enseigne}&inclureDeja=${inclureDeja}&profil=${encodeURIComponent(profil)}`);
                 const courses = await res.json();
                 renderCourses(courses);
             } catch (err) {
-                console.error("Erreur de chargement des courses", err);
+                console.error("Erreur chargement courses", err);
             }
         }
 
         function renderCourses(courses) {
             const container = document.getElementById('liste-courses-container');
             if (!courses || courses.length === 0) {
-                container.innerHTML = `<p class="text-slate-400 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Votre liste de courses est vide. Cliquez sur "Générer depuis le Menu".</p>`;
+                document.getElementById('total-affichage').innerText = '';
+                container.innerHTML = `<p class="text-slate-400 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Votre liste de courses est vide pour ce profil.</p>`;
                 return;
             }
 
-            container.innerHTML = courses.map(item => `
-                <div class="bg-white border border-slate-200 p-3.5 rounded-2xl shadow-sm flex items-center justify-between gap-3 text-xs transition-all">
-                    <label class="flex items-center gap-3 flex-1 cursor-pointer select-none">
-                        <input type="checkbox" ${item.achete ? 'checked' : ''} onchange="toggleAchete(${item.id}, this.checked)" class="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
-                        <span class="font-bold text-slate-800 text-sm ${item.achete ? 'line-through text-slate-400' : ''}">${item.nom}</span>
-                    </label>
-                    <div class="flex items-center gap-2">
-                        <span class="font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-xl border border-blue-100 whitespace-nowrap">${item.quantite} ${item.unite || ''}</span>
-                        <button onclick="supprimerItem(${item.id})" class="bg-rose-50 active:bg-rose-100 text-rose-600 p-2 rounded-xl font-bold border border-rose-200">✕</button>
+            const total = courses.reduce((sum, item) => sum + (parseFloat(item.prix || 0) * (parseFloat(item.quantite) || 1)), 0);
+            document.getElementById('total-affichage').innerText = `💰 Total estimé : ${total.toFixed(2)}€ (${courses.length} articles)`;
+
+            const groupes = courses.reduce((acc, item) => {
+                const rayon = item.rayon || "Divers / Autres";
+                if (!acc[rayon]) acc[rayon] = [];
+                acc[rayon].push(item);
+                return acc;
+            }, {});
+
+            container.innerHTML = Object.keys(groupes).map(rayon => `
+                <div class="space-y-2">
+                    <h3 class="text-[11px] font-bold text-slate-500 uppercase px-1 tracking-wider">📌 ${rayon}</h3>
+                    <div class="space-y-2">
+                        ${groupes[rayon].map(item => `
+                            <div class="bg-white border border-slate-200 p-3.5 rounded-2xl shadow-sm flex items-center justify-between gap-3 text-xs">
+                                <label class="flex items-center gap-3 flex-1 cursor-pointer select-none">
+                                    <input type="checkbox" ${item.achete ? 'checked' : ''} onchange="toggleAchete(${item.id}, this.checked)" class="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                                    <span class="font-bold text-slate-800 text-sm ${item.achete ? 'line-through text-slate-400' : ''}">${item.nom}</span>
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-xl border border-blue-100 whitespace-nowrap">${item.quantite || 1} ${item.unite || ''}</span>
+                                    <span class="font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-xl border border-emerald-100 whitespace-nowrap">${item.prix ? item.prix + '€' : '0€'}</span>
+                                    <button onclick="supprimerItem(${item.id})" class="bg-rose-50 active:bg-rose-100 text-rose-600 p-2 rounded-xl font-bold border border-rose-200">✕</button>
+                                </div>
+                            </div>
+                        `).join('')}
                     </div>
                 </div>
             `).join('');
+        }
+
+        async function ajouterArticleManuel() {
+            const nom = document.getElementById('ajout-nom').value.trim();
+            const prix = parseFloat(document.getElementById('ajout-prix').value) || 0;
+            const profil = getProfilActuel();
+            
+            if(!nom) return;
+
+            await fetch('/api/courses', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ nom, prix, quantite: 1, unite: 'unité', rayon: 'Divers / Autres', profil })
+            });
+
+            document.getElementById('ajout-nom').value = '';
+            document.getElementById('ajout-prix').value = '';
+            chargerCourses();
         }
 
         async function toggleAchete(id, achete) {
@@ -92,17 +183,19 @@
         }
 
         async function genererCourses() {
-            const res = await fetch('/api/courses/generer', { method: 'POST' });
-            if (res.ok) {
-                chargerCourses();
-            } else {
-                alert("Erreur lors de la génération de la liste.");
-            }
+            const profil = getProfilActuel();
+            const res = await fetch('/api/courses/generer', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ profil })
+            });
+            if (res.ok) chargerCourses();
         }
 
         async function viderCourses() {
-            if (confirm("Voulez-vous vraiment vider toute la liste de courses ?")) {
-                await fetch('/api/courses', { method: 'DELETE' });
+            const profil = getProfilActuel();
+            if (confirm(`Vider la liste de courses pour le profil ${profil} ?`)) {
+                await fetch(`/api/courses?profil=${encodeURIComponent(profil)}`, { method: 'DELETE' });
                 chargerCourses();
             }
         }
@@ -113,7 +206,6 @@
         }
 
         socket.on('data_updated', chargerCourses);
-        init();
     </script>
 </body>
 </html>
