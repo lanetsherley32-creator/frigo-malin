@@ -147,7 +147,7 @@ app.delete('/api/recettes/:id', (req, res) => {
     });
 });
 
-// Recherche Open Food Facts (avec fetch natif Node.js)
+// Recherche Open Food Facts (avec fetch natif)
 app.get('/api/recherche-produit', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.json([]);
@@ -159,7 +159,7 @@ app.get('/api/recherche-produit', async (req, res) => {
             marque: p.brands || '',
             format: p.quantity || '',
             calories: p.nutriments && p.nutriments['energy-kcal_100g'] ? p.nutriments['energy-kcal_100g'] : 0,
-            proteines: p.nutriments && p.nutrivents && p.nutriments['proteins_100g'] ? p.nutriments['proteins_100g'] : (p.nutriments ? p.nutriments['proteins_100g'] || 0 : 0),
+            proteines: p.nutriments && p.nutriments['proteins_100g'] ? p.nutriments['proteins_100g'] : 0,
             glucides: p.nutriments && p.nutriments['carbohydrates_100g'] ? p.nutriments['carbohydrates_100g'] : 0,
             lipides: p.nutriments && p.nutriments['fat_100g'] ? p.nutriments['fat_100g'] : 0
         }));
