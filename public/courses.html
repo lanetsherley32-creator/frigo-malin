@@ -14,7 +14,7 @@
         <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
             <div class="flex justify-between items-center">
                 <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🛒 Liste de Courses</h1>
-                <!-- Sélecteur de profil propre à chacun -->
+                <!-- Sélecteur de profil synchronisé (Commun, Papa, Maman, Enfant) -->
                 <div class="flex items-center gap-1.5">
                     <span class="text-[10px] font-bold text-slate-400 uppercase">Profil :</span>
                     <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-bold text-blue-600">
@@ -34,12 +34,14 @@
             </nav>
         </header>
 
-        <!-- Actions & Ajout manuel / Open Food Facts -->
+        <!-- Formulaire et Options -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+            
+            <!-- Ajout manuel d'un article à la volée -->
             <div class="space-y-1.5">
                 <label class="text-[10px] font-bold text-slate-500 uppercase">Ajouter un article à la volée :</label>
                 <div class="flex gap-2">
-                    <input type="text" id="ajout-nom" placeholder="Ex: Lait, PQ..." class="flex-1 bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium">
+                    <input type="text" id="ajout-nom" placeholder="Ex: Lait, PQ, Beurre..." class="flex-1 bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium">
                     <input type="number" step="any" id="ajout-prix" placeholder="Prix (€)" class="w-20 bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium">
                     <button onclick="ajouterArticleManuel()" class="bg-emerald-600 active:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-sm">Ajouter</button>
                 </div>
@@ -48,7 +50,7 @@
             <!-- Choix d'enseignes & Option "Ce que j'ai déjà" -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                 <div>
-                    <label class="text-[10px] font-bold text-slate-500 uppercase">Choix d'enseigne :</label>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase">Choix d'enseignes :</label>
                     <select id="select-enseigne" onchange="chargerCourses()" class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium mt-1">
                         <option value="toutes">Toutes les enseignes</option>
                         <option value="Leclerc">Leclerc</option>
@@ -64,6 +66,7 @@
                 </div>
             </div>
             
+            <!-- Boutons de génération / vidage -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-2">
                 <button onclick="genererCourses()" class="w-full bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">🔄 Générer depuis le Menu</button>
                 <button onclick="viderCourses()" class="w-full bg-rose-50 active:bg-rose-100 text-rose-600 border border-rose-200 p-3 rounded-xl font-bold">🗑️ Vider la liste</button>
@@ -76,7 +79,7 @@
         <!-- Liste triée par rayons -->
         <section class="space-y-4">
             <div id="liste-courses-container" class="space-y-4">
-                <p class="text-slate-400 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Chargement...</p>
+                <p class="text-slate-400 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Chargement de la liste...</p>
             </div>
         </section>
     </div>
@@ -89,12 +92,14 @@
         }
 
         function changerProfil() {
-            localStorage.setItem('profil_courses', getProfilActuel());
+            // Utilisation de la même clé partagée avec le Menu et le Frigo
+            localStorage.setItem('profil_actif', getProfilActuel());
             chargerCourses();
         }
 
+        // Chargement initial du profil partagé
         window.addEventListener('DOMContentLoaded', () => {
-            const saved = localStorage.getItem('profil_courses');
+            const saved = localStorage.getItem('profil_actif');
             if(saved) {
                 document.getElementById('select-profil').value = saved;
             }
@@ -111,12 +116,13 @@
                 const courses = await res.json();
                 renderCourses(courses);
             } catch (err) {
-                console.error("Erreur chargement courses", err);
+                console.error("Erreur de chargement", err);
             }
         }
 
         function renderCourses(courses) {
             const container = document.getElementById('liste-courses-container');
+            
             if (!courses || courses.length === 0) {
                 document.getElementById('total-affichage').innerText = '';
                 container.innerHTML = `<p class="text-slate-400 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Votre liste de courses est vide pour ce profil.</p>`;
@@ -160,7 +166,10 @@
             const prix = parseFloat(document.getElementById('ajout-prix').value) || 0;
             const profil = getProfilActuel();
             
-            if(!nom) return;
+            if(!nom) {
+                alert("Veuillez saisir un nom d'article.");
+                return;
+            }
 
             await fetch('/api/courses', {
                 method: 'POST',
@@ -194,7 +203,7 @@
 
         async function viderCourses() {
             const profil = getProfilActuel();
-            if (confirm(`Vider la liste de courses pour le profil ${profil} ?`)) {
+            if (confirm(`Voulez-vous vider toute la liste de courses pour le profil ${profil} ?`)) {
                 await fetch(`/api/courses?profil=${encodeURIComponent(profil)}`, { method: 'DELETE' });
                 chargerCourses();
             }
