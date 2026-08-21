@@ -3,13 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion des Recettes</title>
+    <title>Gestion des Recettes - Menu de la semaine</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f9; }
-        h1 { color: #333; }
-        .recette-card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f9; color: #333; }
+        h1, h2 { color: #2c3e50; }
         .nav { margin-bottom: 20px; }
         .nav a { margin-right: 15px; text-decoration: none; color: #007bff; font-weight: bold; }
+        
+        .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        form input, form select, form textarea { width: 100%; padding: 8px; margin: 5px 0 15px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        form button { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        form button:hover { background: #218838; }
+
+        .recette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+        .recette-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #007bff; }
+        .recette-card h3 { margin-top: 0; color: #007bff; }
+        .badge { background: #e9ecef; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -18,11 +27,50 @@
         <a href="index.html">Accueil</a>
         <a href="ingredients.html">Ingrédients</a>
         <a href="recettes.html">Recettes</a>
+        <a href="semaine.html">Semaine</a>
+        <a href="courses.html">Courses</a>
+        <a href="vider-frigo.html">Vider Frigo</a>
     </div>
 
-    <h1>🍳 Mes Recettes</h1>
+    <h1>🍳 Gestion de vos Recettes</h1>
 
-    <div id="container-recettes">
+    <!-- Formulaire d'ajout de recette -->
+    <div class="card">
+        <h2>Ajouter une nouvelle recette</h2>
+        <form id="form-recette">
+            <label for="nom">Nom de la recette :</label>
+            <input type="text" id="nom" required placeholder="Ex: Gratin dauphinois">
+
+            <label for="categorie">Catégorie :</label>
+            <select id="categorie">
+                <option value="Plat">Plat</option>
+                <option value="Entrée">Entrée</option>
+                <option value="Dessert">Dessert</option>
+                <option value="Petit-déjeuner">Petit-déjeuner</option>
+            </select>
+
+            <label for="parts">Nombre de parts :</label>
+            <input type="number" id="parts" value="4" min="1" required>
+
+            <label for="ingredients">Ingrédients (ex: Pommes de terre (1kg), Crème (20cl)) :</label>
+            <textarea id="ingredients" rows="3" required placeholder="Listez les ingrédients avec leurs quantités"></textarea>
+
+            <label for="etapes">Étapes de préparation (optionnel) :</label>
+            <textarea id="etapes" rows="3" placeholder="1. Éplucher les pommes de terre..."></textarea>
+
+            <label for="cout">Coût total (€) :</label>
+            <input type="number" step="0.01" id="cout" required placeholder="Ex: 5.50">
+
+            <label for="calories">Calories totales (kcal) :</label>
+            <input type="number" step="0.1" id="calories" required placeholder="Ex: 1200">
+
+            <button type="submit">Enregistrer la recette</button>
+        </form>
+    </div>
+
+    <!-- Liste des recettes enregistrées -->
+    <h2>Liste des recettes</h2>
+    <div id="container-recettes" class="recette-grid">
         <p>Chargement des recettes...</p>
     </div>
 
@@ -41,10 +89,12 @@
                     }
                     container.innerHTML = data.map(r => `
                         <div class="recette-card">
-                            <h3>${r.nom} (${r.categorie})</h3>
-                            <p><strong>Parts :</strong> ${r.parts} | <strong>Coût :</strong> ${r.cout} €</p>
-                            <p><strong>Ingrédients :</strong> ${r.ingredients}</p>
-                            <p><strong>Calories :</strong> ${r.calories} kcal</p>
+                            <h3>${r.nom}</h3>
+                            <p><span class="badge">${r.categorie || 'Plat'}</span> | <strong>Parts :</strong> ${r.parts || 1}</p>
+                            <p><strong>Coût :</strong> ${r.cout ? r.cout + ' €' : 'Non renseigné'}</p>
+                            <p><strong>Ingrédients :</strong><br>${r.ingredients || 'Aucun'}</p>
+                            <p><strong>Étapes :</strong><br>${r.etapes ? r.etapes.replace(/\n/g, '<br>') : 'Aucune étape'}</p>
+                            <p><strong>Apports :</strong> ${r.calories || 0} kcal</p>
                         </div>
                     `).join('');
                 })
@@ -53,6 +103,36 @@
                 });
         }
 
+        // Soumission du formulaire
+        document.getElementById('form-recette').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nouvelleRecette = {
+                nom: document.getElementById('nom').value,
+                categorie: document.getElementById('categorie').value,
+                parts: parseInt(document.getElementById('parts').value),
+                ingredients: document.getElementById('ingredients').value,
+                etapes: document.getElementById('etapes').value,
+                cout: parseFloat(document.getElementById('cout').value),
+                calories: parseFloat(document.getElementById('calories').value),
+                proteines: 0,
+                glucides: 0,
+                lipides: 0
+            };
+
+            fetch('/api/recettes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(nouvelleRecette)
+            })
+            .then(res => res.json())
+            .then(() => {
+                document.getElementById('form-recette').reset();
+                chargerRecettes();
+            })
+            .catch(err => console.error("Erreur ajout recette:", err));
+        });
+
+        // Chargement initial et temps réel
         chargerRecettes();
         socket.on('data_updated', chargerRecettes);
     </script>
