@@ -90,7 +90,7 @@
     <script>
         const socket = io();
         let html5QrCode = null;
-        let modeActuelScan = 'qrcode';
+        let actuelModeScan = 'qrcode';
 
         function ajouterLigneEnseigne(nom = '', prix = '') {
             const div = document.createElement('div');
@@ -100,27 +100,39 @@
         }
 
         function toggleScanner(mode) {
-            modeActuelScan = mode;
+            actuelModeScan = mode;
             const container = document.getElementById('scanner-container');
             const instruction = document.getElementById('scanner-instruction');
             
             container.classList.remove('hidden');
-            instruction.innerText = mode === 'qrcode' ? "Pointez vers le QR Code JSON" : "Pointez vers le Code-barres du produit";
+            instruction.innerText = mode === 'qrcode' ? "Pointez vers le QR Code" : "Pointez vers le Code-barres";
+
+            if (html5QrCode) {
+                html5QrCode.clear().catch(() => {});
+            }
 
             html5QrCode = new Html5Qrcode("reader");
+            
+            const config = { 
+                fps: 15, 
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            };
+
             html5QrCode.start(
                 { facingMode: "environment" }, 
-                { fps: 10, qrbox: 200 }, 
+                config, 
                 (code) => {
                     fermerScanner();
-                    if (modeActuelScan === 'qrcode') {
+                    if (actuelModeScan === 'qrcode') {
                         traiterQRScan(code);
                     } else {
                         rechercherOpenFoodFactsParBarcode(code);
                     }
-                }
+                },
+                (errorMessage) => {}
             ).catch(err => {
-                alert("Erreur caméra : " + err);
+                alert("Erreur d'accès à la caméra : " + err);
                 container.classList.add('hidden');
             });
         }
@@ -135,7 +147,7 @@
             }
         }
 
-        // 1. GESTION DU QR CODE (Format JSON de vos fiches)
+        // 1. GESTION DU QR CODE (Format JSON)
         function traiterQRScan(text) {
             try {
                 let data = JSON.parse(text);
