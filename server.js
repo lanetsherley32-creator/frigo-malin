@@ -23,18 +23,18 @@ app.use(session({
     cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
 
-// --- MIDDLEWARE DE PROTECTION (CORRIGÉ & ÉLARGI) ---
+// --- MIDDLEWARE DE PROTECTION (CORRIGÉ & ÉLARGI POUR TOUT PARTAGER) ---
 app.use((req, res, next) => {
     const cheminsPublics = [
-        '/', '/index.html', '/login.html', '/reset.html', '/courses.html', '/menu.html', '/recettes.html', '/frigo.html',
-        '/api/login', '/api/profils', '/api/mot-de-passe-oublie', '/api/reset-password'
+        '/', '/index.html', '/login.html', '/reset.html', '/courses.html', '/menu.html', '/recettes.html', '/frigo.html', '/ingredients.html', '/vider-frigo.html',
+        '/api/login', '/api/profils', '/api/mot-de-passe-oublie', '/api/reset-password', '/api/recettes', '/api/ingredients'
     ];
     const estPublic = cheminsPublics.includes(req.path) || 
                       req.path.startsWith('/css/') || 
                       req.path.startsWith('/js/') || 
                       req.path.startsWith('/api/recettes') || 
                       req.path.startsWith('/api/ingredients') ||
-                      req.path.startsWith('/api/profils'); // Permet la création/lecture des profils librement
+                      req.path.startsWith('/api/profils');
                       
     if (req.session.user || estPublic) next();
     else res.status(401).json({ error: "Accès non autorisé. Veuillez vous connecter." });
