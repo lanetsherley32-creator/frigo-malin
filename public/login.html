@@ -28,7 +28,7 @@
                 <a href="#" onclick="demanderMotDePasseOublie(event)" class="text-xs text-blue-600 hover:underline font-medium">Mot de passe oublié ?</a>
             </div>
 
-            <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4">
+            <button onclick="login(event)" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4">
                 Se connecter
             </button>
             
@@ -82,7 +82,9 @@
             }
         }
 
-        async function login() {
+        async function login(event) {
+            if (event) event.preventDefault();
+
             const email = document.getElementById('login-email').value;
             const mdp = document.getElementById('login-mdp').value;
 
