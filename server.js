@@ -79,6 +79,15 @@ app.post('/api/login', (req, res) => {
 
 app.post('/api/logout', (req, res) => { req.session.destroy(() => res.json({ success: true })); });
 
+// Route pour récupérer l'utilisateur actuellement connecté
+app.get('/api/current-user', (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: "Non connecté" });
+    db.get("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils WHERE nom = ?", [req.session.user], (err, user) => {
+        if (err || !user) return res.status(404).json({ error: "Profil introuvable" });
+        res.json(user);
+    });
+});
+
 app.get('/api/profils', (req, res) => {
     db.all("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils", [], (err, rows) => res.json(rows || []));
 });
@@ -100,7 +109,7 @@ app.post('/api/profils', async (req, res) => {
     }
 });
 
-// --- API RECETTES ---
+// --- API RECETTES (PARTAGÉES) ---
 app.get('/api/recettes', (req, res) => {
     db.all("SELECT * FROM recettes", [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -120,7 +129,7 @@ app.post('/api/recettes', (req, res) => {
     });
 });
 
-// --- API INGREDIENTS ---
+// --- API INGREDIENTS (PARTAGÉS) ---
 app.get('/api/ingredients', (req, res) => {
     db.all("SELECT * FROM ingredients", [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -140,21 +149,19 @@ app.post('/api/ingredients', (req, res) => {
     });
 });
 
-// --- API MENU PRÉVU ---
+// --- API MENU PRÉVU (PRIVÉ / LIÉ AU USER CONNECTÉ) ---
 app.get('/api/menu-prevu', (req, res) => {
-    const { profil, jour } = req.query;
-    if (jour && profil) {
+    const profil = req.session.user;
+    if (!profil) return res.status(401).json({ error: "Non connecté" });
+    
+    const { jour } = req.query;
+    if (jour) {
         db.get("SELECT * FROM menu_prevu WHERE profil = ? AND jour = ?", [profil, jour], (err, row) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json(row || {});
         });
-    } else if (profil) {
-        db.all("SELECT * FROM menu_prevu WHERE profil = ?", [profil], (err, rows) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json(rows || []);
-        });
     } else {
-        db.all("SELECT * FROM menu_prevu", [], (err, rows) => {
+        db.all("SELECT * FROM menu_prevu WHERE profil = ?", [profil], (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json(rows || []);
         });
@@ -162,7 +169,10 @@ app.get('/api/menu-prevu', (req, res) => {
 });
 
 app.post('/api/menu-prevu', (req, res) => {
-    const { jour, profil, petitDejeuner, repas1, repas2, dessertCollation } = req.body;
+    const profil = req.session.user;
+    if (!profil) return res.status(401).json({ error: "Non connecté" });
+
+    const { jour, petitDejeuner, repas1, repas2, dessertCollation } = req.body;
     const q = `INSERT INTO menu_prevu (profil, jour, petitDejeuner, repas1, repas2, dessertCollation) VALUES (?,?,?,?,?,?) 
                ON CONFLICT(profil, jour) DO UPDATE SET petitDejeuner=excluded.petitDejeuner, repas1=excluded.repas1, repas2=excluded.repas2, dessertCollation=excluded.dessertCollation`;
     db.run(q, [profil, jour, petitDejeuner, repas1, repas2, dessertCollation], (err) => {
@@ -171,19 +181,24 @@ app.post('/api/menu-prevu', (req, res) => {
     });
 });
 
-// --- API COURSES (GÉNÉRATION, LISTE ET GESTION) ---
+// --- API COURSES (PRIVÉ / LIÉ AU USER CONNECTÉ) ---
 app.get('/api/courses', (req, res) => {
-    const { profil } = req.query;
-    const query = profil ? "SELECT * FROM courses WHERE profil = ?" : "SELECT * FROM courses";
-    db.all(query, profil ? [profil] : [], (err, rows) => {
+    const profil = req.session.user;
+    if (!profil) return res.status(401).json({ error: "Non connecté" });
+
+    db.all("SELECT * FROM courses WHERE profil = ?", [profil], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows || []);
     });
 });
 
 app.post('/api/courses/cocher', (req, res) => {
+    const profil = req.session.user;
+    if (!profil) return res.status(401).json({ error: "Non connecté" });
+
     const { id, coche } = req.body;
-    db.run("UPDATE courses SET coche = ? WHERE id = ?", [coche ? 1 : 0, id], (err) => {
+    // On s'assure de modifier uniquement la ligne qui appartient bien à ce profil
+    db.run("UPDATE courses SET coche = ? WHERE id = ? AND profil = ?", [coche ? 1 : 0, id, profil], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         io.emit('data_updated');
         res.json({ success: true });
@@ -191,7 +206,9 @@ app.post('/api/courses/cocher', (req, res) => {
 });
 
 app.post('/api/courses/generer', (req, res) => {
-    const { profil } = req.body;
+    const profil = req.session.user;
+    if (!profil) return res.status(401).json({ error: "Non connecté" });
+
     db.all("SELECT * FROM menu_prevu WHERE profil = ?", [profil], (err, menus) => {
         let idsRecettes = new Set();
         menus.forEach(m => ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation'].forEach(c => { if (m[c]) idsRecettes.add(m[c]); }));
@@ -224,9 +241,11 @@ app.post('/api/courses/generer', (req, res) => {
     });
 });
 
-// --- API FRIGO (RECETTES FAISABLES) ---
+// --- API FRIGO / RECETTES FAISABLES (PRIVÉ / LIÉ AU USER CONNECTÉ) ---
 app.get('/api/frigo/recettes-faisables', (req, res) => {
-    const { profil } = req.query;
+    const profil = req.session.user;
+    if (!profil) return res.status(401).json({ error: "Non connecté" });
+
     db.all("SELECT * FROM recettes", [], (err, recettes) => {
         db.all("SELECT ingredient_id FROM courses WHERE profil = ? AND coche = 1", [profil], (err, courses) => {
             const dispo = new Set(courses.map(c => c.ingredient_id));
