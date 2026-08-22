@@ -127,18 +127,28 @@ app.post('/api/profils', async (req, res) => {
 });
 
 app.put('/api/profils', async (req, res) => {
+    const utilisateurActuel = req.session.user;
+    if (!utilisateurActuel) {
+        return res.status(401).json({ error: "Non connecté" });
+    }
+
     const { ancienNom, nom, email, mdp, calories, budget, proteines, glucides, lipides } = req.body;
+    const cible = ancienNom || utilisateurActuel;
+
     try {
-        let query = 'UPDATE profils SET nom = $1, email = $2, calories = $3, budget = $4, proteines = $5, glucides = $6, lipides = $7';
+        let query = `
+            UPDATE profils 
+            SET nom = $1, email = $2, calories = $3, budget = $4, proteines = $5, glucides = $6, lipides = $7
+        `;
         let values = [nom, email, calories || 0, budget || 0, proteines || 0, glucides || 0, lipides || 0];
 
         if (mdp && mdp.trim() !== '') {
             const hashedPassword = await bcrypt.hash(mdp, 10);
-            query += ', mdp = $8 WHERE nom = $9';
-            values.push(hashedPassword, ancienNom);
+            query += `, mdp = $8 WHERE nom = $9`;
+            values.push(hashedPassword, cible);
         } else {
-            query += ' WHERE nom = $8';
-            values.push(ancienNom);
+            query += ` WHERE nom = $8`;
+            values.push(cible);
         }
 
         await pool.query(query, values);
@@ -147,7 +157,7 @@ app.put('/api/profils', async (req, res) => {
         res.json({ success: true, message: "Profil mis à jour avec succès !" });
     } catch (error) {
         console.error("Erreur mise à jour profil :", error);
-        res.status(500).json({ error: "Erreur serveur lors de la mise à jour." });
+        res.status(500).json({ error: "Erreur serveur lors de la mise à jour : " + error.message });
     }
 });
 
