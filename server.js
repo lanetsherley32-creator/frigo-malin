@@ -1,8 +1,12 @@
 const express = require('express');
+const http = require('http');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
-const http = require('http');
 const socketIo = require('socket.io');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+const session = require('express-session');
 
 const app = express();
 const server = http.createServer(app);
@@ -10,239 +14,200 @@ const io = socketIo(server);
 const db = new sqlite3.Database('./database.sqlite');
 
 app.use(bodyParser.json());
+
+// --- CONFIGURATION DES SESSIONS ---
+app.use(session({
+    secret: 'votre_secret_tres_securise_et_aleatoire',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
+}));
+
+// --- MIDDLEWARE DE PROTECTION ---
+app.use((req, res, next) => {
+    const cheminsPublics = ['/', '/index.html', '/login.html', '/reset.html', '/api/login', '/api/profils', '/api/mot-de-passe-oublie', '/api/reset-password'];
+    const estPublic = cheminsPublics.includes(req.path) || req.path.startsWith('/css/') || req.path.startsWith('/js/') || req.path.startsWith('/api/recettes') || req.path.startsWith('/api/ingredients');
+    if (req.session.user || estPublic) next();
+    else res.status(401).json({ error: "Accès non autorisé. Veuillez vous connecter." });
+});
+
 app.use(express.static('public'));
 
-// --- INITIALISATION BDD & DONNÉES PAR DÉFAUT ---
-db.serialize(() => {
-    // 1. Table Profils
-    db.run(`CREATE TABLE IF NOT EXISTS profils (
-        nom TEXT PRIMARY KEY,
-        calories REAL, budget REAL, proteines REAL, glucides REAL, lipides REAL
-    )`);
-
-    // 2. Table Recettes (5 recettes créées)
-    db.run(`CREATE TABLE IF NOT EXISTS recettes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nom TEXT, calories REAL, proteines REAL, glucides REAL, lipides REAL, prix REAL
-    )`, () => {
-        db.get("SELECT COUNT(*) as count FROM recettes", (err, row) => {
-            if (row && row.count === 0) {
-                const recettesDefaut = [
-                    ['Poulet Rôti & Riz Basmati', 550, 45, 60, 10, 4.50],
-                    ['Bowl Végétarien Quinoa & Avocat', 450, 15, 50, 20, 3.80],
-                    ['Pavé de Saumon & Purée de Patates Douces', 600, 38, 40, 22, 6.20],
-                    ['Omelette aux Légumes & Feta', 380, 24, 6, 26, 2.50],
-                    ['Porridge Flocons d\'Avoine, Banane & Beurre de Cacahuète', 420, 14, 58, 12, 1.80]
-                ];
-                const stmt = db.prepare("INSERT INTO recettes (nom, calories, proteines, glucides, lipides, prix) VALUES (?, ?, ?, ?, ?, ?)");
-                recettesDefaut.forEach(r => stmt.run(r));
-                stmt.finalize();
-            }
-        });
-    });
-
-    // 3. Table Ingrédients (30 ingrédients classés)
-    db.run(`CREATE TABLE IF NOT EXISTS ingredients (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nom TEXT, calories REAL, proteines REAL, glucides REAL, lipides REAL, prix REAL
-    )`, () => {
-        db.get("SELECT COUNT(*) as count FROM ingredients", (err, row) => {
-            if (row && row.count === 0) {
-                const ingredientsDefaut = [
-                    // --- 10 Viandes / Poissons ---
-                    ['Blancs de poulet', 120, 23, 0, 2.5, 9.50],
-                    ['Steak haché 5% MG', 125, 21, 0, 4.5, 12.00],
-                    ['Pavé de saumon', 206, 22, 0, 13, 18.00],
-                    ['Escalope de dinde', 110, 24, 0, 1.5, 10.00],
-                    ['Filet de cabillaud', 82, 18, 0, 0.7, 15.00],
-                    ['Tranches de bacon', 250, 15, 0, 20, 14.00],
-                    ['Steak de bœuf', 150, 22, 0, 7, 13.50],
-                    ['Cuisses de poulet', 160, 20, 0, 8.5, 6.50],
-                    ['Thon en conserve au naturel', 100, 23, 0, 1, 9.00],
-                    ['Jambon blanc découenné', 115, 20, 0, 3.5, 11.00],
-
-                    // --- 5 Épicerie Salée ---
-                    ['Riz basmati', 350, 7, 75, 1, 2.20],
-                    ['Pâtes complètes', 340, 13, 65, 2, 1.90],
-                    ['Quinoa', 368, 14, 64, 6, 4.50],
-                    ['Huile d\'olive', 900, 0, 0, 100, 8.00],
-                    ['Flocons d\'avoine', 389, 16.9, 66.3, 6.9, 1.80],
-
-                    // --- 5 Épicerie Sucrée ---
-                    ['Miel', 304, 0.3, 82, 0, 7.50],
-                    ['Chocolat noir 70%', 580, 8, 30, 43, 11.00],
-                    ['Beurre de cacahuète', 590, 25, 20, 50, 9.00],
-                    ['Compote de pommes sans sucres ajoutés', 50, 0.4, 12, 0.2, 3.00],
-                    ['Sucre de canne', 387, 0, 100, 0, 2.00],
-
-                    // --- 5 Fruits ---
-                    ['Banane', 89, 1.1, 23, 0.3, 2.50],
-                    ['Pomme', 52, 0.3, 14, 0.2, 2.80],
-                    ['Fraises', 32, 0.7, 7.7, 0.3, 6.00],
-                    ['Avocat', 160, 2, 9, 15, 5.50],
-                    ['Citron', 29, 1.1, 9, 0.3, 3.20],
-
-                    // --- 5 Légumes ---
-                    ['Brocoli', 34, 2.8, 7, 0.4, 3.00],
-                    ['Épinards frais', 23, 2.9, 3.6, 0.4, 4.00],
-                    ['Tomate', 18, 0.9, 3.9, 0.2, 2.50],
-                    ['Courgette', 17, 1.2, 3.1, 0.3, 2.20],
-                    ['Patate douce', 86, 1.6, 20, 0.1, 3.50]
-                ];
-
-                const stmt = db.prepare("INSERT INTO ingredients (nom, calories, proteines, glucides, lipides, prix) VALUES (?, ?, ?, ?, ?, ?)");
-                ingredientsDefaut.forEach(i => stmt.run(i));
-                stmt.finalize();
-            }
-        });
-    });
-
-    // 4. Tables de gestion des menus et du suivi
-    db.run(`CREATE TABLE IF NOT EXISTS menu_prevu (
-        profil TEXT,
-        jour TEXT,
-        petitDejeuner TEXT,
-        repas1 TEXT,
-        repas2 TEXT,
-        dessertCollation TEXT,
-        PRIMARY KEY (profil, jour)
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS suivi_consomme (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        profil TEXT,
-        jour TEXT,
-        categorie TEXT,
-        recette_id INTEGER,
-        quantite REAL
-    )`);
+// --- CONFIGURATION EMAIL ---
+const transporter = nodemailer.createTransport({
+    host: 'smtp.ethereal.email',
+    port: 587,
+    auth: { user: 'votre_email@example.com', pass: 'votre_mot_de_passe_smtp' }
 });
+
+// --- INITIALISATION BDD ---
+db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS profils (nom TEXT PRIMARY KEY, email TEXT UNIQUE, mdp TEXT, reset_token TEXT, reset_expires INTEGER, calories REAL, budget REAL, proteines REAL, glucides REAL, lipides REAL)`);
+    db.run(`CREATE TABLE IF NOT EXISTS recettes (id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT, categorie TEXT, parts INTEGER, ingredients TEXT, etapes TEXT, cout REAL, calories REAL, proteines REAL, glucides REAL, lipides REAL)`);
+    db.run(`CREATE TABLE IF NOT EXISTS ingredients (id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT, rayon TEXT, calories REAL, proteines REAL, glucides REAL, lipides REAL, prix REAL, marques TEXT)`);
+    db.run(`CREATE TABLE IF NOT EXISTS menu_prevu (profil TEXT, jour TEXT, petitDejeuner TEXT, repas1 TEXT, repas2 TEXT, dessertCollation TEXT, PRIMARY KEY (profil, jour))`);
+    db.run(`CREATE TABLE IF NOT EXISTS suivi_consomme (id INTEGER PRIMARY KEY AUTOINCREMENT, profil TEXT, jour TEXT, categorie TEXT, recette_id INTEGER, quantite REAL)`);
+    db.run(`CREATE TABLE IF NOT EXISTS courses (id INTEGER PRIMARY KEY AUTOINCREMENT, profil TEXT, ingredient_id INTEGER, nom TEXT, rayon TEXT, quantite_necessaire REAL, unite TEXT, prix_total REAL, coche INTEGER DEFAULT 0)`);
+});
+
+// --- API AUTHENTIFICATION ---
+app.post('/api/login', (req, res) => {
+    const { email, mdp } = req.body;
+    db.get("SELECT * FROM profils WHERE email = ?", [email], async (err, user) => {
+        if (user && user.mdp && await bcrypt.compare(mdp, user.mdp)) {
+            req.session.user = user.nom;
+            res.json({ success: true, nom: user.nom });
+        } else {
+            res.status(401).json({ error: "E-mail ou mot de passe incorrect." });
+        }
+    });
+});
+
+app.post('/api/logout', (req, res) => { req.session.destroy(() => res.json({ success: true })); });
 
 // --- API RECETTES ---
 app.get('/api/recettes', (req, res) => {
-    db.all("SELECT * FROM recettes", [], (err, rows) => res.json(rows));
+    db.all("SELECT * FROM recettes", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.post('/api/recettes', (req, res) => {
+    const { nom, categorie, parts, ingredients, etapes, cout, calories, proteines, glucides, lipides } = req.body;
+    let ingredientsToSave = Array.isArray(ingredients) ? JSON.stringify(ingredients) : (typeof ingredients === 'string' ? ingredients : JSON.stringify([]));
+
+    db.run(`INSERT INTO recettes (nom, categorie, parts, ingredients, etapes, cout, calories, proteines, glucides, lipides) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    [nom, categorie, parts, ingredientsToSave, etapes, cout, calories, proteines, glucides, lipides], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        io.emit('data_updated');
+        res.json({ success: true, id: this.lastID });
+    });
 });
 
 // --- API INGREDIENTS ---
 app.get('/api/ingredients', (req, res) => {
-    db.all("SELECT * FROM ingredients", [], (err, rows) => res.json(rows));
+    db.all("SELECT * FROM ingredients", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows.map(r => ({ ...r, marques: r.marques ? JSON.parse(r.marques) : [] })));
+    });
 });
 
-// --- API PROFILS ---
-app.get('/api/profils', (req, res) => {
-    db.all("SELECT * FROM profils", [], (err, rows) => res.json(rows));
-});
-
-app.post('/api/profils', (req, res) => {
-    const { ancienNom, nom, calories, budget, proteines, glucides, lipides } = req.body;
-
-    if (ancienNom && ancienNom !== nom) {
-        db.get("SELECT * FROM profils WHERE nom = ?", [nom], (err, row) => {
-            if (row) {
-                return res.status(400).json({ error: "Ce pseudo existe déjà !" });
-            }
-            executerSauvegardeProfil();
-        });
-    } else {
-        executerSauvegardeProfil();
-    }
-
-    function executerSauvegardeProfil() {
-        if (ancienNom && ancienNom !== nom) {
-            db.run("DELETE FROM profils WHERE nom = ?", [ancienNom]);
-        }
-
-        db.run(`INSERT OR REPLACE INTO profils (nom, calories, budget, proteines, glucides, lipides) VALUES (?, ?, ?, ?, ?, ?)`, 
-        [nom, calories, budget, proteines, glucides, lipides], (err) => {
-            if (err) res.status(500).json({ error: err.message });
-            else {
-                io.emit('data_updated');
-                res.json({ success: true, nom });
-            }
-        });
-    }
-});
-
-app.delete('/api/profils/:nom', (req, res) => {
-    const nom = req.params.nom;
-    db.serialize(() => {
-        db.run("DELETE FROM profils WHERE nom = ?", [nom]);
-        db.run("DELETE FROM menu_prevu WHERE profil = ?", [nom]);
-        db.run("DELETE FROM suivi_consomme WHERE profil = ?", [nom], (err) => {
-            if (err) res.status(500).json({ error: err.message });
-            else {
-                io.emit('data_updated');
-                res.sendStatus(200);
-            }
-        });
+app.post('/api/ingredients', (req, res) => {
+    const { nom, rayon, calories, proteines, glucides, lipides, prix, marques } = req.body;
+    const marquesStr = Array.isArray(marques) ? JSON.stringify(marques) : (marques || '[]');
+    
+    db.run(`INSERT INTO ingredients (nom, rayon, calories, proteines, glucides, lipides, prix, marques) VALUES (?,?,?,?,?,?,?,?)`,
+    [nom, rayon || 'Épicerie', calories || 0, proteines || 0, glucides || 0, lipides || 0, prix || 0, marquesStr], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        io.emit('data_updated');
+        res.json({ success: true, id: this.lastID });
     });
 });
 
 // --- API MENU PRÉVU ---
 app.get('/api/menu-prevu', (req, res) => {
-    const { jour, profil } = req.query;
-    db.get("SELECT * FROM menu_prevu WHERE jour = ? AND profil = ?", [jour, profil], (err, row) => {
-        if (!row) {
-            res.json({ petitDejeuner: '', repas1: '', repas2: '', dessertCollation: '' });
-        } else {
-            res.json({
-                petitDejeuner: row.petitDejeuner || '',
-                repas1: row.repas1 || '',
-                repas2: row.repas2 || '',
-                dessertCollation: row.dessertCollation || ''
-            });
-        }
-    });
+    const { profil, jour } = req.query;
+    if (jour && profil) {
+        db.get("SELECT * FROM menu_prevu WHERE profil = ? AND jour = ?", [profil, jour], (err, row) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json(row || {});
+        });
+    } else if (profil) {
+        db.all("SELECT * FROM menu_prevu WHERE profil = ?", [profil], (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json(rows || []);
+        });
+    } else {
+        db.all("SELECT * FROM menu_prevu", [], (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json(rows || []);
+        });
+    }
 });
 
 app.post('/api/menu-prevu', (req, res) => {
     const { jour, profil, petitDejeuner, repas1, repas2, dessertCollation } = req.body;
-    const query = `INSERT INTO menu_prevu (profil, jour, petitDejeuner, repas1, repas2, dessertCollation) 
-                   VALUES (?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(profil, jour) DO UPDATE SET 
-                   petitDejeuner=excluded.petitDejeuner,
-                   repas1=excluded.repas1,
-                   repas2=excluded.repas2,
-                   dessertCollation=excluded.dessertCollation`;
-
-    db.run(query, [profil, jour, petitDejeuner || '', repas1 || '', repas2 || '', dessertCollation || ''], (err) => {
+    const q = `INSERT INTO menu_prevu (profil, jour, petitDejeuner, repas1, repas2, dessertCollation) VALUES (?,?,?,?,?,?) 
+               ON CONFLICT(profil, jour) DO UPDATE SET petitDejeuner=excluded.petitDejeuner, repas1=excluded.repas1, repas2=excluded.repas2, dessertCollation=excluded.dessertCollation`;
+    db.run(q, [profil, jour, petitDejeuner, repas1, repas2, dessertCollation], (err) => {
         if (err) res.status(500).json({ error: err.message });
-        else {
-            io.emit('data_updated');
-            res.sendStatus(200);
-        }
+        else { io.emit('data_updated'); res.sendStatus(200); }
     });
 });
 
-// --- API SUIVI CONSOMMÉ ---
-app.get('/api/suivi-consomme', (req, res) => {
-    const { jour, profil } = req.query;
-    db.all("SELECT * FROM suivi_consomme WHERE jour = ? AND profil = ?", [jour, profil], (err, rows) => {
-        if (err) res.status(500).json({ error: err.message });
-        else res.json(rows || []);
+// --- API COURSES (GÉNÉRATION, LISTE ET GESTION) ---
+app.get('/api/courses', (req, res) => {
+    const { profil } = req.query;
+    const query = profil ? "SELECT * FROM courses WHERE profil = ?" : "SELECT * FROM courses";
+    db.all(query, profil ? [profil] : [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows || []);
     });
 });
 
-app.post('/api/suivi-consomme', (req, res) => {
-    const { profil, jour, categorie, recette_id, quantite } = req.body;
-    db.run(`INSERT INTO suivi_consomme (profil, jour, categorie, recette_id, quantite) VALUES (?, ?, ?, ?, ?)`,
-    [profil, jour, categorie, recette_id, quantite || 1], (err) => {
-        if (err) res.status(500).json({ error: err.message });
-        else {
-            io.emit('data_updated');
-            res.sendStatus(200);
-        }
+app.post('/api/courses/cocher', (req, res) => {
+    const { id, coche } = req.body;
+    db.run("UPDATE courses SET coche = ? WHERE id = ?", [coche ? 1 : 0, id], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        io.emit('data_updated');
+        res.json({ success: true });
     });
 });
 
-app.delete('/api/suivi-consomme/:id', (req, res) => {
-    db.run("DELETE FROM suivi_consomme WHERE id = ?", [req.params.id], (err) => {
-        if (err) res.status(500).json({ error: err.message });
-        else {
-            io.emit('data_updated');
-            res.sendStatus(200);
-        }
+app.post('/api/courses/generer', (req, res) => {
+    const { profil } = req.body;
+    db.all("SELECT * FROM menu_prevu WHERE profil = ?", [profil], (err, menus) => {
+        let idsRecettes = new Set();
+        menus.forEach(m => ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation'].forEach(c => { if (m[c]) idsRecettes.add(m[c]); }));
+        
+        if (idsRecettes.size === 0) return res.json({ success: true });
+
+        const placeholders = Array.from(idsRecettes).map(() => '?').join(',');
+        db.all(`SELECT * FROM recettes WHERE id IN (${placeholders})`, Array.from(idsRecettes), (err, recettes) => {
+            db.all("SELECT * FROM ingredients", [], (err, ingsRef) => {
+                let besoins = {};
+                recettes.forEach(r => {
+                    try {
+                        let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
+                        if (Array.isArray(ings)) ings.forEach(i => {
+                            let id = i.id || i.ingredient_id;
+                            if (id) besoins[id] = (besoins[id] || 0) + parseFloat(i.quantite || 0);
+                        });
+                    } catch (e) {}
+                });
+                db.run("DELETE FROM courses WHERE profil = ?", [profil], () => {
+                    const stmt = db.prepare("INSERT INTO courses (profil, ingredient_id, nom, rayon, quantite_necessaire, unite, prix_total, coche) VALUES (?,?,?,?,?,?,?,0)");
+                    for (const [id, qte] of Object.entries(besoins)) {
+                        const ref = ingsRef.find(i => i.id == id);
+                        if (ref) stmt.run(profil, ref.id, ref.nom, ref.rayon || 'Épicerie', qte, 'g', 0);
+                    }
+                    stmt.finalize(() => { io.emit('data_updated'); res.json({ success: true }); });
+                });
+            });
+        });
     });
+});
+
+// --- API FRIGO (RECETTES FAISABLES) ---
+app.get('/api/frigo/recettes-faisables', (req, res) => {
+    const { profil } = req.query;
+    db.all("SELECT * FROM recettes", [], (err, recettes) => {
+        db.all("SELECT ingredient_id FROM courses WHERE profil = ? AND coche = 1", [profil], (err, courses) => {
+            const dispo = new Set(courses.map(c => c.ingredient_id));
+            res.json(recettes.filter(r => {
+                try {
+                    let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
+                    return Array.isArray(ings) && ings.every(i => dispo.has(Number(i.id || i.ingredient_id)));
+                } catch { return false; }
+            }));
+        });
+    });
+});
+
+// --- PROFILS ET AUTRES ---
+app.get('/api/profils', (req, res) => {
+    db.all("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils", [], (err, rows) => res.json(rows || []));
 });
 
 server.listen(3000, () => console.log('Serveur démarré sur http://localhost:3000'));
