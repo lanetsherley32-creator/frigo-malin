@@ -7,7 +7,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const session = require('express-session');
-const pgSession = require('connect-pg-simple')(session); // <--- AJOUTÉ
+const pgSession = require('connect-pg-simple')(session);
 
 const app = express();
 const server = http.createServer(app);
@@ -30,9 +30,9 @@ app.use(express.urlencoded({ extended: true }));
 // --- CONFIGURATION DES SESSIONS (STOCKÉES DANS POSTGRES) ---
 app.use(session({
     store: new pgSession({
-        pool: pool,                // Utilise votre connexion Supabase
-        tableName: 'session',      // Nom de la table en base de données
-        createTableIfMissing: true // Crée la table automatiquement si absente
+        pool: pool,                
+        tableName: 'session',      
+        createTableIfMissing: true 
     }),
     secret: process.env.SESSION_SECRET || 'votre_secret_tres_securise_et_aleatoire',
     resave: false,
@@ -81,9 +81,7 @@ const transporter = nodemailer.createTransport({
 // --- GESTION SOCKET.IO ---
 io.on('connection', (socket) => {
     console.log('Un client est connecté via WebSocket');
-    socket.on('disconnect', () => {
-        // Déconnexion propre
-    });
+    socket.on('disconnect', () => {});
 });
 
 // --- API AUTHENTIFICATION & COMPTE UTILISATEUR ---
@@ -94,7 +92,19 @@ app.post('/api/login', async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM profils WHERE email = $1", [email]);
         const user = result.rows[0];
-        if (user && user.mdp && await bcrypt.compare(mdp, user.mdp)) {
+
+        if (!user) {
+            console.log("LOGIN - Utilisateur introuvable pour l'email:", email);
+            return res.status(401).json({ error: "E-mail ou mot de passe incorrect." });
+        }
+
+        console.log("LOGIN - Utilisateur trouvé:", user.email);
+        console.log("LOGIN - Hash en bdd:", user.mdp);
+
+        const match = await bcrypt.compare(mdp, user.mdp);
+        console.log("LOGIN - Résultat comparaison bcrypt:", match);
+
+        if (match) {
             req.session.user = user.email;
             res.json({ success: true, nom: user.nom });
         } else {
@@ -324,7 +334,7 @@ app.post('/api/ingredients', async (req, res) => {
     }
 });
 
-// --- FONCTION UTILITAIRE DE CALCUL DE SCORE (NUTRITION & MACROS) ---
+// --- FONCTION UTILITAIRE DE CALCUL DE SCORE ---
 function calculerScoreEcart(recette, cible) {
     const calR = parseFloat(recette.calories) || 0;
     const proR = parseFloat(recette.proteines) || 0;
@@ -342,7 +352,7 @@ function calculerScoreEcart(recette, cible) {
     return scoreCal + scorePro + scoreGlu + scoreLip;
 }
 
-// --- API MENU PRÉVU & GÉNÉRATION ALÉATOIRE OPTIMISÉE ---
+// --- API MENU PRÉVU & GÉNÉRATION ---
 app.get('/api/menu-prevu-semaine', async (req, res) => {
     const profil = req.query.profil;
     if (!profil) return res.status(400).json({ error: "Profil manquant" });
@@ -354,7 +364,6 @@ app.get('/api/menu-prevu-semaine', async (req, res) => {
     }
 });
 
-// --- API RÉSUMÉ DU JOUR (PLANIFICATION SEMAINE) ---
 app.get('/api/menu-prevu-resume-jour', async (req, res) => {
     const { profil, jour } = req.query;
     if (!profil || !jour) return res.status(400).json({ error: "Profil ou jour manquant" });
@@ -481,7 +490,6 @@ app.post('/api/menu-aleatoire-optimise', async (req, res) => {
     }
 });
 
-// --- API SUGGESTION "POUR COMPLÉTER VOTRE OBJECTIF" ---
 app.get('/api/recette-suggeree-complement', async (req, res) => {
     const { profil, jour } = req.query;
     if (!profil || !jour) return res.status(400).json({ error: "Profil ou jour manquant" });
