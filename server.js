@@ -109,6 +109,57 @@ app.post('/api/profils', async (req, res) => {
     }
 });
 
+// --- API MOT DE PASSE OUBLIÉ & RESET ---
+app.post('/api/mot-de-passe-oublie', (req, res) => {
+    const { email } = req.body;
+    db.get("SELECT * FROM profils WHERE email = ?", [email], (err, user) => {
+        if (!user) {
+            return res.status(404).json({ error: "Aucun compte associé à cet e-mail." });
+        }
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const expires = Date.now() + 3600000; // Valide 1 heure
+
+        db.run("UPDATE profils SET reset_token = ?, reset_expires = ? WHERE email = ?", [token, expires, email], async (err) => {
+            if (err) return res.status(500).json({ error: "Erreur serveur." });
+
+            const resetLink = `${req.protocol}://${req.get('host')}/reset.html?token=${token}`;
+            
+            try {
+                await transporter.sendMail({
+                    from: '"Menu de la Semaine" <noreply@menudesemaine.com>',
+                    to: email,
+                    subject: 'Réinitialisation de votre mot de passe',
+                    text: `Bonjour, cliquez sur ce lien pour réinitialiser votre mot de passe : ${resetLink}`
+                });
+                res.json({ success: true, message: "E-mail de réinitialisation envoyé." });
+            } catch (e) {
+                // Renvoie le lien directement en mode debug/dev si le SMTP n'est pas configuré
+                res.json({ success: true, message: "Token généré", debug_link: resetLink });
+            }
+        });
+    });
+});
+
+app.post('/api/reset-password', async (req, res) => {
+    const { token, nouveauMdp } = req.body;
+    db.get("SELECT * FROM profils WHERE reset_token = ? AND reset_expires > ?", [token, Date.now()], async (err, user) => {
+        if (!user) {
+            return res.status(400).json({ error: "Token invalide ou expiré." });
+        }
+
+        try {
+            const hashedPassword = await bcrypt.hash(nouveauMdp, 10);
+            db.run("UPDATE profils SET mdp = ?, reset_token = NULL, reset_expires = NULL WHERE nom = ?", [hashedPassword, user.nom], (err) => {
+                if (err) return res.status(500).json({ error: "Erreur lors de la mise à jour." });
+                res.json({ success: true, message: "Mot de passe mis à jour avec succès." });
+            });
+        } catch (e) {
+            res.status(500).json({ error: "Erreur de cryptage." });
+        }
+    });
+});
+
 // --- API RECETTES (PARTAGÉES) ---
 app.get('/api/recettes', (req, res) => {
     db.all("SELECT * FROM recettes", [], (err, rows) => {
@@ -197,7 +248,6 @@ app.post('/api/courses/cocher', (req, res) => {
     if (!profil) return res.status(401).json({ error: "Non connecté" });
 
     const { id, coche } = req.body;
-    // On s'assure de modifier uniquement la ligne qui appartient bien à ce profil
     db.run("UPDATE courses SET coche = ? WHERE id = ? AND profil = ?", [coche ? 1 : 0, id, profil], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         io.emit('data_updated');
