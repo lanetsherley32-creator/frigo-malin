@@ -66,7 +66,7 @@ app.post('/api/login', async (req, res) => {
         const result = await pool.query("SELECT * FROM profils WHERE email = $1", [email]);
         const user = result.rows[0];
         if (user && user.mdp && await bcrypt.compare(mdp, user.mdp)) {
-            req.session.user = user.nom;
+            req.session.user = user.email; // Stockage de l'e-mail unique dans la session
             res.json({ success: true, nom: user.nom });
         } else {
             res.status(401).json({ error: "E-mail ou mot de passe incorrect." });
@@ -82,7 +82,7 @@ app.post('/api/logout', (req, res) => { req.session.destroy(() => res.json({ suc
 app.get('/api/current-user', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: "Non connecté" });
     try {
-        const result = await pool.query("SELECT nom, email FROM profils WHERE nom = $1", [req.session.user]);
+        const result = await pool.query("SELECT nom, email FROM profils WHERE email = $1", [req.session.user]);
         const user = result.rows[0];
         if (!user) return res.status(404).json({ error: "Compte introuvable" });
         res.json(user);
@@ -104,7 +104,7 @@ app.post('/api/profils', async (req, res) => {
                 mdp = COALESCE(EXCLUDED.mdp, profils.mdp)
         `;
         await pool.query(query, [nom, email, hashedPassword]);
-        req.session.user = nom;
+        req.session.user = email; // Stockage de l'e-mail unique dans la session
         io.emit('data_updated');
         res.json({ success: true });
     } catch (e) {
@@ -115,8 +115,8 @@ app.post('/api/profils', async (req, res) => {
 
 // Mise à jour du compte de connexion
 app.put('/api/profils', async (req, res) => {
-    const utilisateurActuel = req.session.user;
-    if (!utilisateurActuel) {
+    const emailActuel = req.session.user;
+    if (!emailActuel) {
         return res.status(401).json({ error: "Non connecté" });
     }
 
@@ -128,15 +128,15 @@ app.put('/api/profils', async (req, res) => {
 
         if (mdp && mdp.trim() !== '') {
             const hashedPassword = await bcrypt.hash(mdp, 10);
-            query += `, mdp = $3 WHERE nom = $4`;
-            values.push(hashedPassword, utilisateurActuel);
+            query += `, mdp = $3 WHERE email = $4`;
+            values.push(hashedPassword, emailActuel);
         } else {
-            query += ` WHERE nom = $3`;
-            values.push(utilisateurActuel);
+            query += ` WHERE email = $3`;
+            values.push(emailActuel);
         }
 
         await pool.query(query, values);
-        req.session.user = nom;
+        req.session.user = email; // Met à jour l'e-mail en session si modifié
         io.emit('data_updated');
         res.json({ success: true, message: "Compte mis à jour avec succès !" });
     } catch (error) {
@@ -302,7 +302,7 @@ app.post('/api/ingredients', async (req, res) => {
     }
 });
 
-// --- API MENU, COURSES & FRIGO (PRIVÉS) ---
+// --- API MENU, COURSES & FRIGO ---
 app.get('/api/menu-prevu', async (req, res) => {
     const profil = req.query.profil || req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
@@ -436,7 +436,7 @@ app.post('/api/courses/generer', async (req, res) => {
                 );
             }
         }
-        io.setItem('data_updated');
+        io.emit('data_updated'); // Corrigé ici
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
