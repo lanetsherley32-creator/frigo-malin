@@ -8,19 +8,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
-<body class="bg-slate-100 min-h-screen pb-12">
-    <div class="max-w-4xl mx-auto p-3 sm:p-6 space-y-4">
-        <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3 print:hidden">
+<body class="bg-slate-50 min-h-screen pb-12">
+    <div class="max-w-4xl mx-auto p-4 space-y-4">
+        
+        <!-- En-tête & Navigation -->
+        <header class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3 print:hidden">
             <div class="flex justify-between items-center flex-wrap gap-2">
                 <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🛒 Liste de Courses</h1>
                 <div class="flex items-center gap-2">
-                    <select id="select-profil" onchange="chargerCourses()" class="bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-bold text-blue-600">
+                    <select id="select-profil" onchange="chargerCourses()" class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600">
                         <option value="">Chargement...</option>
                     </select>
-                    <button onclick="telechargerPDF()" class="bg-emerald-600 active:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">📥 PDF</button>
+                    <button onclick="telechargerPDF()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all">📥 PDF</button>
                 </div>
             </div>
-            <!-- Navigation : Courses placé à la fin après Frigo -->
+            
+            <!-- Navigation harmonisée (Courses à la fin) -->
             <nav class="grid grid-cols-5 gap-1 text-center text-[11px] font-medium">
                 <a href="index.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
@@ -30,16 +33,17 @@
             </nav>
         </header>
 
-        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4 print:hidden">
-            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+        <!-- Filtres et Options -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3 print:hidden text-xs">
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
                     <input type="checkbox" id="check-deja" onchange="chargerCourses()" class="w-4 h-4 rounded text-blue-600">
                     Inclure "Ce que j'ai déjà" (Frigo) dans la liste
                 </label>
             </div>
-            <div class="space-y-1.5">
-                <label class="text-[10px] font-bold text-slate-500 uppercase">Optimisation :</label>
-                <select id="select-enseigne" onchange="chargerCourses()" class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium">
+            <div class="space-y-1">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Optimisation par Magasin :</label>
+                <select id="select-enseigne" onchange="chargerCourses()" class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl font-medium">
                     <option value="toutes">Toutes les enseignes</option>
                     <option value="meilleur_prix">⚡ Meilleur prix global (par article)</option>
                     <option value="Leclerc">Leclerc</option>
@@ -47,35 +51,55 @@
                     <option value="Lidl">Lidl</option>
                 </select>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
-                <button onclick="genererCourses()" class="bg-blue-600 text-white p-3 rounded-xl font-bold text-xs shadow-sm">🔄 Générer depuis le Menu</button>
-                <button onclick="viderCourses()" class="bg-rose-50 text-rose-600 border border-rose-200 p-3 rounded-xl font-bold text-xs">🗑️ Vider la liste</button>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <button onclick="genererCourses()" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl font-bold text-xs shadow-sm transition-all">
+                    🔄 Générer depuis le Menu Prévu
+                </button>
+                <button onclick="viderCourses()" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 p-3 rounded-xl font-bold text-xs transition-all">
+                    🗑️ Vider la liste
+                </button>
             </div>
         </section>
 
+        <!-- Container Imprimable / PDF -->
         <div id="pdf-container" class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div id="total-affichage" class="text-xs font-bold text-slate-600 px-1 mb-4"></div>
-            <div id="liste-courses-container" class="space-y-4"></div>
+            <div id="total-affichage" class="text-xs font-bold text-slate-700 px-1 mb-3 pb-2 border-b border-slate-100 flex justify-between items-center">
+                <span>Total estimé : <strong id="montant-total" class="text-emerald-600">0.00 €</strong></span>
+                <span id="nb-articles" class="text-slate-400 font-normal">0 article(s)</span>
+            </div>
+            <div id="liste-courses-container" class="space-y-2">
+                <!-- Rempli dynamiquement -->
+            </div>
         </div>
     </div>
+
     <script>
         const socket = io();
         let ingredientsRefCache = [];
 
         async function init() {
-            const [resProfils, resIngs] = await Promise.all([fetch('/api/profils'), fetch('/api/ingredients')]);
-            const profils = await resProfils.json();
-            ingredientsRefCache = await resIngs.json();
-            
-            const select = document.getElementById('select-profil');
-            select.innerHTML = profils.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
-            
-            const savedProfil = localStorage.getItem('profil_actif');
-            if (savedProfil && profils.some(p => p.nom === savedProfil)) {
-                select.value = savedProfil;
+            try {
+                const [resProfils, resIngs] = await Promise.all([
+                    fetch('/api/profils'), 
+                    fetch('/api/ingredients')
+                ]);
+                const profils = await resProfils.json();
+                ingredientsRefCache = await resIngs.json();
+                
+                const select = document.getElementById('select-profil');
+                select.innerHTML = profils.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+                
+                const savedProfil = localStorage.getItem('profil_actif');
+                if (savedProfil && profils.some(p => p.nom === savedProfil)) {
+                    select.value = savedProfil;
+                } else if (profils.length > 0) {
+                    select.value = profils[0].nom;
+                }
+                
+                chargerCourses();
+            } catch (err) {
+                console.error("Erreur d'initialisation", err);
             }
-            
-            chargerCourses();
         }
 
         async function chargerCourses() {
@@ -91,40 +115,71 @@
                 const courses = await res.json();
                 renderCourses(courses);
             } catch(e) {
-                console.error("Erreur chargement courses", e);
+                console.error("Erreur lors du chargement de la liste de courses", e);
             }
         }
 
         function renderCourses(courses) {
             const container = document.getElementById('liste-courses-container');
+            const totalEles = document.getElementById('montant-total');
+            const countEle = document.getElementById('nb-articles');
 
             if (!courses || courses.length === 0) {
-                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Aucune course pour le moment.</p>`;
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-6 italic">Votre liste de courses est vide pour le moment.</p>`;
+                if (totalEles) totalEles.innerText = "0.00 €";
+                if (countEle) countEle.innerText = "0 article";
                 return;
             }
-            
-            container.innerHTML = courses.map(c => `
-                <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                    <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-                        <input type="checkbox" ${c.coche === 1 ? 'checked' : ''} onchange="toggleCoche(${c.id}, this.checked)" class="w-4 h-4 rounded text-blue-600">
-                        <span id="label-course-${c.id}" class="${c.coche === 1 ? 'line-through text-slate-400' : ''}">
-                            ${c.nom} ${c.quantite_necessaire ? '(' + c.quantite_necessaire + ' ' + (c.unite || 'g') + ')' : ''}
-                        </span>
-                    </label>
-                    <span class="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md">${c.rayon || 'Épicerie'}</span>
-                </div>
-            `).join('');
+
+            let cumulPrix = 0;
+
+            container.innerHTML = courses.map(c => {
+                const estCoche = c.coche === 1;
+                const prix = parseFloat(c.prix || 0);
+                if (!estCoche) cumulPrix += prix;
+
+                const qteAffichee = c.quantite_necessaire ? `(${c.quantite_necessaire} ${c.unite || 'g'})` : '';
+                const prixAffichage = prix > 0 ? `${prix.toFixed(2)} €` : '';
+
+                return `
+                    <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all text-xs">
+                        <label class="flex items-center gap-2.5 cursor-pointer font-medium text-slate-700 flex-1">
+                            <input type="checkbox" ${estCoche ? 'checked' : ''} onchange="toggleCoche(${c.id}, this.checked)" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500">
+                            <span id="label-course-${c.id}" class="${estCoche ? 'line-through text-slate-400' : 'text-slate-800'}">
+                                <strong>${c.nom}</strong> <span class="text-slate-500 font-normal">${qteAffichee}</span>
+                            </span>
+                        </label>
+                        <div class="flex items-center gap-2 shrink-0">
+                            ${prixAffichage ? `<span class="font-bold text-slate-600">${prixAffichage}</span>` : ''}
+                            <span class="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-semibold">${c.rayon || 'Épicerie'}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if (totalEles) totalEles.innerText = `${cumulPrix.toFixed(2)} €`;
+            if (countEle) countEle.innerText = `${courses.length} article(s)`;
         }
 
         async function toggleCoche(id, coche) {
+            const label = document.getElementById(`label-course-${id}`);
+            if (label) {
+                if (coche) {
+                    label.classList.add('line-through', 'text-slate-400');
+                } else {
+                    label.classList.remove('line-through', 'text-slate-400');
+                }
+            }
+
             try {
                 await fetch(`/api/courses/cocher`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id, coche })
+                    body: JSON.stringify({ id, coche: coche ? 1 : 0 })
                 });
+                chargerCourses();
             } catch(e) {
-                console.error("Erreur cochage", e);
+                console.error("Erreur lors de la modification du statut", e);
             }
         }
 
@@ -142,7 +197,7 @@
                     body: JSON.stringify({ profil })
                 });
                 if (response.ok) {
-                    alert("Liste générée avec succès !");
+                    alert("Liste de courses générée avec succès !");
                     chargerCourses();
                 } else {
                     alert("Erreur lors de la génération de la liste.");
@@ -168,7 +223,14 @@
 
         function telechargerPDF() {
             const element = document.getElementById('pdf-container');
-            html2pdf().from(element).save('liste-de-courses.pdf');
+            const opt = {
+                margin:       10,
+                filename:     'liste-de-courses.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
         }
 
         socket.on('data_updated', chargerCourses);
