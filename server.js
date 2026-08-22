@@ -23,21 +23,26 @@ app.use(session({
     cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
 
-// --- MIDDLEWARE DE PROTECTION (CORRIGÉ & ÉLARGI POUR TOUT PARTAGER) ---
+// --- MIDDLEWARE DE PROTECTION (CONNEXION OBLIGATOIRE) ---
 app.use((req, res, next) => {
     const cheminsPublics = [
-        '/', '/index.html', '/login.html', '/reset.html', '/courses.html', '/menu.html', '/recettes.html', '/frigo.html', '/ingredients.html', '/vider-frigo.html',
-        '/api/login', '/api/profils', '/api/mot-de-passe-oublie', '/api/reset-password', '/api/recettes', '/api/ingredients'
+        '/', '/login.html', '/reset.html', 
+        '/api/login', '/api/profils', '/api/mot-de-passe-oublie', '/api/reset-password'
     ];
+    
     const estPublic = cheminsPublics.includes(req.path) || 
                       req.path.startsWith('/css/') || 
                       req.path.startsWith('/js/') || 
-                      req.path.startsWith('/api/recettes') || 
-                      req.path.startsWith('/api/ingredients') ||
                       req.path.startsWith('/api/profils');
                       
-    if (req.session.user || estPublic) next();
-    else res.status(401).json({ error: "Accès non autorisé. Veuillez vous connecter." });
+    if (req.session.user || estPublic) {
+        next();
+    } else {
+        if (req.path.endsWith('.html') || req.path === '/') {
+            return res.redirect('/login.html');
+        }
+        res.status(401).json({ error: "Accès non autorisé. Veuillez vous connecter." });
+    }
 });
 
 app.use(express.static('public'));
@@ -78,7 +83,6 @@ app.get('/api/profils', (req, res) => {
     db.all("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils", [], (err, rows) => res.json(rows || []));
 });
 
-// Route d'inscription / création de profil si absente
 app.post('/api/profils', async (req, res) => {
     const { nom, email, mdp, calories, budget, proteines, glucides, lipides } = req.body;
     try {
