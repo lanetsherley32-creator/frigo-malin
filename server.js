@@ -79,7 +79,6 @@ app.post('/api/login', (req, res) => {
 
 app.post('/api/logout', (req, res) => { req.session.destroy(() => res.json({ success: true })); });
 
-// Route pour récupérer l'utilisateur actuellement connecté
 app.get('/api/current-user', (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: "Non connecté" });
     db.get("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils WHERE nom = ?", [req.session.user], (err, user) => {
@@ -134,8 +133,8 @@ app.post('/api/mot-de-passe-oublie', (req, res) => {
                 });
                 res.json({ success: true, message: "E-mail de réinitialisation envoyé." });
             } catch (e) {
-                // Renvoie le lien directement en mode debug/dev si le SMTP n'est pas configuré
-                res.json({ success: true, message: "Token généré", debug_link: resetLink });
+                // Mode développement : renvoie le lien directement dans la réponse pour pouvoir tester sans serveur mail configuré
+                res.json({ success: true, message: "Lien de réinitialisation généré (mode dev)", debug_link: resetLink });
             }
         });
     });
@@ -160,12 +159,9 @@ app.post('/api/reset-password', async (req, res) => {
     });
 });
 
-// --- API RECETTES (PARTAGÉES) ---
+// --- API RECETTES & INGREDIENTS (PARTAGÉS) ---
 app.get('/api/recettes', (req, res) => {
-    db.all("SELECT * FROM recettes", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
+    db.all("SELECT * FROM recettes", [], (err, rows) => res.json(rows || []));
 });
 
 app.post('/api/recettes', (req, res) => {
@@ -180,11 +176,9 @@ app.post('/api/recettes', (req, res) => {
     });
 });
 
-// --- API INGREDIENTS (PARTAGÉS) ---
 app.get('/api/ingredients', (req, res) => {
     db.all("SELECT * FROM ingredients", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows.map(r => ({ ...r, marques: r.marques ? JSON.parse(r.marques) : [] })));
+        res.json((rows || []).map(r => ({ ...r, marques: r.marques ? JSON.parse(r.marques) : [] })));
     });
 });
 
@@ -200,23 +194,11 @@ app.post('/api/ingredients', (req, res) => {
     });
 });
 
-// --- API MENU PRÉVU (PRIVÉ / LIÉ AU USER CONNECTÉ) ---
+// --- API MENU, COURSES & FRIGO (PRIVÉS) ---
 app.get('/api/menu-prevu', (req, res) => {
     const profil = req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
-    
-    const { jour } = req.query;
-    if (jour) {
-        db.get("SELECT * FROM menu_prevu WHERE profil = ? AND jour = ?", [profil, jour], (err, row) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json(row || {});
-        });
-    } else {
-        db.all("SELECT * FROM menu_prevu WHERE profil = ?", [profil], (err, rows) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json(rows || []);
-        });
-    }
+    db.all("SELECT * FROM menu_prevu WHERE profil = ?", [profil], (err, rows) => res.json(rows || []));
 });
 
 app.post('/api/menu-prevu', (req, res) => {
@@ -232,21 +214,15 @@ app.post('/api/menu-prevu', (req, res) => {
     });
 });
 
-// --- API COURSES (PRIVÉ / LIÉ AU USER CONNECTÉ) ---
 app.get('/api/courses', (req, res) => {
     const profil = req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
-
-    db.all("SELECT * FROM courses WHERE profil = ?", [profil], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows || []);
-    });
+    db.all("SELECT * FROM courses WHERE profil = ?", [profil], (err, rows) => res.json(rows || []));
 });
 
 app.post('/api/courses/cocher', (req, res) => {
     const profil = req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
-
     const { id, coche } = req.body;
     db.run("UPDATE courses SET coche = ? WHERE id = ? AND profil = ?", [coche ? 1 : 0, id, profil], (err) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -261,7 +237,7 @@ app.post('/api/courses/generer', (req, res) => {
 
     db.all("SELECT * FROM menu_prevu WHERE profil = ?", [profil], (err, menus) => {
         let idsRecettes = new Set();
-        menus.forEach(m => ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation'].forEach(c => { if (m[c]) idsRecettes.add(m[c]); }));
+        (menus || []).forEach(m => ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation'].forEach(c => { if (m[c]) idsRecettes.add(m[c]); }));
         
         if (idsRecettes.size === 0) return res.json({ success: true });
 
@@ -269,7 +245,7 @@ app.post('/api/courses/generer', (req, res) => {
         db.all(`SELECT * FROM recettes WHERE id IN (${placeholders})`, Array.from(idsRecettes), (err, recettes) => {
             db.all("SELECT * FROM ingredients", [], (err, ingsRef) => {
                 let besoins = {};
-                recettes.forEach(r => {
+                (recettes || []).forEach(r => {
                     try {
                         let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
                         if (Array.isArray(ings)) ings.forEach(i => {
@@ -281,7 +257,7 @@ app.post('/api/courses/generer', (req, res) => {
                 db.run("DELETE FROM courses WHERE profil = ?", [profil], () => {
                     const stmt = db.prepare("INSERT INTO courses (profil, ingredient_id, nom, rayon, quantite_necessaire, unite, prix_total, coche) VALUES (?,?,?,?,?,?,?,0)");
                     for (const [id, qte] of Object.entries(besoins)) {
-                        const ref = ingsRef.find(i => i.id == id);
+                        const ref = (ingsRef || []).find(i => i.id == id);
                         if (ref) stmt.run(profil, ref.id, ref.nom, ref.rayon || 'Épicerie', qte, 'g', 0);
                     }
                     stmt.finalize(() => { io.emit('data_updated'); res.json({ success: true }); });
@@ -291,15 +267,14 @@ app.post('/api/courses/generer', (req, res) => {
     });
 });
 
-// --- API FRIGO / RECETTES FAISABLES (PRIVÉ / LIÉ AU USER CONNECTÉ) ---
 app.get('/api/frigo/recettes-faisables', (req, res) => {
     const profil = req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
 
     db.all("SELECT * FROM recettes", [], (err, recettes) => {
         db.all("SELECT ingredient_id FROM courses WHERE profil = ? AND coche = 1", [profil], (err, courses) => {
-            const dispo = new Set(courses.map(c => c.ingredient_id));
-            res.json(recettes.filter(r => {
+            const dispo = new Set((courses || []).map(c => c.ingredient_id));
+            res.json((recettes || []).filter(r => {
                 try {
                     let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
                     return Array.isArray(ings) && ings.every(i => dispo.has(Number(i.id || i.ingredient_id)));

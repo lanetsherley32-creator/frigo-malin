@@ -18,9 +18,14 @@
                 <input type="email" id="login-email" class="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             
-            <div class="mb-6">
+            <div class="mb-2">
                 <label class="block text-sm font-medium text-slate-600 mb-1">Mot de passe</label>
                 <input type="password" id="login-mdp" class="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+
+            <!-- Lien Mot de passe oublié -->
+            <div class="mb-6 text-right">
+                <a href="#" onclick="demanderMotDePasseOublie(event)" class="text-xs text-blue-600 hover:underline font-medium">Mot de passe oublié ?</a>
             </div>
 
             <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4">
@@ -96,6 +101,36 @@
                 }
             } catch (err) {
                 alert("Erreur serveur");
+            }
+        }
+
+        async function demanderMotDePasseOublie(e) {
+            e.preventDefault();
+            const emailSaisi = document.getElementById('login-email').value.trim();
+            const email = emailSaisi || prompt("Veuillez entrer votre adresse e-mail :");
+            
+            if (!email) return;
+
+            try {
+                const res = await fetch('/api/mot-de-passe-oublie', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    if (data.debug_link) {
+                        // Utile en local/dev : affiche directement le lien dans une alerte si l'e-mail n'est pas configuré
+                        alert("Demande prise en compte.\n\n[Mode Dev] Lien de réinitialisation :\n" + data.debug_link);
+                    } else {
+                        alert("Un e-mail de réinitialisation a été envoyé à cette adresse.");
+                    }
+                } else {
+                    alert(data.error || "Une erreur est survenue.");
+                }
+            } catch (err) {
+                alert("Erreur de connexion au serveur.");
             }
         }
 
