@@ -25,15 +25,16 @@
 
             <!-- Lien Mot de passe oublié -->
             <div class="mb-6 text-right">
-                <a href="#" onclick="demanderMotDePasseOublie(event)" class="text-xs text-blue-600 hover:underline font-medium">Mot de passe oublié ?</a>
+                <a href="#" id="link-forgot" class="text-xs text-blue-600 hover:underline font-medium">Mot de passe oublié ?</a>
             </div>
 
-            <button type="button" onclick="login(event)" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4">
+            <!-- Bouton sans onclick HTML -->
+            <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4 cursor-pointer">
                 Se connecter
             </button>
             
             <p class="text-center text-sm text-slate-500">
-                Pas encore de compte ? <a href="#" onclick="toggleMode(event)" class="text-blue-600 hover:underline font-medium">S'inscrire</a>
+                Pas encore de compte ? <a href="#" id="link-toggle-reg" class="text-blue-600 hover:underline font-medium">S'inscrire</a>
             </p>
         </div>
 
@@ -54,19 +55,19 @@
                 <input type="password" id="reg-mdp" class="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
 
-            <button type="button" onclick="register()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4">
+            <button id="btn-register" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4 cursor-pointer">
                 Créer mon compte
             </button>
             
             <p class="text-center text-sm text-slate-500">
-                Déjà un compte ? <a href="#" onclick="toggleMode(event)" class="text-blue-600 hover:underline font-medium">Se connecter</a>
+                Déjà un compte ? <a href="#" id="link-toggle-log" class="text-blue-600 hover:underline font-medium">Se connecter</a>
             </p>
         </div>
     </div>
 
     <script>
         function toggleMode(e) {
-            e.preventDefault();
+            if (e) e.preventDefault();
             const loginForm = document.getElementById('login-form');
             const regForm = document.getElementById('register-form');
             const title = document.getElementById('form-title');
@@ -82,39 +83,11 @@
             }
         }
 
-        async function login(event) {
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            console.log("=== CLIC SUR CONNEXION DÉTECTÉ ===");
+        // Écouteurs d'événements propres (pas de rechargement intempestif)
+        document.getElementById('link-toggle-reg').addEventListener('click', toggleMode);
+        document.getElementById('link-toggle-log').addEventListener('click', toggleMode);
 
-            const email = document.getElementById('login-email').value;
-            const mdp = document.getElementById('login-mdp').value;
-
-            try {
-                console.log("Envoi fetch vers /api/login avec :", email);
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ email, mdp })
-                });
-
-                const data = await res.json();
-                console.log("Réponse du serveur reçue :", data);
-
-                if (res.ok) {
-                    window.location.href = '/index.html';
-                } else {
-                    alert(data.error || "Erreur de connexion");
-                }
-            } catch (err) {
-                console.error("Erreur attrapée dans le bloc catch :", err);
-                alert("Erreur serveur : " + err.message);
-            }
-        }
-
-        async function demanderMotDePasseOublie(e) {
+        document.getElementById('link-forgot').addEventListener('click', async function(e) {
             e.preventDefault();
             const emailSaisi = document.getElementById('login-email').value.trim();
             const email = emailSaisi || prompt("Veuillez entrer votre adresse e-mail :");
@@ -141,9 +114,38 @@
             } catch (err) {
                 alert("Erreur de connexion au serveur.");
             }
-        }
+        });
 
-        async function register() {
+        document.getElementById('btn-login').addEventListener('click', async function(e) {
+            e.preventDefault();
+            console.log("=== CLIC SUR CONNEXION SÉCURISÉ ===");
+
+            const email = document.getElementById('login-email').value;
+            const mdp = document.getElementById('login-mdp').value;
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, mdp })
+                });
+
+                const data = await res.json();
+                console.log("Réponse reçue :", data);
+
+                if (res.ok) {
+                    window.location.href = '/index.html';
+                } else {
+                    alert(data.error || "Erreur de connexion");
+                }
+            } catch (err) {
+                console.error("Erreur :", err);
+                alert("Erreur serveur : " + err.message);
+            }
+        });
+
+        document.getElementById('btn-register').addEventListener('click', async function(e) {
+            e.preventDefault();
             const nom = document.getElementById('reg-nom').value;
             const email = document.getElementById('reg-email').value;
             const mdp = document.getElementById('reg-mdp').value;
@@ -157,11 +159,7 @@
                 const res = await fetch('/api/profils', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        nom,
-                        email,
-                        mdp
-                    })
+                    body: JSON.stringify({ nom, email, mdp })
                 });
 
                 const data = await res.json();
@@ -169,14 +167,14 @@
                     alert("Compte créé avec succès ! Connectez-vous maintenant.");
                     document.getElementById('login-email').value = email;
                     document.getElementById('login-mdp').value = mdp;
-                    toggleMode(new Event('click'));
+                    toggleMode();
                 } else {
                     alert(data.error || "Erreur lors de la création du compte.");
                 }
             } catch (err) {
                 alert("Erreur serveur");
             }
-        }
+        });
     </script>
 </body>
 </html>
