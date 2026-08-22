@@ -28,7 +28,7 @@
                 <a href="#" onclick="demanderMotDePasseOublie(event)" class="text-xs text-blue-600 hover:underline font-medium">Mot de passe oublié ?</a>
             </div>
 
-            <button onclick="login(event)" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4">
+            <button type="button" onclick="login(event)" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4">
                 Se connecter
             </button>
             
@@ -54,7 +54,7 @@
                 <input type="password" id="reg-mdp" class="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
 
-            <button onclick="register()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4">
+            <button type="button" onclick="register()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4">
                 Créer mon compte
             </button>
             
@@ -83,7 +83,10 @@
         }
 
         async function login(event) {
-            if (event) event.preventDefault();
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
             console.log("=== CLIC SUR CONNEXION DÉTECTÉ ===");
 
             const email = document.getElementById('login-email').value;
