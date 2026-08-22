@@ -43,9 +43,23 @@
                     <select id="select-ingredient" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium"></select>
                 </div>
 
-                <div class="space-y-1.5">
-                    <label class="text-[11px] font-bold text-slate-500">Quantité :</label>
-                    <input type="number" step="any" id="input-quantite" placeholder="Ex: 500 (g ou ml)" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium">
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="space-y-1.5">
+                        <label class="text-[11px] font-bold text-slate-500">Quantité :</label>
+                        <input type="number" step="any" id="input-quantite" placeholder="Ex: 500" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-[11px] font-bold text-slate-500">Unité :</label>
+                        <select id="input-unite" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium">
+                            <option value="g">g</option>
+                            <option value="kg">kg</option>
+                            <option value="ml">ml</option>
+                            <option value="L">L</option>
+                            <option value="pièce">pièce</option>
+                            <option value="c.à.s">c.à.s</option>
+                            <option value="c.à.c">c.à.c</option>
+                        </select>
+                    </div>
                 </div>
 
                 <button onclick="ajouterIngredientFrigo()" class="w-full bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl text-xs font-bold shadow-sm">
@@ -77,30 +91,41 @@
     </div>
 
     <script>
-        const socket = io();
+        let socket;
         let ingredientsGlobal = [];
         let recettesGlobal = [];
         let profilsGlobal = [];
         let stockFrigoParProfil = {};
+
+        try {
+            socket = io();
+            socket.on('data_updated', chargerDonnees);
+        } catch (e) {
+            console.warn("Socket.io non initialisé", e);
+        }
 
         async function init() {
             await chargerDonnees();
         }
 
         async function chargerDonnees() {
-            const resProfils = await fetch('/api/profils');
-            profilsGlobal = await resProfils.json();
-            renderProfils();
+            try {
+                const resProfils = await fetch('/api/profils');
+                if (resProfils.ok) profilsGlobal = await resProfils.json();
 
-            const resIng = await fetch('/api/ingredients');
-            ingredientsGlobal = await resIng.json();
+                const resIng = await fetch('/api/ingredients');
+                if (resIng.ok) ingredientsGlobal = await resIng.json();
 
-            const resRec = await fetch('/api/recettes');
-            recettesGlobal = await resRec.json();
+                const resRec = await fetch('/api/recettes');
+                if (resRec.ok) recettesGlobal = await resRec.json();
 
-            chargerStockStocke();
-            renderSelectIngredients();
-            renderStockFrigo();
+                chargerStockStocke();
+                renderProfils();
+                renderSelectIngredients();
+                renderStockFrigo();
+            } catch (err) {
+                console.error("Erreur lors du chargement des données :", err);
+            }
         }
 
         function renderProfils() {
@@ -118,7 +143,7 @@
 
         function getProfilActifId() {
             const select = document.getElementById('select-profil');
-            return select.value;
+            return select ? select.value : "";
         }
 
         function changerProfilActif() {
@@ -130,7 +155,15 @@
             const select = document.getElementById('select-ingredient');
             select.innerHTML = ingredientsGlobal.length === 0 
                 ? `<option value="">-- Aucun ingrédient disponible --</option>` 
-                : ingredientsGlobal.map(i => `<option value="${i.id}">${i.nom}</option>`).join('');
+                : `<option value="">-- Choisir un ingrédient --</option>` + ingredientsGlobal.map(i => `<option value="${i.id}">${i.nom}</option>`).join('');
+        }
+
+        function convertirEnGrammeOuUnite(valeur, unite) {
+            valeur = parseFloat(valeur) || 0;
+            if (unite === 'kg' || unite === 'L') return valeur * 1000;
+            if (unite === 'c.à.s') return valeur * 15;
+            if (unite === 'c.à.c') return valeur * 5;
+            return valeur; // g, ml, pièce
         }
 
         function ajouterIngredientFrigo() {
@@ -142,15 +175,17 @@
 
             const select = document.getElementById('select-ingredient');
             const qteInput = document.getElementById('input-quantite');
+            const uniteSelect = document.getElementById('input-unite');
             
             const ingId = select.value;
-            const qte = parseFloat(qteInput.value);
+            const qteVal = parseFloat(qteInput.value);
+            const uniteVal = uniteSelect.value;
 
             if (!ingId) {
                 alert("Veuillez choisir un ingrédient.");
                 return;
             }
-            if (isNaN(qte) || qte <= 0) {
+            if (isNaN(qteVal) || qteVal <= 0) {
                 alert("Veuillez entrer une quantité valide.");
                 return;
             }
@@ -159,8 +194,17 @@
                 stockFrigoParProfil[profilId] = {};
             }
 
-            stockFrigoParProfil[profilId][ingId] = (stockFrigoParProfil[profilId][ingId] || 0) + qte;
+            // On stocke sous forme d'objet { quantite, unite } pour l'affichage propre
+            if (!stockFrigoParProfil[profilId][ingId]) {
+                stockFrigoParProfil[profilId][ingId] = { qte: 0, unite: uniteVal };
+            }
+
+            // Si l'unité est la même, on additionne, sinon on convertit ou garde la nouvelle
+            stockFrigoParProfil[profilId][ingId].qte += qteVal;
+            stockFrigoParProfil[profilId][ingId].unite = uniteVal;
+
             qteInput.value = '';
+            select.value = '';
             
             sauvegarderStockStocke();
             renderStockFrigo();
@@ -190,63 +234,109 @@
             container.innerHTML = ids.map(id => {
                 const ing = ingredientsGlobal.find(i => i.id == id);
                 const nom = ing ? ing.nom : "Inconnu";
-                const qte = frigoActuel[id];
+                const itemStock = frigoActuel[id];
+                const qte = typeof itemStock === 'object' ? itemStock.qte : itemStock;
+                const unite = typeof itemStock === 'object' ? itemStock.unite : 'g';
 
                 return `
                     <div class="flex justify-between items-center bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs">
-                        <span class="font-bold text-slate-800">${nom} : <strong class="text-blue-600">${qte}</strong></span>
-                        <button onclick="supprimerDuFrigo(${id})" class="text-rose-500 font-bold px-2 py-1">✕</button>
+                        <span class="font-bold text-slate-800">${nom} : <strong class="text-blue-600">${qte} ${unite}</strong></span>
+                        <button onclick="supprimerDuFrigo('${id}')" class="text-rose-500 font-bold px-2 py-1">✕</button>
                     </div>
                 `;
             }).join('');
         }
 
+        function analyserIngredientsRecette(ingredientsData) {
+            let parsedList = [];
+            if (!ingredientsData) return parsedList;
+
+            if (typeof ingredientsData === 'string') {
+                const elements = ingredientsData.split(',');
+                elements.forEach(item => {
+                    item = item.trim();
+                    const match = item.match(/^(.*?)\s*\(([0-9.]+)\s*([a-zA-Zà.é]+)\)$/);
+                    if (match) {
+                        const nomIng = match[1].trim();
+                        const qteVal = parseFloat(match[2]) || 0;
+                        const uniteVal = match[3].trim();
+                        const ingObj = ingredientsGlobal.find(i => i.nom.toLowerCase() === nomIng.toLowerCase());
+                        parsedList.push({
+                            id: ingObj ? ingObj.id : nomIng,
+                            nom: nomIng,
+                            quantite: qteVal,
+                            unite: uniteVal,
+                            quantiteBase: convertirEnGrammeOuUnite(qteVal, uniteVal)
+                        });
+                    } else if (item.length > 0) {
+                        const ingObj = ingredientsGlobal.find(i => i.nom.toLowerCase() === item.toLowerCase());
+                        parsedList.push({
+                            id: ingObj ? ingObj.id : item,
+                            nom: item,
+                            quantite: 1,
+                            unite: 'pièce',
+                            quantiteBase: 1
+                        });
+                    }
+                });
+            }
+            return parsedList;
+        }
+
         function trouverRecettes() {
             const container = document.getElementById('resultats-recettes');
             const profilId = getProfilActifId();
-            const frigoActuel = (profilId && stockFrigoParProfil[profilId]) ? stockFrigoParProfil[profilId] : {};
+            const frigoBrut = (profilId && stockFrigoParProfil[profilId]) ? stockFrigoParProfil[profilId] : {};
 
-            if (Object.keys(frigoActuel).length === 0) {
+            if (Object.keys(frigoBrut).length === 0) {
                 container.innerHTML = `<p class="text-xs text-slate-400 italic bg-white p-4 rounded-2xl border border-slate-200 text-center">Veuillez d'abord ajouter des ingrédients dans votre frigo !</p>`;
                 return;
             }
 
-            let recettesAnalysees = recettesGlobal.map(recette => {
-                let ingredientsRecette = recette.ingredients;
-                if (typeof ingredientsRecette === 'string') {
-                    try {
-                        ingredientsRecette = JSON.parse(ingredientsRecette);
-                    } catch (e) {
-                        ingredientsRecette = [];
-                    }
-                }
-                if (!Array.isArray(ingredientsRecette)) ingredientsRecette = [];
+            // Normalisation du stock frigo en quantité de base unifiée pour comparaison
+            let frigoNormalise = {};
+            Object.keys(frigoBrut).forEach(ingId => {
+                const item = frigoBrut[ingId];
+                const qte = typeof item === 'object' ? item.qte : item;
+                const unite = typeof item === 'object' ? item.unite : 'g';
+                frigoNormalise[ingId] = convertirEnGrammeOuUnite(qte, unite);
+            });
 
-                if (ingredientsRecette.length === 0) return { ...recette, faisable: false, taux: 0, manquant: [] };
+            let recettesAnalysees = recettesGlobal.map(recette => {
+                const listeIngsParsed = analyserIngredientsRecette(recette.ingredients);
+
+                if (listeIngsParsed.length === 0) {
+                    return { ...recette, faisable: false, taux: 0, manquant: [], ingredientsRecetteParsed: [] };
+                }
 
                 let toutBon = true;
                 let manquant = [];
                 let ingredientsPossedesCount = 0;
 
-                ingredientsRecette.forEach(ingR => {
-                    let stockDispo = frigoActuel[ingR.id || ingR.ingredient_id] || 0;
-                    let ingInfo = ingredientsGlobal.find(i => i.id == (ingR.id || ingR.ingredient_id));
-                    let nomIng = ingInfo ? ingInfo.nom : 'Ingrédient';
+                listeIngsParsed.forEach(ingR => {
+                    let stockDispoBase = frigoNormalise[ingR.id] || 0;
+                    if (stockDispoBase === 0 && ingR.nom) {
+                        const matchingId = Object.keys(frigoNormalise).find(idKey => {
+                            const foundIng = ingredientsGlobal.find(i => i.id == idKey);
+                            return foundIng && foundIng.nom.toLowerCase() === ingR.nom.toLowerCase();
+                        });
+                        if (matchingId) stockDispoBase = frigoNormalise[matchingId];
+                    }
 
-                    if (stockDispo >= ingR.quantite) {
+                    if (stockDispoBase >= ingR.quantiteBase) {
                         ingredientsPossedesCount++;
                     } else {
                         toutBon = false;
                         manquant.push({
-                            nom: nomIng,
-                            besoin: ingR.quantite,
-                            reste: stockDispo
+                            nom: ingR.nom,
+                            besoin: `${ingR.quantite} ${ingR.unite}`,
+                            reste: `${stockDispoBase} ${ingR.unite}`
                         });
                     }
                 });
 
-                let taux = Math.round((ingredientsPossedesCount / ingredientsRecette.length) * 100);
-                return { ...recette, faisable: toutBon, taux, manquant, ingredientsRecetteParsed: ingredientsRecette };
+                let taux = Math.round((ingredientsPossedesCount / listeIngsParsed.length) * 100);
+                return { ...recette, faisable: toutBon, taux, manquant, ingredientsRecetteParsed: listeIngsParsed };
             });
 
             recettesAnalysees.sort((a, b) => b.taux - a.taux);
@@ -264,10 +354,7 @@
                     </div>
                 ` : `<p class="mt-2 text-[11px] text-emerald-700 font-bold">Tu as tout ce qu'il faut en quantité suffisante !</p>`;
 
-                let listeIngs = r.ingredientsRecetteParsed.map(i => {
-                    let ingInfo = ingredientsGlobal.find(x => x.id == (i.id || i.ingredient_id));
-                    return `<li>${ingInfo ? ingInfo.nom : 'Ingrédient'} : ${i.quantite}</li>`;
-                }).join('');
+                let listeIngs = r.ingredientsRecetteParsed.map(i => `<li>${i.nom} : ${i.quantite} ${i.unite}</li>`).join('');
 
                 return `
                     <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 text-xs">
@@ -277,7 +364,7 @@
                         </div>
                         <div class="text-slate-600 space-y-1">
                             <span class="font-bold text-slate-700">Ingrédients :</span>
-                            <ul class="list-disc list-inside text-slate-500 max-h-24 overflow-y-auto space-y-0.5">${listeIngs}</ul>
+                            <ul class="list-disc list-inside text-slate-500 max-h-24 overflow-y-auto space-y-0.5">${listeIngs || '<li>Aucun ingrédient spécifié</li>'}</ul>
                         </div>
                         ${detailsManquants}
                     </div>
@@ -295,10 +382,6 @@
                 try { stockFrigoParProfil = JSON.parse(stock); } catch(e) { stockFrigoParProfil = {}; }
             }
         }
-
-        socket.on('data_updated', async () => {
-            await chargerDonnees();
-        });
 
         init();
     </script>

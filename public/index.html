@@ -21,16 +21,15 @@
                         <option value="">-- Choisir un profil --</option>
                     </select>
                     <button onclick="ouvrirModalProfil('nouveau')" class="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">+ Profil</button>
-                    <button onclick="ouvrirModalProfil('modifier')" id="btn-modifier-profil" class="bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm hidden">⚙️ Modifier</button>
-                    <!-- BOUTON DECONNEXION AJOUTÉ ICI -->
+                    <button onclick="ouvrirModalProfil('modifier')" id="btn-modifier-profil" class="bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm hidden">⚙️ Paramètres</button>
                     <button onclick="deconnecter()" class="bg-red-100 hover:bg-red-200 text-red-600 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all">🚪 Déconnexion</button>
                 </div>
             </div>
             
             <!-- Bilan Nutritionnel du Jour -->
-            <div id="dashboard-nutri" class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs hidden">
+            <div id="dashboard-nutri" class="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center text-xs hidden">
                 <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                    <span class="block text-[10px] text-slate-400 font-bold">Calories (Jour)</span>
+                    <span class="block text-[10px] text-slate-400 font-bold">Calories</span>
                     <strong id="stat-cal" class="text-slate-800">0</strong> / <span id="obj-cal" class="text-blue-600">0</span> kcal
                 </div>
                 <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
@@ -45,19 +44,23 @@
                     <span class="block text-[10px] text-slate-400 font-bold">Lipides</span>
                     <strong id="stat-lip" class="text-slate-800">0</strong> / <span id="obj-lip" class="text-blue-600">0</span> g
                 </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="block text-[10px] text-slate-400 font-bold">💧 Eau</span>
+                    <strong id="stat-eau" class="text-blue-600">0</strong> / <span id="obj-eau" class="text-slate-700">0</span> ml
+                </div>
                 <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 col-span-2 sm:col-span-1">
                     <span class="block text-[10px] text-slate-400 font-bold">Budget Semaine</span>
                     <strong id="stat-budget" class="text-emerald-700">0€</strong> / <span id="obj-budget" class="text-slate-700">0€</span>
                 </div>
             </div>
 
-            <!-- Liens de navigation rapides -->
+            <!-- Liens de navigation rapides (Courses placé à la fin après frigo) -->
             <nav class="grid grid-cols-5 gap-1 text-center text-[11px] font-medium pt-2">
                 <a href="index.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Menu</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
                 <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
-                <a href="courses.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Courses</a>
                 <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
+                <a href="courses.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Courses</a>
             </nav>
         </header>
 
@@ -72,7 +75,7 @@
             <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-wrap gap-3">
                 <div>
                     <h2 class="font-bold text-slate-700 text-sm">📅 Planification de la Semaine</h2>
-                    <p class="text-[11px] text-slate-400">Modifiez vos menus ou utilisez le générateur automatique.</p>
+                    <p class="text-[11px] text-slate-400">Modifiez vos menus (recettes ou aliments) ou utilisez le générateur automatique.</p>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
                     <button onclick="genererSemaineAleatoire()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5">
@@ -114,6 +117,20 @@
                 <button onclick="changerJourConso('Dimanche')" id="btn-conso-Dimanche" class="jour-conso-btn px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 bg-slate-100 text-slate-600">Dimanche</button>
             </div>
 
+            <!-- Suivi Eau Journalier -->
+            <div class="bg-blue-50 border border-blue-100 p-3.5 rounded-xl flex items-center justify-between gap-2">
+                <div>
+                    <h3 class="font-bold text-blue-900 text-xs">💧 Suivi d'eau (<span id="libelle-jour-eau">Lundi</span>)</h3>
+                    <p class="text-[10px] text-blue-700">Objectif : <span id="aff-obj-eau">2000</span> ml</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="aff-conso-eau" class="font-bold text-blue-800 text-sm">0</span> ml
+                    <button onclick="ajouterEau(250)" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-sm">+250ml</button>
+                    <button onclick="ajouterEau(500)" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-sm">+500ml</button>
+                    <button onclick="reinitialiserEau()" class="bg-slate-200 text-slate-600 px-2 py-1.5 rounded-lg text-xs font-bold">🔄</button>
+                </div>
+            </div>
+
             <h2 class="font-bold text-slate-700 text-sm">🍽️ Enregistrer ce qui a été réellement mangé (<span id="libelle-jour-conso">Lundi</span>)</h2>
             
             <form onsubmit="ajouterConsommation(event)" class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3 text-xs">
@@ -129,13 +146,13 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">Recette</label>
+                        <label class="block font-bold text-slate-700 mb-1">Recette / Aliment</label>
                         <select id="conso-recette" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
                             <!-- Rempli en JS -->
                         </select>
                     </div>
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">Quantité</label>
+                        <label class="block font-bold text-slate-700 mb-1">Quantité (portions ou grammes)</label>
                         <div class="flex gap-2">
                             <input type="number" id="conso-qte" step="0.1" value="1" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium" required>
                             <button type="submit" class="bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold shadow-sm">+</button>
@@ -152,7 +169,7 @@
 
     </div>
 
-    <!-- Modal de Profil -->
+    <!-- Modal de Profil (Paramètres complets) -->
     <div id="modal-profil" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white p-5 rounded-2xl max-w-md w-full space-y-4 text-xs">
             <h3 id="modal-profil-title" class="font-bold text-slate-800 text-sm">👤 Gestion de Profil</h3>
@@ -172,13 +189,17 @@
                         <input type="password" id="profil-mdp" placeholder="Laisser vide si inchangé" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-3 gap-2">
                     <div>
-                        <label class="font-bold text-slate-700 block mb-1">Objectif Calories (kcal)</label>
+                        <label class="font-bold text-slate-700 block mb-1">Objectif Calories</label>
                         <input type="number" id="profil-cal" placeholder="2000" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
                     </div>
                     <div>
-                        <label class="font-bold text-slate-700 block mb-1">Budget Semaine (€)</label>
+                        <label class="font-bold text-slate-700 block mb-1">Objectif Eau (ml)</label>
+                        <input type="number" id="profil-eau" placeholder="2000" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
+                    </div>
+                    <div>
+                        <label class="font-bold text-slate-700 block mb-1">Budget (€)</label>
                         <input type="number" id="profil-budget" placeholder="100" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full font-medium">
                     </div>
                 </div>
@@ -240,10 +261,12 @@
             }
         }
 
-        // FONCTION DE DÉCONNEXION AJOUTÉE ICI
-        function deconnecter() {
+        async function deconnecter() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+            } catch(e) {}
             localStorage.removeItem('profil_actif');
-            window.location.href = 'index.html'; 
+            window.location.href = '/login.html';
         }
 
         function peuplerSelectProfils() {
@@ -259,7 +282,7 @@
                 select.value = saved;
                 btnModifier.classList.remove('hidden');
             } else if (profilsDisponibles.length > 0) {
-                select.value = profilsDisponibles[0].nom;
+                select.value = profilscDisponibles?.[0]?.nom || profilsDisponibles[0].nom;
                 localStorage.setItem('profil_actif', select.value);
                 btnModifier.classList.remove('hidden');
             } else {
@@ -269,8 +292,10 @@
         }
 
         function peuplerSelectConsoRecette() {
-            const options = `<option value="">-- Choisir une recette --</option>` + 
-                recettesDisponibles.map(r => `<option value="${r.id}">${r.nom}</option>`).join('');
+            let options = `<option value="">-- Choisir une recette ou aliment --</option>`;
+            options += `<optgroup label="Recettes">` + recettesDisponibles.map(r => `<option value="recette_${r.id}">${r.nom} (${r.calories||0} kcal)</option>`).join('') + `</optgroup>`;
+            options += `<optgroup label="Aliments / Ingrédients">` + ingredientsDisponibles.map(i => `<option value="aliment_${i.id}">${i.nom} (${i.calories||0} kcal / 100g)</option>`).join('') + `</optgroup>`;
+            
             const el = document.getElementById('conso-recette');
             if(el) el.innerHTML = options;
         }
@@ -296,6 +321,7 @@
         function changerJourConso(jour) {
             jourConsoActuel = jour;
             document.getElementById('libelle-jour-conso').innerText = jour;
+            document.getElementById('libelle-jour-eau').innerText = jour;
             document.querySelectorAll('.jour-conso-btn').forEach(btn => {
                 btn.classList.remove('bg-blue-600', 'text-white');
                 btn.classList.add('bg-slate-100', 'text-slate-600');
@@ -324,6 +350,16 @@
             let html = '';
             menusSemaineCache = {};
 
+            const optionsRecettesEtAliments = `
+                <option value="">-- Choisir recette ou aliment --</option>
+                <optgroup label="Recettes">
+                    ${recettesDisponibles.map(r => `<option value="recette_${r.id}">${r.nom} (${r.calories||0} kcal)</option>`).join('')}
+                </optgroup>
+                <optgroup label="Aliments / Ingrédients">
+                    ${ingredientsDisponibles.map(i => `<option value="aliment_${i.id}">${i.nom} (${i.calories||0} kcal)</option>`).join('')}
+                </optgroup>
+            `;
+
             for (const jour of joursSemaine) {
                 try {
                     const res = await fetch(`/api/menu-prevu?jour=${jour}&profil=${encodeURIComponent(profil)}`);
@@ -348,29 +384,25 @@
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 mb-0.5">☕ Petit Déjeuner</label>
                                 <select id="prevu-${jour}-petitDejeuner" onchange="mettreAJourCacheJour('${jour}')" class="w-full border border-slate-200 p-2 rounded-xl bg-slate-50 font-medium">
-                                    <option value="">-- Choisir une recette --</option>
-                                    ${recettesDisponibles.filter(r => (r.categorie||'').toLowerCase() === 'petit déj').map(r => `<option value="${r.id}">${r.nom} (${r.calories||0} kcal)</option>`).join('')}
+                                    ${optionsRecettesEtAliments}
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 mb-0.5">☀️ Repas 1</label>
                                 <select id="prevu-${jour}-repas1" onchange="mettreAJourCacheJour('${jour}')" class="w-full border border-slate-200 p-2 rounded-xl bg-slate-50 font-medium">
-                                    <option value="">-- Choisir une recette --</option>
-                                    ${recettesDisponibles.filter(r => ['repas chaud', 'repas froid'].includes((r.categorie||'').toLowerCase())).map(r => `<option value="${r.id}">${r.nom} (${r.calories||0} kcal)</option>`).join('')}
+                                    ${optionsRecettesEtAliments}
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 mb-0.5">🌙 Repas 2</label>
                                 <select id="prevu-${jour}-repas2" onchange="mettreAJourCacheJour('${jour}')" class="w-full border border-slate-200 p-2 rounded-xl bg-slate-50 font-medium">
-                                    <option value="">-- Choisir une recette --</option>
-                                    ${recettesDisponibles.filter(r => ['repas chaud', 'repas froid'].includes((r.categorie||'').toLowerCase())).map(r => `<option value="${r.id}">${r.nom} (${r.calories||0} kcal)</option>`).join('')}
+                                    ${optionsRecettesEtAliments}
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 mb-0.5">🍎 Collation / Dessert</label>
                                 <select id="prevu-${jour}-dessertCollation" onchange="mettreAJourCacheJour('${jour}')" class="w-full border border-slate-200 p-2 rounded-xl bg-slate-50 font-medium">
-                                    <option value="">-- Choisir une recette --</option>
-                                    ${recettesDisponibles.filter(r => ['en cas', 'dessert'].includes((r.categorie||'').toLowerCase())).map(r => `<option value="${r.id}">${r.nom} (${r.calories||0} kcal)</option>`).join('')}
+                                    ${optionsRecettesEtAliments}
                                 </select>
                             </div>
                         </div>
@@ -404,14 +436,26 @@
         function calculerTotauxJourPrevu(m) {
             let cal = 0, prot = 0, gluc = 0, lip = 0;
             ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation'].forEach(champ => {
-                const idRecette = m[champ];
-                if (idRecette) {
-                    const r = recettesDisponibles.find(x => x.id == idRecette);
-                    if (r) {
-                        cal += parseFloat(r.calories || 0);
-                        prot += parseFloat(r.proteines || 0);
-                        gluc += parseFloat(r.glucides || 0);
-                        lip += parseFloat(r.lipides || 0);
+                const val = m[champ];
+                if (val) {
+                    if (val.startsWith('recette_')) {
+                        const id = val.replace('recette_', '');
+                        const r = recettesDisponibles.find(x => x.id == id);
+                        if (r) {
+                            cal += parseFloat(r.calories || 0);
+                            prot += parseFloat(r.proteines || 0);
+                            gluc += parseFloat(r.glucides || 0);
+                            lip += parseFloat(r.lipides || 0);
+                        }
+                    } else if (val.startsWith('aliment_')) {
+                        const id = val.replace('aliment_', '');
+                        const i = ingredientsDisponibles.find(x => x.id == id);
+                        if (i) {
+                            cal += parseFloat(i.calories || 0);
+                            prot += parseFloat(i.proteines || 0);
+                            gluc += parseFloat(i.glucides || 0);
+                            lip += parseFloat(i.lipides || 0);
+                        }
                     }
                 }
             });
@@ -425,20 +469,15 @@
                 const m = menusSemaineCache[jour];
                 if (!m) return;
                 ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation'].forEach(champ => {
-                    const idRecette = m[champ];
-                    if (idRecette) {
-                        const r = recettesDisponibles.find(x => x.id == idRecette);
+                    const val = m[champ];
+                    if (val && val.startsWith('recette_')) {
+                        const id = val.replace('recette_', '');
+                        const r = recettesDisponibles.find(x => x.id == id);
                         if (r && r.ingredients) {
                             let parsedIngs = [];
                             try {
-                                if (typeof r.ingredients === 'string') {
-                                    parsedIngs = JSON.parse(r.ingredients);
-                                } else if (Array.isArray(r.ingredients)) {
-                                    parsedIngs = r.ingredients;
-                                }
-                            } catch (e) {
-                                parsedIngs = [];
-                            }
+                                parsedIngs = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
+                            } catch (e) {}
 
                             if(Array.isArray(parsedIngs)) {
                                 parsedIngs.forEach(ing => {
@@ -450,6 +489,9 @@
                                 });
                             }
                         }
+                    } else if (val && val.startsWith('aliment_')) {
+                        const id = val.replace('aliment_', '');
+                        besoinsIngredients[id] = (besoinsIngredients[id] || 0) + 100; // base 100g
                     }
                 });
             });
@@ -458,7 +500,7 @@
             for (const [ingId, qteNecessaire] of Object.entries(besoinsIngredients)) {
                 const ingredientRef = ingredientsDisponibles.find(i => i.id == ingId);
                 if (ingredientRef) {
-                    const qteParPaquet = parseFloat(ingredientRef.quantite_paquet || ingredientRef.quantite || 1);
+                    const qteParPaquet = parseFloat(ingredientRef.quantite_paquet || ingredientRef.quantite || 100);
                     const prixPaquet = parseFloat(ingredientRef.prix || 0);
 
                     if (qteParPaquet > 0) {
@@ -491,9 +533,9 @@
                 return;
             }
 
-            const getRand = (arr) => arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)].id : '';
+            const getRand = (arr) => arr.length > 0 ? 'recette_' + arr[Math.floor(Math.random() * arr.length)].id : '';
 
-            const petitDejArr = recettesDisponibles.filter(r => (r.categorie||'').toLowerCase() === 'petit déj');
+            const petitDejArr = recettesDisponibles.filter(r => (r.categorie||'').toLowerCase().includes('déj'));
             const repasArr = recettesDisponibles.filter(r => ['repas chaud', 'repas froid'].includes((r.categorie||'').toLowerCase()));
             const dessertArr = recettesDisponibles.filter(r => ['en cas', 'dessert'].includes((r.categorie||'').toLowerCase()));
 
@@ -535,91 +577,132 @@
                         body: JSON.stringify(data)
                     });
                 }
-
+                
+                // Regénérer la liste de courses
                 await fetch('/api/courses/generer', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ profil })
                 });
 
-                alert("✅ Semaine sauvegardée et courses mises à jour !");
-            } catch (err) {
-                console.error("Erreur sauvegarde semaine", err);
+                alert("Semaine sauvegardée et liste de courses mise à jour avec succès !");
+            } catch(e) {
                 alert("Erreur lors de la sauvegarde.");
             }
         }
 
         async function chargerSuiviConsomme() {
             const profil = getProfilActuel();
-            const container = document.getElementById('liste-conso-container');
-            if(!profil) {
-                container.innerHTML = `<p class="text-slate-400 italic text-center py-2">Sélectionnez un profil.</p>`;
-                return;
-            }
+            if (!profil) return;
+
             try {
                 const res = await fetch(`/api/suivi-conso?profil=${encodeURIComponent(profil)}&jour=${jourConsoActuel}`);
                 suiviActuel = await res.json();
-                afficherSuiviConsommeUI();
-                mettreAJourDashboardNutriDuJour();
-            } catch (e) {
-                console.error("Erreur chargement conso", e);
-            }
-        }
+                
+                let calTotal = 0, protTotal = 0, glucTotal = 0, lipTotal = 0;
+                let html = '';
 
-        function afficherSuiviConsommeUI() {
-            const container = document.getElementById('liste-conso-container');
-            if(suiviActuel.length === 0) {
-                container.innerHTML = `<p class="text-slate-400 italic text-center py-2">Aucune consommation enregistrée ce jour.</p>`;
-                return;
-            }
-            let html = '';
-            suiviActuel.forEach(item => {
-                const r = recettesDisponibles.find(x => x.id == item.recette_id);
-                const nomRecette = r ? r.nom : 'Recette inconnue';
-                const qte = item.quantite || 1;
-                const cal = r ? Math.round((r.calories || 0) * qte) : 0;
+                (suiviActuel || []).forEach(item => {
+                    let nom = item.nom || 'Élément';
+                    let cal = parseFloat(item.calories || 0);
+                    let prot = parseFloat(item.proteines || 0);
+                    let gluc = parseFloat(item.glucides || 0);
+                    let lip = parseFloat(item.lipides || 0);
 
-                html += `
-                    <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
-                        <div>
-                            <span class="font-bold text-slate-800">${item.categorie}</span> : 
-                            <span class="text-slate-600">${nomRecette}</span> 
-                            <span class="text-[10px] text-blue-600 font-semibold">(x${qte}) - ${cal} kcal</span>
+                    calTotal += cal;
+                    protTotal += prot;
+                    glucTotal += gluc;
+                    lipTotal += lip;
+
+                    html += `
+                        <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                            <div>
+                                <strong class="text-slate-800">${nom}</strong>
+                                <span class="text-[10px] text-slate-400 block">${item.categorie} (Qté: ${item.quantite})</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[11px] text-blue-600 font-semibold">${cal.toFixed(0)} kcal</span>
+                                <button onclick="supprimerConsommation(${item.id})" class="text-red-500 font-bold hover:text-red-700">✕</button>
+                            </div>
                         </div>
-                        <button onclick="supprimerConsommation(${item.id})" class="text-red-500 hover:text-red-700 font-bold px-2 py-1">✕</button>
-                    </div>
-                `;
-            });
-            container.innerHTML = html;
+                    `;
+                });
+
+                document.getElementById('liste-conso-container').innerHTML = html || `<p class="text-xs text-slate-400 italic">Rien enregistré pour ce jour.</p>`;
+
+                // Mettre à jour les stats du dashboard
+                const profilObj = profilsDisponibles.find(p => p.nom === profil);
+                document.getElementById('stat-cal').innerText = calTotal.toFixed(0);
+                document.getElementById('obj-cal').innerText = profilObj ? (profilObj.calories || 2000) : 2000;
+
+                document.getElementById('stat-prot').innerText = protTotal.toFixed(0);
+                document.getElementById('obj-prot').innerText = profilObj ? (profilObj.proteines || 150) : 150;
+
+                document.getElementById('stat-gluc').innerText = glucTotal.toFixed(0);
+                document.getElementById('obj-gluc').innerText = profilObj ? (profilObj.glucides || 200) : 200;
+
+                document.getElementById('stat-lip').innerText = lipTotal.toFixed(0);
+                document.getElementById('obj-lip').innerText = profilObj ? (profilObj.lipides || 70) : 70;
+
+                // Budget semaine total
+                let budgetObj = profilObj ? (profilObj.budget || 0) : 0;
+                document.getElementById('obj-budget').innerText = budgetObj + '€';
+
+                // Charger l'eau
+                chargerEauJournaliere();
+
+            } catch (err) {
+                console.error("Erreur chargement suivi", err);
+            }
         }
 
         async function ajouterConsommation(e) {
             e.preventDefault();
             const profil = getProfilActuel();
-            if(!profil) return alert("Sélectionnez un profil.");
+            const categorie = document.getElementById('conso-cat').value;
+            const selection = document.getElementById('conso-recette').value;
+            const quantite = parseFloat(document.getElementById('conso-qte').value) || 1;
 
-            const data = {
-                profil,
-                jour: jourConsoActuel,
-                categorie: document.getElementById('conso-cat').value,
-                recette_id: document.getElementById('conso-recette').value,
-                quantite: parseFloat(document.getElementById('conso-qte').value) || 1
-            };
+            if (!selection) {
+                alert("Veuillez sélectionner un élément.");
+                return;
+            }
+
+            let type = selection.startsWith('recette_') ? 'recette' : 'aliment';
+            let id = selection.replace('recette_', '').replace('aliment_', '');
+
+            let nom = '', cal = 0, prot = 0, gluc = 0, lip = 0;
+            if (type === 'recette') {
+                const r = recettesDisponibles.find(x => x.id == id);
+                if(r) {
+                    nom = r.nom;
+                    cal = (parseFloat(r.calories||0)) * quantite;
+                    prot = (parseFloat(r.proteines||0)) * quantite;
+                    gluc = (parseFloat(r.glucides||0)) * quantite;
+                    lip = (parseFloat(r.lipides||0)) * quantite;
+                }
+            } else {
+                const i = ingredientsDisponibles.find(x => x.id == id);
+                if(i) {
+                    nom = i.nom;
+                    let facteur = quantite / 100;
+                    cal = (parseFloat(i.calories||0)) * facteur;
+                    prot = (parseFloat(i.proteines||0)) * facteur;
+                    gluc = (parseFloat(i.glucides||0)) * facteur;
+                    lip = (parseFloat(i.lipides||0)) * facteur;
+                }
+            }
 
             try {
-                const res = await fetch('/api/suivi-conso', {
+                await fetch('/api/suivi-conso', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(data)
+                    body: JSON.stringify({ profil, jour: jourConsoActuel, categorie, nom, calories: cal, proteines: prot, glucides: gluc, lipides: lip, quantite })
                 });
-                if(res.ok) {
-                    document.getElementById('conso-qte').value = "1";
-                    await chargerSuiviConsomme();
-                } else {
-                    alert("Erreur lors de l'ajout.");
-                }
-            } catch(err) {
-                console.error("Erreur", err);
+                await chargerSuiviConsomme();
+                document.getElementById('conso-qte').value = 1;
+            } catch(e) {
+                alert("Erreur lors de l'enregistrement.");
             }
         }
 
@@ -627,73 +710,91 @@
             try {
                 await fetch(`/api/suivi-conso/${id}`, { method: 'DELETE' });
                 await chargerSuiviConsomme();
-            } catch (err) {
-                console.error("Erreur suppression", err);
+            } catch(e) {}
+        }
+
+        async function chargerEauJournaliere() {
+            const profil = getProfilActuel();
+            const profilObj = profilsDisponibles.find(p => p.nom === profil);
+            const objEau = profilObj ? (profilObj.eau || 2000) : 2000;
+            document.getElementById('aff-obj-eau').innerText = objEau;
+            document.getElementById('obj-eau').innerText = objEau + 'ml';
+
+            try {
+                const res = await fetch(`/api/eau?profil=${encodeURIComponent(profil)}&jour=${jourConsoActuel}`);
+                const data = await res.json();
+                const totalEau = data.quantite || 0;
+                document.getElementById('stat-eau').innerText = totalEau;
+                document.getElementById('aff-conso-eau').innerText = totalEau;
+            } catch(e) {
+                document.getElementById('stat-eau').innerText = 0;
+                document.getElementById('aff-conso-eau').innerText = 0;
             }
         }
 
-        function mettreAJourDashboardNutriDuJour() {
-            let totalCal = 0, totalProt = 0, totalGluc = 0, totalLip = 0;
+        async function ajouterEau(ml) {
+            const profil = getProfilActuel();
+            if(!profil) return;
+            try {
+                await fetch('/api/eau', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ profil, jour: jourConsoActuel, ajout: ml })
+                });
+                await chargerEauJournaliere();
+            } catch(e) {}
+        }
 
-            suiviActuel.forEach(item => {
-                const r = recettesDisponibles.find(x => x.id == item.recette_id);
-                if(r) {
-                    const qte = parseFloat(item.quantite || 1);
-                    totalCal += parseFloat(r.calories || 0) * qte;
-                    totalProt += parseFloat(r.proteines || 0) * qte;
-                    totalGluc += parseFloat(r.glucides || 0) * qte;
-                    totalLip += parseFloat(r.lipides || 0) * qte;
-                }
-            });
-
-            document.getElementById('stat-cal').innerText = Math.round(totalCal);
-            document.getElementById('stat-prot').innerText = Math.round(totalProt);
-            document.getElementById('stat-gluc').innerText = Math.round(totalGluc);
-            document.getElementById('stat-lip').innerText = Math.round(totalLip);
-
-            const profilNom = getProfilActuel();
-            const p = profilsDisponibles.find(x => x.nom === profilNom);
-            if(p) {
-                document.getElementById('obj-cal').innerText = p.calories || 0;
-                document.getElementById('obj-prot').innerText = p.proteines || 0;
-                document.getElementById('obj-gluc').innerText = p.glucides || 0;
-                document.getElementById('obj-lip').innerText = p.lipides || 0;
-                document.getElementById('obj-budget').innerText = (p.budget || 0) + '€';
-            }
+        async function reinitialiserEau() {
+            const profil = getProfilActuel();
+            if(!profil) return;
+            try {
+                await fetch('/api/eau', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ profil, jour: jourConsoActuel, reset: true })
+                });
+                await chargerEauJournaliere();
+            } catch(e) {}
         }
 
         function ouvrirModalProfil(mode) {
             const modal = document.getElementById('modal-profil');
-            modal.classList.remove('hidden');
+            const title = document.getElementById('modal-profil-title');
             const btnSuppr = document.getElementById('btn-supprimer-profil');
+            
+            document.getElementById('profil-ancien-nom').value = '';
+            document.getElementById('profil-nom').value = '';
+            document.getElementById('profil-email').value = '';
+            document.getElementById('profil-mdp').value = '';
+            document.getElementById('profil-cal').value = '';
+            document.getElementById('profil-eau').value = '';
+            document.getElementById('profil-budget').value = '';
+            document.getElementById('profil-prot').value = '';
+            document.getElementById('profil-gluc').value = '';
+            document.getElementById('profil-lip').value = '';
 
-            if(mode === 'nouveau') {
-                document.getElementById('modal-profil-title').innerText = "👤 Créer un nouveau profil";
-                document.getElementById('profil-ancien-nom').value = "";
-                document.getElementById('profil-nom').value = "";
-                document.getElementById('profil-email').value = "";
-                document.getElementById('profil-mdp').value = "";
-                document.getElementById('profil-cal').value = "";
-                document.getElementById('profil-budget').value = "";
-                document.getElementById('profil-prot').value = "";
-                document.getElementById('profil-gluc').value = "";
-                document.getElementById('profil-lip').value = "";
-                btnSuppr.classList.add('hidden');
+            if (mode === 'modifier') {
+                const profilNom = getProfilActuel();
+                const p = profilsDisponibles.find(x => x.nom === profilNom);
+                if (p) {
+                    title.innerText = "⚙️ Paramètres du Profil";
+                    document.getElementById('profil-ancien-nom').value = p.nom;
+                    document.getElementById('profil-nom').value = p.nom;
+                    document.getElementById('profil-email').value = p.email || '';
+                    document.getElementById('profil-cal').value = p.calories || '';
+                    document.getElementById('profil-eau').value = p.eau || '';
+                    document.getElementById('profil-budget').value = p.budget || '';
+                    document.getElementById('profil-prot').value = p.proteines || '';
+                    document.getElementById('profil-gluc').value = p.glucides || '';
+                    document.getElementById('profil-lip').value = p.lipides || '';
+                    btnSuppr.classList.remove('hidden');
+                }
             } else {
-                const currentNom = getProfilActuel();
-                const p = profilsDisponibles.find(x => x.nom === currentNom);
-                document.getElementById('modal-profil-title').innerText = "⚙️ Modifier le profil";
-                document.getElementById('profil-ancien-nom').value = currentNom;
-                document.getElementById('profil-nom').value = p ? p.nom : '';
-                document.getElementById('profil-email').value = p ? (p.email || '') : '';
-                document.getElementById('profil-mdp').value = ""; // Laissé vide par sécurité pour ne pas afficher le hash
-                document.getElementById('profil-cal').value = p ? (p.calories || '') : '';
-                document.getElementById('profil-budget').value = p ? (p.budget || '') : '';
-                document.getElementById('profil-prot').value = p ? (p.proteines || '') : '';
-                document.getElementById('profil-gluc').value = p ? (p.glucides || '') : '';
-                document.getElementById('profil-lip').value = p ? (p.lipides || '') : '';
-                btnSuppr.classList.remove('hidden');
+                title.innerText = "➕ Créer un Nouveau Profil";
+                btnSuppr.classList.add('hidden');
             }
+            modal.classList.remove('hidden');
         }
 
         function fermerModalProfil() {
@@ -703,57 +804,49 @@
         async function sauvegarderProfil(e) {
             e.preventDefault();
             const ancienNom = document.getElementById('profil-ancien-nom').value;
-            const data = {
-                ancienNom: ancienNom,
-                nom: document.getElementById('profil-nom').value,
-                email: document.getElementById('profil-email').value,
-                mdp: document.getElementById('profil-mdp').value,
-                calories: parseFloat(document.getElementById('profil-cal').value) || 0,
-                budget: parseFloat(document.getElementById('profil-budget').value) || 0,
-                proteines: parseFloat(document.getElementById('profil-prot').value) || 0,
-                glucides: parseFloat(document.getElementById('profil-gluc').value) || 0,
-                lipides: parseFloat(document.getElementById('profil-lip').value) || 0
-            };
+            const nom = document.getElementById('profil-nom').value;
+            const email = document.getElementById('profil-email').value;
+            const mdp = document.getElementById('profil-mdp').value;
+            const calories = document.getElementById('profil-cal').value;
+            const eau = document.getElementById('profil-eau').value;
+            const budget = document.getElementById('profil-budget').value;
+            const proteines = document.getElementById('profil-prot').value;
+            const glucides = document.getElementById('profil-gluc').value;
+            const lipides = document.getElementById('profil-lip').value;
 
-            const isUpdate = ancienNom !== "";
-            const url = '/api/profils';
-            const method = isUpdate ? 'PUT' : 'POST';
+            const method = ancienNom ? 'PUT' : 'POST';
+            const bodyData = { ancienNom, nom, email, mdp, calories, eau, budget, proteines, glucides, lipides };
 
             try {
-                const res = await fetch(url, {
-                    method: method,
+                const res = await fetch('/api/profils', {
+                    method,
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(bodyData)
                 });
-                if(res.ok) {
-                    localStorage.setItem('profil_actif', data.nom);
+                const data = await res.json();
+                if(data.success) {
+                    localStorage.setItem('profil_actif', nom);
                     fermerModalProfil();
                     init();
                 } else {
-                    const errJson = await res.json();
-                    alert("Erreur : " + (errJson.error || "Impossible de sauvegarder"));
+                    alert(data.error || "Erreur lors de la sauvegarde.");
                 }
-            } catch (err) {
-                console.error("Erreur", err);
+            } catch(err) {
+                alert("Erreur de communication avec le serveur.");
             }
         }
 
         async function supprimerProfilActuel() {
             const nom = getProfilActuel();
-            if(!nom) return;
-            if(!confirm(`Voulez-vous vraiment supprimer le profil "${nom}" ?`)) return;
+            if(!nom || !confirm(`Voulez-vous vraiment supprimer le profil ${nom} ?`)) return;
 
             try {
-                const res = await fetch(`/api/profils?nom=${encodeURIComponent(nom)}`, { method: 'DELETE' });
-                if(res.ok) {
-                    localStorage.removeItem('profil_actif');
-                    fermerModalProfil();
-                    init();
-                } else {
-                    alert("Erreur lors de la suppression.");
-                }
-            } catch (err) {
-                console.error("Erreur", err);
+                await fetch(`/api/profils?nom=${encodeURIComponent(nom)}`, { method: 'DELETE' });
+                localStorage.removeItem('profil_actif');
+                fermerModalProfil();
+                init();
+            } catch(e) {
+                alert("Erreur lors de la suppression.");
             }
         }
 
@@ -764,17 +857,15 @@
             let y = 30;
             joursSemaine.forEach(jour => {
                 const m = menusSemaineCache[jour] || {};
-                const getNomRecette = (id) => { const r = recettesDisponibles.find(x => x.id == id); return r ? r.nom : '-'; };
-                doc.text(`${jour}:`, 14, y);
-                doc.text(`  - Pt Dej: ${getNomRecette(m.petitDejeuner)}`, 14, y + 6);
-                doc.text(`  - Repas 1: ${getNomRecette(m.repas1)}`, 14, y + 12);
-                doc.text(`  - Repas 2: ${getNomRecette(m.repas2)}`, 14, y + 18);
-                doc.text(`  - Collation: ${getNomRecette(m.dessertCollation)}`, 14, y + 24);
-                y += 32;
-                if(y > 270) { doc.addPage(); y = 20; }
+                doc.text(`${jour}: P-Dej: ${m.petitDejeuner||'-'} | Repas1: ${m.repas1||'-'} | Repas2: ${m.repas2||'-'}`, 14, y);
+                y += 10;
             });
             doc.save("menu-semaine.pdf");
         }
+
+        socket.on('data_updated', () => {
+            init();
+        });
     </script>
 </body>
 </html>

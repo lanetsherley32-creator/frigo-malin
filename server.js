@@ -126,14 +126,12 @@ app.post('/api/profils', async (req, res) => {
     }
 });
 
-// --- ROUTE PUT POUR MODIFIER UN PROFIL (AVEC GESTION SÉCURISÉE DU MOT DE PASSE) ---
 app.put('/api/profils', async (req, res) => {
     const { ancienNom, nom, email, mdp, calories, budget, proteines, glucides, lipides } = req.body;
     try {
         let query = 'UPDATE profils SET nom = $1, email = $2, calories = $3, budget = $4, proteines = $5, glucides = $6, lipides = $7';
         let values = [nom, email, calories || 0, budget || 0, proteines || 0, glucides || 0, lipides || 0];
 
-        // Si l'utilisateur a rempli le champ mot de passe, on le valide et on le met à jour
         if (mdp && mdp.trim() !== '') {
             const hashedPassword = await bcrypt.hash(mdp, 10);
             query += ', mdp = $8 WHERE nom = $9';
@@ -144,7 +142,7 @@ app.put('/api/profils', async (req, res) => {
         }
 
         await pool.query(query, values);
-        req.session.user = nom; // Met à jour la session avec le nouveau nom si modifié
+        req.session.user = nom;
         io.emit('data_updated');
         res.json({ success: true, message: "Profil mis à jour avec succès !" });
     } catch (error) {
@@ -153,7 +151,6 @@ app.put('/api/profils', async (req, res) => {
     }
 });
 
-// --- ROUTE DELETE POUR SUPPRIMER UN PROFIL ---
 app.delete('/api/profils', async (req, res) => {
     const nom = req.query.nom;
     if (!nom) return res.status(400).json({ error: "Nom manquant" });
@@ -180,7 +177,7 @@ app.post('/api/mot-de-passe-oublie', async (req, res) => {
         }
 
         const token = crypto.randomBytes(32).toString('hex');
-        const expires = Date.now() + 3600000; // Valide 1 heure
+        const expires = Date.now() + 3600000;
 
         await pool.query("UPDATE profils SET reset_token = $1, reset_expires = $2 WHERE email = $3", [token, expires, email]);
 
@@ -386,19 +383,24 @@ app.post('/api/courses/generer', async (req, res) => {
                 let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
                 if (Array.isArray(ings)) ings.forEach(i => {
                     let id = i.id || i.ingredient_id;
-                    if (id) besoins[id] = (besoins[id] || 0) + parseFloat(i.quantite || 0);
+                    if (id) {
+                        if (!besoins[id]) {
+                            besoins[id] = { qte: 0, unite: i.unite || 'g' };
+                        }
+                        besoins[id].qte += parseFloat(i.quantite || 0);
+                    }
                 });
             } catch (e) {}
         });
 
         await pool.query("DELETE FROM courses WHERE profil = $1", [profil]);
 
-        for (const [id, qte] of Object.entries(besoins)) {
+        for (const [id, data] of Object.entries(besoins)) {
             const ref = (ingsRefRes.rows || []).find(i => i.id == id);
             if (ref) {
                 await pool.query(
                     "INSERT INTO courses (profil, ingredient_id, nom, rayon, quantite_necessaire, unite, prix_total, coche) VALUES ($1, $2, $3, $4, $5, $6, $7, 0)",
-                    [profil, ref.id, ref.nom, ref.rayon || 'Épicerie', qte, 'g', 0]
+                    [profil, ref.id, ref.nom, ref.rayon || 'Épicerie', data.qte, data.unite, 0]
                 );
             }
         }

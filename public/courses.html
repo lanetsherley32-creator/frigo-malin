@@ -20,12 +20,13 @@
                     <button onclick="telechargerPDF()" class="bg-emerald-600 active:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">📥 PDF</button>
                 </div>
             </div>
+            <!-- Navigation : Courses placé à la fin après Frigo -->
             <nav class="grid grid-cols-5 gap-1 text-center text-[11px] font-medium">
                 <a href="index.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
                 <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
-                <a href="courses.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Courses</a>
                 <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
+                <a href="courses.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Courses</a>
             </nav>
         </header>
 
@@ -65,8 +66,15 @@
             const [resProfils, resIngs] = await Promise.all([fetch('/api/profils'), fetch('/api/ingredients')]);
             const profils = await resProfils.json();
             ingredientsRefCache = await resIngs.json();
+            
             const select = document.getElementById('select-profil');
             select.innerHTML = profils.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+            
+            const savedProfil = localStorage.getItem('profil_actif');
+            if (savedProfil && profils.some(p => p.nom === savedProfil)) {
+                select.value = savedProfil;
+            }
+            
             chargerCourses();
         }
 
@@ -76,14 +84,19 @@
             const profil = document.getElementById('select-profil').value;
             if (!profil) return;
 
-            const res = await fetch(`/api/courses?enseigne=${enseigne}&inclureDeja=${inclureDeja}&profil=${encodeURIComponent(profil)}`);
-            const courses = await res.json();
-            renderCourses(courses);
+            localStorage.setItem('profil_actif', profil);
+
+            try {
+                const res = await fetch(`/api/courses?enseigne=${enseigne}&inclureDeja=${inclureDeja}&profil=${encodeURIComponent(profil)}`);
+                const courses = await res.json();
+                renderCourses(courses);
+            } catch(e) {
+                console.error("Erreur chargement courses", e);
+            }
         }
 
         function renderCourses(courses) {
             const container = document.getElementById('liste-courses-container');
-            console.log("Données reçues pour affichage :", courses);
 
             if (!courses || courses.length === 0) {
                 container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Aucune course pour le moment.</p>`;
@@ -94,7 +107,7 @@
                 <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
                     <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
                         <input type="checkbox" ${c.coche === 1 ? 'checked' : ''} onchange="toggleCoche(${c.id}, this.checked)" class="w-4 h-4 rounded text-blue-600">
-                        <span class="${c.coche === 1 ? 'line-through text-slate-400' : ''}">
+                        <span id="label-course-${c.id}" class="${c.coche === 1 ? 'line-through text-slate-400' : ''}">
                             ${c.nom} ${c.quantite_necessaire ? '(' + c.quantite_necessaire + ' ' + (c.unite || 'g') + ')' : ''}
                         </span>
                     </label>
@@ -104,11 +117,15 @@
         }
 
         async function toggleCoche(id, coche) {
-            await fetch(`/api/courses/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ coche: coche ? 1 : 0 })
-            });
+            try {
+                await fetch(`/api/courses/cocher`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, coche })
+                });
+            } catch(e) {
+                console.error("Erreur cochage", e);
+            }
         }
 
         async function genererCourses() {
@@ -124,15 +141,11 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ profil })
                 });
-                const data = await response.json();
                 if (response.ok) {
-                    alert(data.message || "Liste générée avec succès !");
-                    // Délai de sécurité pour laisser le temps à SQLite d'écrire et éviter un affichage vide
-                    setTimeout(() => {
-                        chargerCourses();
-                    }, 300);
+                    alert("Liste générée avec succès !");
+                    chargerCourses();
                 } else {
-                    alert("Erreur : " + (data.error || "Impossible de générer la liste"));
+                    alert("Erreur lors de la génération de la liste.");
                 }
             } catch (err) {
                 console.error("Erreur réseau :", err);
@@ -145,13 +158,12 @@
             if (!profil) return;
             if (!confirm("Voulez-vous vraiment vider toute la liste de courses ?")) return;
 
-            const res = await fetch(`/api/courses?profil=${encodeURIComponent(profil)}`);
-            const courses = await res.json();
-            
-            for (let c of courses) {
-                await fetch(`/api/courses/${c.id}`, { method: 'DELETE' });
+            try {
+                await fetch(`/api/courses?profil=${encodeURIComponent(profil)}`, { method: 'DELETE' });
+                chargerCourses();
+            } catch(e) {
+                alert("Erreur lors de la suppression.");
             }
-            chargerCourses();
         }
 
         function telechargerPDF() {

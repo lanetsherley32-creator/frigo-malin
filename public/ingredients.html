@@ -134,14 +134,12 @@
             const isHidden = container.classList.contains('hidden');
             
             if (isHidden) {
-                // Ouverture au 1er clic
                 container.classList.remove('hidden');
                 arrow.innerText = "▲";
                 if(document.getElementById('marques-container').children.length === 0) {
                     ajouterBlocMarque();
                 }
             } else {
-                // Fermeture au 2ème clic
                 container.classList.add('hidden');
                 arrow.innerText = "▼";
             }
@@ -492,7 +490,6 @@
             }
         }
 
-        // Chargement initial
         init();
     </script>
 </body>
