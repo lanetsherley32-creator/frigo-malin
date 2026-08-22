@@ -12,7 +12,7 @@ const pgSession = require('connect-pg-simple')(session);
 const app = express();
 const server = http.createServer(app);
 
-// Indispensable sur Render / Heroku pour la gestion correcte des cookies sécurisés derrière un proxy
+// Indispensable sur Render / Heroku pour les cookies derrière un proxy
 app.set('trust proxy', 1);
 
 const io = socketIo(server, {
@@ -31,7 +31,7 @@ const pool = new Pool({
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- CONFIGURATION DES SESSIONS (STOCKÉES DANS POSTGRES) ---
+// --- CONFIGURATION DES SESSIONS ---
 app.use(session({
     store: new pgSession({
         pool: pool,                
@@ -49,7 +49,7 @@ app.use(session({
     }
 }));
 
-// --- MIDDLEWARE DE PROTECTION (CONNEXION OBLIGATOIRE) ---
+// --- MIDDLEWARE DE PROTECTION (CONNEXION OBLIGATOIRE AU SITE) ---
 app.use((req, res, next) => {
     const cheminsPublics = [
         '/', '/login.html', '/reset.html', 
@@ -89,7 +89,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {});
 });
 
-// --- API AUTHENTIFICATION & COMPTE UTILISATEUR ---
+// --- API AUTHENTIFICATION DU COMPTE ---
 app.post('/api/login', async (req, res) => {
     const { email, mdp } = req.body;
     if (!email || !mdp) return res.status(400).json({ error: "E-mail et mot de passe requis." });
@@ -99,7 +99,6 @@ app.post('/api/login', async (req, res) => {
         const user = result.rows[0];
 
         if (!user) {
-            console.log("LOGIN - Utilisateur introuvable pour l'email:", email);
             return res.status(401).json({ error: "E-mail ou mot de passe incorrect." });
         }
 
@@ -183,59 +182,6 @@ app.put('/api/profils', async (req, res) => {
     }
 });
 
-// --- API PERSONNES / OBJECTIFS ---
-app.get('/api/personnes-objectifs', async (req, res) => {
-    try {
-        const result = await pool.query("SELECT * FROM personnes_objectifs");
-        res.json(result.rows || []);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/api/personnes-objectifs', async (req, res) => {
-    const { nom, ancienNom, calories, eau, budget, budget_periode, proteines, glucides, lipides } = req.body;
-    try {
-        if (ancienNom) {
-            await pool.query(
-                `UPDATE personnes_objectifs SET nom = $1, calories = $2, eau = $3, budget = $4, budget_periode = $5, proteines = $6, glucides = $7, lipides = $8 WHERE nom = $9`,
-                [nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0, ancienNom]
-            );
-        } else {
-            await pool.query(
-                `INSERT INTO personnes_objectifs (nom, calories, eau, budget, budget_periode, proteines, glucides, lipides) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                 ON CONFLICT (nom) DO UPDATE SET 
-                    calories = EXCLUDED.calories,
-                    eau = EXCLUDED.eau,
-                    budget = EXCLUDED.budget,
-                    budget_periode = EXCLUDED.budget_periode,
-                    proteines = EXCLUDED.proteines,
-                    glucides = EXCLUDED.glucides,
-                    lipides = EXCLUDED.lipides`,
-                [nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0]
-            );
-        }
-        io.emit('data_updated');
-        res.json({ success: true });
-    } catch (err) {
-        console.error("Erreur personnes_objectifs:", err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.delete('/api/personnes-objectifs', async (req, res) => {
-    const nom = req.query.nom;
-    if (!nom) return res.status(400).json({ error: "Nom manquant" });
-    try {
-        await pool.query("DELETE FROM personnes_objectifs WHERE nom = $1", [nom]);
-        io.emit('data_updated');
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 // --- API MOT DE PASSE OUBLIÉ & RESET ---
 app.post('/api/mot-de-passe-oublie', async (req, res) => {
     const { email } = req.body;
@@ -281,7 +227,62 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-// --- API RECETTES & INGREDIENTS ---
+// --- API PERSONNES / OBJECTIFS (Multiples profils autorisés) ---
+app.get('/api/personnes-objectifs', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM personnes_objectifs");
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/personnes-objectifs', async (req, res) => {
+    const { nom, ancienNom, calories, eau, budget, budget_periode, proteines, glucides, lipides } = req.body;
+    if (!nom) return res.status(400).json({ error: "Le nom de la personne est requis." });
+
+    try {
+        if (ancienNom && ancienNom !== nom) {
+            await pool.query(
+                `UPDATE personnes_objectifs SET nom = $1, calories = $2, eau = $3, budget = $4, budget_periode = $5, proteines = $6, glucides = $7, lipides = $8 WHERE nom = $9`,
+                [nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0, ancienNom]
+            );
+        } else {
+            await pool.query(
+                `INSERT INTO personnes_objectifs (nom, calories, eau, budget, budget_periode, proteines, glucides, lipides) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 ON CONFLICT (nom) DO UPDATE SET 
+                    calories = EXCLUDED.calories,
+                    eau = EXCLUDED.eau,
+                    budget = EXCLUDED.budget,
+                    budget_periode = EXCLUDED.budget_periode,
+                    proteines = EXCLUDED.proteines,
+                    glucides = EXCLUDED.glucides,
+                    lipides = EXCLUDED.lipides`,
+                [nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0]
+            );
+        }
+        io.emit('data_updated');
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Erreur personnes_objectifs:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/personnes-objectifs', async (req, res) => {
+    const nom = req.query.nom;
+    if (!nom) return res.status(400).json({ error: "Nom manquant" });
+    try {
+        await pool.query("DELETE FROM personnes_objectifs WHERE nom = $1", [nom]);
+        io.emit('data_updated');
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- API RECETTES & INGREDIENTS (Partagés / Publics) ---
 app.get('/api/recettes', async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM recettes");
@@ -353,7 +354,7 @@ function calculerScoreEcart(recette, cible) {
     return scoreCal + scorePro + scoreGlu + scoreLip;
 }
 
-// --- API MENU PRÉVU & GÉNÉRATION ---
+// --- API MENU PRÉVU & PERSISTANCE ---
 app.get('/api/menu-prevu-semaine', async (req, res) => {
     const profil = req.query.profil;
     if (!profil) return res.status(400).json({ error: "Profil manquant" });
@@ -550,7 +551,7 @@ app.get('/api/recette-suggeree-complement', async (req, res) => {
     }
 });
 
-// --- API SUIVI RÉEL & EAU ---
+// --- API SUIVI RÉEL, EAU & COURSES (Persistants et isolés) ---
 app.get('/api/suivi-conso', async (req, res) => {
     const { profil, jour } = req.query;
     if (!profil) return res.json([]);
@@ -644,10 +645,9 @@ app.post('/api/suivi-eau', async (req, res) => {
     }
 });
 
-// --- API COURSES ---
 app.get('/api/courses', async (req, res) => {
-    const profil = req.query.profil || req.session.user;
-    if (!profil) return res.status(401).json({ error: "Non connecté" });
+    const profil = req.query.profil;
+    if (!profil) return res.status(400).json({ error: "Profil manquant" });
     try {
         const result = await pool.query("SELECT * FROM courses WHERE profil = $1", [profil]);
         res.json(result.rows || []);
@@ -657,8 +657,6 @@ app.get('/api/courses', async (req, res) => {
 });
 
 app.post('/api/courses/cocher', async (req, res) => {
-    const profil = req.session.user;
-    if (!profil) return res.status(401).json({ error: "Non connecté" });
     const { id, coche } = req.body;
     try {
         await pool.query("UPDATE courses SET coche = $1 WHERE id = $2", [coche ? 1 : 0, id]);
@@ -670,8 +668,8 @@ app.post('/api/courses/cocher', async (req, res) => {
 });
 
 app.post('/api/courses/generer', async (req, res) => {
-    const profil = req.body.profil || req.session.user;
-    if (!profil) return res.status(401).json({ error: "Non connecté" });
+    const profil = req.body.profil;
+    if (!profil) return res.status(400).json({ error: "Profil manquant" });
 
     try {
         const menusRes = await pool.query("SELECT * FROM menu_prevu WHERE profil = $1", [profil]);
@@ -720,4 +718,4 @@ app.post('/api/courses/generer', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`)); 
+server.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));
