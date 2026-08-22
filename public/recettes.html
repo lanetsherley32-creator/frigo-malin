@@ -2,294 +2,470 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mes Recettes</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 10px; background: #f4f4f9; color: #333; }
-        h1, h2 { font-size: 1.5rem; color: #2c3e50; }
-        .nav { display: flex; overflow-x: auto; gap: 10px; margin-bottom: 20px; padding-bottom: 5px; }
-        .nav a { white-space: nowrap; text-decoration: none; color: #007bff; font-weight: bold; font-size: 0.9rem; }
-        .card { background: white; padding: 15px; margin-bottom: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        form label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.9rem; }
-        form input, form textarea, form select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        
-        /* Style pour l'ajout de catégories par balises interactives */
-        .category-add-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-        .category-add-row select { margin: 0; flex: 2; }
-        .category-add-row button { margin: 0; flex: 1; }
-        .categories-badges-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; min-height: 20px; }
-        .category-tag { background: #007bff; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
-        .category-tag span { cursor: pointer; font-weight: bold; font-size: 1rem; opacity: 0.8; }
-        .category-tag span:hover { opacity: 1; }
-
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; margin-top: 10px; font-weight: bold; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-danger { background: #dc3545; color: white; }
-        .btn-secondary { background: #6c757d; color: white; }
-        .btn-warning { background: #ffc107; color: #333; }
-        
-        .recette-card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #007bff; }
-        .badge { background: #e9ecef; padding: 4px 8px; border-radius: 15px; font-size: 0.75rem; display: inline-block; margin: 2px; }
-        .ingredient-row { display: flex; gap: 5px; margin-bottom: 8px; align-items: center; }
-        .ingredient-row select { flex: 2; margin: 0; }
-        .ingredient-row input { flex: 1; margin: 0; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Recettes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
 </head>
-<body>
+<body class="bg-slate-100 min-h-screen pb-12">
+    <div class="max-w-4xl mx-auto p-3 sm:p-6 space-y-4">
+        
+        <!-- Navigation -->
+        <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
+            <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🍳 Gestion des Recettes</h1>
+            <nav class="grid grid-cols-5 gap-1 text-center text-xs font-medium">
+                <a href="index.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
+                <a href="recettes.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Recettes</a>
+                <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
+                <a href="courses.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Courses</a>
+                <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
+            </nav>
+        </header>
 
-    <nav class="nav">
-        <a href="index.html">Accueil</a>
-    <a href="recettes.html">Recettes</a> 
-        <a href="ingredients.html">Ingrédients</a>
-        <a href="semaine.html">Semaine</a>
-        <a href="courses.html">Courses</a>
-    </nav>
+        <!-- 1. Barre de recherche globale de recettes -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-2">
+            <label class="font-bold text-slate-700 text-sm block">🔍 Recherche d'une recette :</label>
+            <input type="text" id="input-recherche-globale" oninput="rechercherRecetteGlobale()" placeholder="Tapez le nom d'une recette..." class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium">
+        </section>
 
-    <h1 id="titre-formulaire">🍳 Ajouter une recette</h1>
-
-    <div class="card">
-        <form id="form-recette">
-            <input type="hidden" id="recette-id">
-            <label>Nom :</label>
-            <input type="text" id="nom" required>
-
-            <label>Étapes de préparation :</label>
-            <textarea id="etapes" rows="3"></textarea>
-
-            <label>Catégories :</label>
-            <div class="category-add-row">
-                <select id="select-cat">
-                    <option value="">-- Choisir une catégorie --</option>
-                    <option value="Petit déj">Petit déj</option>
-                    <option value="Repas froid">Repas froid</option>
-                    <option value="Encas">Encas</option>
-                    <option value="Dessert">Dessert</option>
-                    <option value="Repas chaud">Repas chaud</option>
-                </select>
-                <button type="button" class="btn btn-secondary" onclick="ajouterCategorieTag()">+ Ajouter</button>
+        <!-- 2. Catégories / Types de repas (Visibles par défaut) -->
+        <section class="space-y-3">
+            <h2 class="font-bold text-slate-700 text-sm">📂 Catégories</h2>
+            <div id="categories-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                <!-- Les cartes de catégories s'injectent ici -->
             </div>
-            <!-- Conteneur des tags de catégories sélectionnées -->
-            <div id="categories-tags-container" class="categories-badges-container"></div>
+            <!-- Conteneur pour afficher les recettes de la catégorie sélectionnée ou le résultat de recherche -->
+            <div id="conteneur-affichage-dynamique" class="space-y-2 pt-2"></div>
+        </section>
 
-            <label>Parts :</label>
-            <input type="number" id="parts" value="4" min="1" oninput="calculerTotaux()">
+        <!-- 3. Formulaire d'ajout ou modification (Fermé par défaut) -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+            <button type="button" onclick="toggleFormulaire()" class="w-full flex justify-between items-center text-left font-bold text-slate-700 text-sm py-1 focus:outline-none">
+                <span id="form-toggle-title">➕ Ajouter ou modifier une recette (cliquer pour ouvrir)</span>
+                <span id="form-toggle-arrow" class="text-slate-400 text-base transition-transform">▼</span>
+            </button>
 
-            <label>Ingrédients :</label>
-            <div id="liste-ingredients-container"></div>
-            <button type="button" class="btn btn-secondary" onclick="ajouterLigneIngredient()">+ Ajouter ingrédient</button>
+            <div id="form-content-container" class="hidden space-y-4 pt-2 border-t border-slate-100">
+                
+                <form id="form-recette" onsubmit="sauvegarderRecette(event)" class="space-y-4 text-xs">
+                    <input type="hidden" id="recette-id">
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="space-y-1.5 sm:col-span-2">
+                            <label class="font-bold text-slate-700 text-xs">Nom de la recette :</label>
+                            <input type="text" id="nom" placeholder="Ex: Poulet curry et riz" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium" required>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="font-bold text-slate-700 text-xs">Catégorie :</label>
+                            <select id="categorie" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium">
+                                <option value="Repas chaud">Repas chaud</option>
+                                <option value="Repas froid">Repas froid</option>
+                                <option value="Petit déj">Petit déj</option>
+                                <option value="Encas">Encas</option>
+                                <option value="Dessert">Dessert</option>
+                            </select>
+                        </div>
+                    </div>
 
-            <!-- Affichage automatique des coûts et apports -->
-            <div style="background: #eef2f7; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.95rem; line-height: 1.5;">
-                💰 Coût total : <span id="calc-cout-total">0.00</span>€ | 👤 Coût/part : <strong><span id="calc-cout-part">0.00</span>€</strong><br>
-                🔥 Calories : <span id="calc-calories">0</span> kcal<br>
-                💪 Protéines : <span id="calc-proteines">0</span>g | 🍞 Glucides : <span id="calc-glucides">0</span>g | 🥑 Lipides : <span id="calc-lipides">0</span>g
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="space-y-1.5">
+                            <label class="font-bold text-slate-700 text-xs">Nombre de parts :</label>
+                            <input type="number" id="parts" value="4" min="1" oninput="calculerTotauxFormulaire()" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium">
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="font-bold text-slate-700 text-xs">Étapes de préparation :</label>
+                        <textarea id="etapes" rows="3" placeholder="Décrivez les étapes de la recette..." class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium"></textarea>
+                    </div>
+
+                    <!-- Bloc de calculs automatiques -->
+                    <div class="bg-indigo-50 p-3.5 rounded-2xl border border-indigo-100 space-y-1 text-indigo-950 font-medium">
+                        <div class="font-bold text-indigo-900 mb-1">📊 Valeurs nutritionnelles & Coûts estimés (PAR PART) :</div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+                            <div>💰 Coût total : <strong id="calc-cout-total">0.00</strong>€</div>
+                            <div>👤 Coût / part : <strong id="calc-cout-part">0.00</strong>€</div>
+                            <div>🔥 Calories / part : <strong id="calc-calories">0</strong> kcal</div>
+                            <div>💪 Protéines / part : <strong id="calc-proteines">0</strong>g</div>
+                            <div>🍞 Glucides / part : <strong id="calc-glucides">0</strong>g</div>
+                            <div>🥑 Lipides / part : <strong id="calc-lipides">0</strong>g</div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 pt-2 border-t border-slate-100">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-slate-700 text-xs">🥗 Ingrédients de la recette :</span>
+                            <button type="button" onclick="ajouterLigneIngredient()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm">+ Ajouter un ingrédient</button>
+                        </div>
+                        <div id="ingredients-container" class="space-y-3"></div>
+                    </div>
+
+                    <div class="flex gap-2 pt-2">
+                        <button type="submit" class="flex-1 bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">Enregistrer la recette</button>
+                        <button type="button" id="btn-annuler" onclick="reinitialiserFormulaire()" class="hidden bg-slate-200 active:bg-slate-300 text-slate-700 px-4 py-3 rounded-xl font-bold">Annuler / Fermer</button>
+                    </div>
+                </form>
             </div>
-            
-            <!-- Champs cachés -->
-            <input type="hidden" id="cout">
-            <input type="hidden" id="calories">
-            <input type="hidden" id="proteines">
-            <input type="hidden" id="glucides">
-            <input type="hidden" id="lipides">
-
-            <button type="submit" class="btn btn-success" id="btn-submit">Enregistrer</button>
-            <button type="button" class="btn btn-secondary" id="btn-annuler" style="display:none;" onclick="reinitialiserFormulaire()">Annuler</button>
-        </form>
+        </section>
     </div>
 
-    <h2>Vos recettes</h2>
-    <div id="container-recettes"></div>
-
-    <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
+        let socket;
+        let listeGlobaleRecettes = [];
         let tousLesIngredients = [];
-        let categoriesSelectionnees = [];
+        const categoriesDisponibles = ["Repas chaud", "Repas froid", "Petit déj", "Encas", "Dessert"];
 
-        function chargerIngredientsDisponibles(cb) {
-            fetch('/api/ingredients')
-                .then(res => res.json())
-                .then(data => { tousLesIngredients = data; if(cb) cb(); });
+        try {
+            socket = io();
+            socket.on('data_updated', init);
+        } catch (e) {
+            console.warn("Socket.io non initialisé", e);
         }
 
-        // Gestion des tags de catégories
-        function ajouterCategorieTag(catNom = "") {
-            const select = document.getElementById('select-cat');
-            const val = catNom || select.value;
-            
-            if (val && !categoriesSelectionnees.includes(val)) {
-                categoriesSelectionnees.push(val);
-                rendreCategoriesTags();
+        async function init() {
+            try {
+                const resIng = await fetch('/api/ingredients');
+                if (resIng.ok) tousLesIngredients = await resIng.json();
+
+                const resRec = await fetch('/api/recettes');
+                if (!resRec.ok) throw new Error("Erreur réseau");
+                listeGlobaleRecettes = await resRec.json();
+                
+                renderCategories();
+            } catch (err) {
+                console.error("Erreur dans init():", err);
             }
-            select.value = ""; // Réinitialiser le select
         }
 
-        function supprimerCategorieTag(val) {
-            categoriesSelectionnees = categoriesSelectionnees.filter(c => c !== val);
-            rendreCategoriesTags();
-        }
-
-        function rendreCategoriesTags() {
-            const container = document.getElementById('categories-tags-container');
-            container.innerHTML = categoriesSelectionnees.map(cat => `
-                <div class="category-tag">
-                    ${cat} <span onclick="supprimerCategorieTag('${cat}')">&times;</span>
-                </div>
-            `).join('');
-        }
-
-        function ajouterLigneIngredient(idIng = "", quantite = "") {
-            const div = document.createElement('div'); 
-            div.className = 'ingredient-row';
-            let options = '<option value="">-- Ingrédient --</option>';
-            tousLesIngredients.forEach(i => {
-                options += `<option value="${i.id}" ${i.id == idIng ? 'selected' : ''}>${i.nom} (${i.marque || 'Générique'})</option>`;
-            });
-            div.innerHTML = `
-                <select class="ing-select" onchange="calculerTotaux()">${options}</select>
-                <input type="number" step="0.1" class="ing-qte" placeholder="g ou ml" value="${quantite}" oninput="calculerTotaux()">
-                <button type="button" class="btn btn-danger" style="width:auto; margin:0; padding:10px;" onclick="this.parentElement.remove(); calculerTotaux();">X</button>
-            `;
-            document.getElementById('liste-ingredients-container').appendChild(div);
-        }
-
-        function calculerTotaux() {
-            let coutTotal = 0;
-            let totalCal = 0, totalPro = 0, totalGlu = 0, totalLip = 0;
-            const parts = parseInt(document.getElementById('parts').value) || 1;
-
-            document.querySelectorAll('.ingredient-row').forEach(row => {
-                const select = row.querySelector('.ing-select');
-                const qteInput = row.querySelector('.ing-qte');
-                const ingId = select.value;
-                const qte = parseFloat(qteInput.value) || 0;
-
-                if (ingId && qte > 0) {
-                    const ing = tousLesIngredients.find(i => i.id == ingId);
-                    if (ing) {
-                        const prixRef = ing.prixLeclerc || ing.prixCarrefour || ing.prixLidl || 0;
-                        coutTotal += (prixRef * qte) / 100;
-                        totalCal += (ing.calories * qte) / 100;
-                        totalPro += (ing.proteines * qte) / 100;
-                        totalGlu += (ing.glucides * qte) / 100;
-                        totalLip += (ing.lipides * qte) / 100;
-                    }
-                }
-            });
-
-            document.getElementById('calc-cout-total').innerText = coutTotal.toFixed(2);
-            document.getElementById('calc-cout-part').innerText = (coutTotal / parts).toFixed(2);
-            document.getElementById('calc-calories').innerText = totalCal.toFixed(0);
-            document.getElementById('calc-proteines').innerText = totalPro.toFixed(1);
-            document.getElementById('calc-glucides').innerText = totalGlu.toFixed(1);
-            document.getElementById('calc-lipides').innerText = totalLip.toFixed(1);
-
-            document.getElementById('cout').value = coutTotal.toFixed(2);
-            document.getElementById('calories').value = totalCal.toFixed(0);
-            document.getElementById('proteines').value = totalPro.toFixed(1);
-            document.getElementById('glucides').value = totalGlu.toFixed(1);
-            document.getElementById('lipides').value = totalLip.toFixed(1);
-        }
-
-        document.getElementById('form-recette').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const id = document.getElementById('recette-id').value;
+        function toggleFormulaire() {
+            const container = document.getElementById('form-content-container');
+            const arrow = document.getElementById('form-toggle-arrow');
+            const isHidden = container.classList.contains('hidden');
             
-            let ingredientsTexte = [];
-            document.querySelectorAll('.ingredient-row').forEach(row => {
-                const s = row.querySelector('.ing-select');
-                const qte = row.querySelector('.ing-qte').value;
-                if(s.selectedIndex > 0) {
-                    ingredientsTexte.push(`${s.options[s.selectedIndex].text} (${qte}g)`);
+            if (isHidden) {
+                container.classList.remove('hidden');
+                arrow.innerText = "▲";
+                if(document.getElementById('ingredients-container').children.length === 0) {
+                    ajouterLigneIngredient();
                 }
-            });
-
-            const data = {
-                nom: document.getElementById('nom').value,
-                categorie: categoriesSelectionnees.join(', '),
-                parts: parseInt(document.getElementById('parts').value),
-                ingredients: ingredientsTexte.join(', '),
-                etapes: document.getElementById('etapes').value,
-                cout: parseFloat(document.getElementById('cout').value) || 0,
-                calories: parseFloat(document.getElementById('calories').value) || 0,
-                proteines: parseFloat(document.getElementById('proteines').value) || 0,
-                glucides: parseFloat(document.getElementById('glucides').value) || 0,
-                lipides: parseFloat(document.getElementById('lipides').value) || 0
-            };
-
-            fetch(id ? `/api/recettes/${id}` : '/api/recettes', {
-                method: id ? 'PUT' : 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            }).then(() => { 
-                reinitialiserFormulaire(); 
-                chargerRecettes(); 
-            });
-        });
-
-        function chargerRecettes() {
-            fetch('/api/recettes')
-                .then(res => res.json())
-                .then(data => {
-                    document.getElementById('container-recettes').innerHTML = data.map(r => `
-                        <div class="recette-card">
-                            <h3>${r.nom}</h3>
-                            <p>${r.categorie ? r.categorie.split(',').map(c => `<span class="badge">${c.trim()}</span>`).join('') : ''}</p>
-                            <p><strong>Parts :</strong> ${r.parts} | <strong>Coût/part :</strong> ${r.parts ? (r.cout/r.parts).toFixed(2) : r.cout}€</p>
-                            <p><strong>Calories :</strong> ${r.calories || 0} kcal | <strong>Pro:</strong> ${r.proteines || 0}g, <strong>Glu:</strong> ${r.glucides || 0}g, <strong>Lip:</strong> ${r.lipides || 0}g</p>
-                            <p><strong>Ingrédients :</strong> ${r.ingredients || 'Aucun'}</p>
-                            <button class="btn btn-warning" onclick='preparerModification(${JSON.stringify(r)})'>Modifier</button>
-                            <button class="btn btn-danger" onclick="supprimerRecette(${r.id})">Supprimer</button>
-                        </div>
-                    `).join('');
-                });
+            } else {
+                container.classList.add('hidden');
+                arrow.innerText = "▼";
+            }
         }
 
-        function preparerModification(r) {
+        function ouvrirFormulaireModification(r) {
+            const container = document.getElementById('form-content-container');
+            container.classList.remove('hidden');
+            document.getElementById('form-toggle-arrow').innerText = "▲";
+            
             document.getElementById('recette-id').value = r.id;
-            document.getElementById('nom').value = r.nom;
-            document.getElementById('parts').value = r.parts;
-            document.getElementById('cout').value = r.cout;
+            document.getElementById('nom').value = r.nom || '';
+            document.getElementById('categorie').value = r.categorie || 'Repas chaud';
+            document.getElementById('parts').value = r.parts || 4;
             document.getElementById('etapes').value = r.etapes || '';
             
-            // Charger les catégories dans les tags
-            categoriesSelectionnees = r.categorie ? r.categorie.split(',').map(c => c.trim()) : [];
-            rendreCategoriesTags();
+            document.getElementById('ingredients-container').innerHTML = '';
+            if (r.ingredients) {
+                let lignes = typeof r.ingredients === 'string' ? r.ingredients.split(',') : r.ingredients;
+                lignes.forEach(item => {
+                    item = typeof item === 'string' ? item.trim() : item;
+                    const match = item.match(/^(.*?)\s*\(([0-9.]+)\s*([a-zA-Zà.é]+)\)$/);
+                    if (match) {
+                        const ingObj = tousLesIngredients.find(i => i.nom.toLowerCase() === match[1].trim().toLowerCase());
+                        ajouterLigneIngredient(ingObj ? ingObj.id : "", match[2], match[3]);
+                    } else {
+                        ajouterLigneIngredient();
+                    }
+                });
+            }
+            if (document.getElementById('ingredients-container').children.length === 0) {
+                ajouterLigneIngredient();
+            }
 
-            document.getElementById('titre-formulaire').innerText = "✏️ Modifier la recette";
-            document.getElementById('btn-submit').innerText = "Mettre à jour";
-            document.getElementById('btn-annuler').style.display = "block";
-            
-            calculerTotaux();
-            window.scrollTo(0, 0);
+            calculerTotauxFormulaire();
+            document.getElementById('form-toggle-title').innerText = "✏️ Modifier la recette : " + r.nom;
+            document.getElementById('btn-annuler').classList.remove('hidden');
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
         }
 
         function reinitialiserFormulaire() {
             document.getElementById('form-recette').reset();
-            document.getElementById('recette-id').value = "";
-            categoriesSelectionnees = [];
-            rendreCategoriesTags();
-            
-            document.getElementById('titre-formulaire').innerText = "🍳 Ajouter une recette";
-            document.getElementById('btn-submit').innerText = "Enregistrer";
-            document.getElementById('btn-annuler').style.display = "none";
-            document.getElementById('liste-ingredients-container').innerHTML = '';
+            document.getElementById('recette-id').value = '';
+            document.getElementById('ingredients-container').innerHTML = '';
+            document.getElementById('form-toggle-title').innerText = "➕ Ajouter ou modifier une recette (cliquer pour ouvrir)";
+            document.getElementById('btn-annuler').classList.add('hidden');
+            document.getElementById('form-content-container').classList.add('hidden');
+            document.getElementById('form-toggle-arrow').innerText = "▼";
             ajouterLigneIngredient();
-            calculerTotaux();
         }
 
-        function supprimerRecette(id) {
-            if(confirm("Supprimer cette recette ?")) {
-                fetch(`/api/recettes/${id}`, { method: 'DELETE' }).then(chargerRecettes);
+        function renderCategories() {
+            const container = document.getElementById('categories-container');
+            container.innerHTML = categoriesDisponibles.map(cat => {
+                const count = listeGlobaleRecettes.filter(r => (r.categorie || 'Repas chaud') === cat).length;
+                return `
+                    <button onclick="afficherCategorie('${cat}')" class="bg-white p-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/30 text-left transition space-y-1 shadow-sm">
+                        <div class="font-bold text-slate-800 text-xs">${cat}</div>
+                        <div class="text-[10px] text-slate-400">${count} recette(s)</div>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function afficherCategorie(catNom) {
+            const container = document.getElementById('conteneur-affichage-dynamique');
+            const recettesCat = listeGlobaleRecettes.filter(r => (r.categorie || 'Repas chaud') === catNom);
+
+            container.innerHTML = `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-blue-900 text-xs">Catégorie : ${catNom} (${recettesCat.length})</h3>
+                        <button onclick="document.getElementById('conteneur-affichage-dynamique').innerHTML=''" class="text-slate-400 hover:text-slate-600 text-xs font-bold">Fermer ✕</button>
+                    </div>
+                    <div class="space-y-2">
+                        ${recettesCat.length === 0 ? '<p class="text-slate-400 italic text-xs">Aucune recette dans cette catégorie.</p>' : recettesCat.map(r => genererHtmlRecette(r)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function rechercherRecetteGlobale() {
+            const terme = document.getElementById('input-recherche-globale').value.toLowerCase().trim();
+            const container = document.getElementById('conteneur-affichage-dynamique');
+
+            if (!terme) {
+                container.innerHTML = '';
+                return;
+            }
+
+            const resultats = listeGlobaleRecettes.filter(r => r.nom.toLowerCase().includes(terme));
+
+            container.innerHTML = `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-indigo-900 text-xs">Résultats de recherche (${resultats.length})</h3>
+                        <button onclick="document.getElementById('conteneur-affichage-dynamique').innerHTML=''" class="text-slate-400 hover:text-slate-600 text-xs font-bold">Fermer ✕</button>
+                    </div>
+                    <div class="space-y-2">
+                        ${resultats.length === 0 ? '<p class="text-slate-400 italic text-xs">Aucune recette trouvée.</p>' : resultats.map(r => genererHtmlRecette(r)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function genererHtmlRecette(r) {
+            const coutTotal = typeof r.cout === 'number' ? r.cout : 0;
+            const parts = r.parts || 1;
+            const coutPart = parts > 0 ? coutTotal / parts : coutTotal;
+
+            return `
+                <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-3 text-xs">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <h4 class="font-bold text-slate-800 text-sm">🍳 ${r.nom}</h4>
+                            <span class="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-xl text-[10px] font-bold">${r.categorie || 'Repas chaud'}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick='ouvrirFormulaireModification(${JSON.stringify(r)})' class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-xl font-bold">Modifier</button>
+                            <button onclick="supprimerRecette(${r.id})" class="bg-rose-100 hover:bg-rose-200 text-rose-600 px-3 py-1.5 rounded-xl font-bold">Supprimer</button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-2.5 rounded-lg border border-slate-100 space-y-1 text-slate-700">
+                        <div>👤 Parts : <strong>${parts}</strong> | 💰 Coût total : <strong>${coutTotal.toFixed(2)}€</strong> (${coutPart.toFixed(2)}€ / part)</div>
+                        <div class="text-emerald-700">🔥 ${r.calories || 0} kcal/part | P: ${r.proteines || 0}g | G: ${r.glucides || 0}g | L: ${r.lipides || 0}g</div>
+                        ${r.ingredients ? `<div class="text-slate-500 text-[11px] pt-1 border-t border-slate-50"><strong>Ingrédients :</strong> ${r.ingredients}</div>` : ''}
+                        ${r.etapes ? `<div class="text-slate-500 text-[11px]"><strong>Étapes :</strong> ${r.etapes}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function ajouterLigneIngredient(idIng = "", qteVal = "100", uniteVal = "g") {
+            const container = document.getElementById('ingredients-container');
+            const rowId = 'ing-row-' + Math.random().toString(36).substring(2, 9);
+            
+            let options = '<option value="">-- Choisir un ingrédient --</option>';
+            tousLesIngredients.forEach(i => {
+                options += `<option value="${i.id}" ${i.id == idIng ? 'selected' : ''}>${i.nom}</option>`;
+            });
+
+            const div = document.createElement('div');
+            div.id = rowId;
+            div.className = "bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-2 relative";
+            div.innerHTML = `
+                <select class="ing-select border border-slate-200 p-2 rounded-lg bg-slate-50 font-medium flex-2 text-xs" onchange="calculerTotauxFormulaire()">${options}</select>
+                <input type="number" step="any" class="ing-qte border border-slate-200 p-2 rounded-lg bg-slate-50 w-20 font-medium text-xs text-center" placeholder="Qté" value="${qteVal}" oninput="calculerTotauxFormulaire()">
+                <select class="ing-unite border border-slate-200 p-2 rounded-lg bg-slate-50 w-24 font-medium text-xs" onchange="calculerTotauxFormulaire()">
+                    <option value="g" ${uniteVal === 'g' ? 'selected' : ''}>g</option>
+                    <option value="kg" ${uniteVal === 'kg' ? 'selected' : ''}>kg</option>
+                    <option value="ml" ${uniteVal === 'ml' ? 'selected' : ''}>ml</option>
+                    <option value="L" ${uniteVal === 'L' ? 'selected' : ''}>L</option>
+                    <option value="pièce" ${uniteVal === 'pièce' ? 'selected' : ''}>pièce</option>
+                    <option value="c.à.s" ${uniteVal === 'c.à.s' ? 'selected' : ''}>c.à.s</option>
+                    <option value="c.à.c" ${uniteVal === 'c.à.c' ? 'selected' : ''}>c.à.c</option>
+                </select>
+                <button type="button" onclick="document.getElementById('${rowId}').remove(); calculerTotauxFormulaire();" class="text-red-400 hover:text-red-600 font-bold px-1 text-xs">✕</button>
+            `;
+            container.appendChild(div);
+            calculerTotauxFormulaire();
+        }
+
+        function calculerTotauxFormulaire() {
+            let coutTotal = 0;
+            let totalCal = 0, totalPro = 0, totalGlu = 0, totalLip = 0;
+            const parts = parseInt(document.getElementById('parts').value) || 1;
+
+            document.querySelectorAll('#ingredients-container > div').forEach(row => {
+                const select = row.querySelector('.ing-select');
+                const qteInput = row.querySelector('.ing-qte');
+                const uniteSelect = row.querySelector('.ing-unite');
+                
+                const ingId = select.value;
+                let qte = parseFloat(qteInput.value) || 0;
+                const unite = uniteSelect.value;
+
+                let qteBase = qte;
+                if (unite === 'kg' || unite === 'L') qteBase = qte * 1000;
+                else if (unite === 'c.à.s') qteBase = qte * 15;
+                else if (unite === 'c.à.c') qteBase = qte * 5;
+                else if (unite === 'pièce') qteBase = qte * 100;
+
+                if (ingId && qte > 0) {
+                    const ing = tousLesIngredients.find(i => i.id == ingId);
+                    if (ing && ing.marques && ing.marques.length > 0) {
+                        let prixAuGrammeMoyenIngredient = 0;
+                        let calMoyen = 0, proMoyen = 0, gluMoyen = 0, lipMoyen = 0;
+                        let nbMarques = ing.marques.length;
+
+                        ing.marques.forEach(m => {
+                            calMoyen += m.calories || 0;
+                            proMoyen += m.proteines || 0;
+                            gluMoyen += m.glucides || 0;
+                            lipMoyen += m.lipides || 0;
+
+                            if (m.formats && m.formats.length > 0) {
+                                let prixMoyenDuFormat = 0;
+                                let nbFormatsValides = 0;
+
+                                m.formats.forEach(f => {
+                                    const prixArr = Object.values(f.prix_enseignes || {});
+                                    if (prixArr.length > 0) {
+                                        const moyenneEnseignes = prixArr.reduce((a, b) => a + b, 0) / prixArr.length;
+                                        let formatQteBase = parseFloat(f.qte) || 1;
+                                        if (f.unite === 'kg' || f.unite === 'L') formatQteBase *= 1000;
+
+                                        if (formatQteBase > 0) {
+                                            prixMoyenDuFormat += (moyenneEnseignes / formatQteBase);
+                                            nbFormatsValides++;
+                                        }
+                                    }
+                                });
+
+                                if (nbFormatsValides > 0) {
+                                    prixAuGrammeMoyenIngredient += (prixMoyenDuFormat / nbFormatsValides);
+                                }
+                            }
+                        });
+
+                        calMoyen /= nbMarques;
+                        proMoyen /= nbMarques;
+                        gluMoyen /= nbMarques;
+                        lipMoyen /= nbMarques;
+                        
+                        let prixFinalParGramme = nbMarques > 0 ? (prixAuGrammeMoyenIngredient / nbMarques) : 0;
+
+                        const coutLigne = prixFinalParGramme * qteBase;
+                        coutTotal += coutLigne;
+
+                        totalCal += (calMoyen * qteBase) / 100;
+                        totalPro += (proMoyen * qteBase) / 100;
+                        totalGlu += (gluMoyen * qteBase) / 100;
+                        totalLip += (lipMoyen * qteBase) / 100;
+                    }
+                }
+            });
+
+            // Calculs par part
+            const caloriesParPart = parts > 0 ? totalCal / parts : totalCal;
+            const proteinesParPart = parts > 0 ? totalPro / parts : totalPro;
+            const glucidesParPart = parts > 0 ? totalGlu / parts : totalGlu;
+            const lipidesParPart = parts > 0 ? totalLip / parts : totalLip;
+
+            document.getElementById('calc-cout-total').innerText = coutTotal.toFixed(2);
+            document.getElementById('calc-cout-part').innerText = (parts > 0 ? coutTotal / parts : coutTotal).toFixed(2);
+            document.getElementById('calc-calories').innerText = Math.round(caloriesParPart);
+            document.getElementById('calc-proteines').innerText = proteinesParPart.toFixed(1);
+            document.getElementById('calc-glucides').innerText = glucidesParPart.toFixed(1);
+            document.getElementById('calc-lipides').innerText = lipidesParPart.toFixed(1);
+        }
+
+        async function sauvegarderRecette(e) {
+            e.preventDefault();
+            const id = document.getElementById('recette-id').value;
+            const nom = document.getElementById('nom').value.trim();
+            const categorie = document.getElementById('categorie').value;
+            const parts = parseInt(document.getElementById('parts').value) || 1;
+            const etapes = document.getElementById('etapes').value.trim();
+
+            let ingredientsTexte = [];
+            document.querySelectorAll('#ingredients-container > div').forEach(row => {
+                const s = row.querySelector('.ing-select');
+                const qte = row.querySelector('.ing-qte').value;
+                const unite = row.querySelector('.ing-unite').value;
+                if(s.selectedIndex > 0) {
+                    ingredientsTexte.push(`${s.options[s.selectedIndex].text} (${qte} ${unite})`);
+                }
+            });
+
+            const cout = parseFloat(document.getElementById('calc-cout-total').innerText) || 0;
+            const calories = parseFloat(document.getElementById('calc-calories').innerText) || 0;
+            const proteines = parseFloat(document.getElementById('calc-proteines').innerText) || 0;
+            const glucides = parseFloat(document.getElementById('calc-glucides').innerText) || 0;
+            const lipides = parseFloat(document.getElementById('calc-lipides').innerText) || 0;
+
+            const data = {
+                nom,
+                categorie,
+                parts,
+                ingredients: ingredientsTexte.join(', '),
+                etapes,
+                cout,
+                calories,
+                proteines,
+                glucides,
+                lipides
+            };
+
+            const url = id ? `/api/recettes/${id}` : '/api/recettes';
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                alert(errData.error || "Erreur lors de l'enregistrement");
+                return;
+            }
+
+            reinitialiserFormulaire();
+            init();
+            document.getElementById('conteneur-affichage-dynamique').innerHTML = '';
+        }
+
+        async function supprimerRecette(id) {
+            if (confirm("Voulez-vous vraiment supprimer cette recette ?")) {
+                await fetch(`/api/recettes/${id}`, { method: 'DELETE' });
+                init();
+                document.getElementById('conteneur-affichage-dynamique').innerHTML = '';
             }
         }
 
-        chargerIngredientsDisponibles(() => {
-            ajouterLigneIngredient();
-            chargerRecettes();
-        });
-
-        socket.on('data_updated', chargerRecettes);
+        init();
     </script>
 </body>
 </html>

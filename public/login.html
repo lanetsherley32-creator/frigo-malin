@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion / Inscription - Application Nutrition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 flex items-center justify-center h-screen">
+
+    <div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm">
+        <h1 id="form-title" class="text-2xl font-bold mb-6 text-center text-slate-800">Connexion</h1>
+        
+        <!-- Formulaire de Connexion -->
+        <div id="login-form">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-600 mb-1">E-mail</label>
+                <input type="email" id="login-email" class="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-slate-600 mb-1">Mot de passe</label>
+                <input type="password" id="login-mdp" class="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+
+            <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4">
+                Se connecter
+            </button>
+            
+            <p class="text-center text-sm text-slate-500">
+                Pas encore de compte ? <a href="#" onclick="toggleMode(event)" class="text-blue-600 hover:underline font-medium">S'inscrire</a>
+            </p>
+        </div>
+
+        <!-- Formulaire d'Inscription -->
+        <div id="register-form" class="hidden">
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-slate-600 mb-1">Nom / Pseudo</label>
+                <input type="text" id="reg-nom" class="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-slate-600 mb-1">E-mail</label>
+                <input type="email" id="reg-email" class="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-slate-600 mb-1">Mot de passe</label>
+                <input type="password" id="reg-mdp" class="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+
+            <button onclick="register()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4">
+                Créer mon compte
+            </button>
+            
+            <p class="text-center text-sm text-slate-500">
+                Déjà un compte ? <a href="#" onclick="toggleMode(event)" class="text-blue-600 hover:underline font-medium">Se connecter</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function toggleMode(e) {
+            e.preventDefault();
+            const loginForm = document.getElementById('login-form');
+            const regForm = document.getElementById('register-form');
+            const title = document.getElementById('form-title');
+
+            if (loginForm.classList.contains('hidden')) {
+                loginForm.classList.remove('hidden');
+                regForm.classList.add('hidden');
+                title.innerText = 'Connexion';
+            } else {
+                loginForm.classList.add('hidden');
+                regForm.classList.remove('hidden');
+                title.innerText = 'Inscription';
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('login-email').value;
+            const mdp = document.getElementById('login-mdp').value;
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, mdp })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    window.location.href = '/index.html';
+                } else {
+                    alert(data.error || "Erreur de connexion");
+                }
+            } catch (err) {
+                alert("Erreur serveur");
+            }
+        }
+
+        async function register() {
+            const nom = document.getElementById('reg-nom').value;
+            const email = document.getElementById('reg-email').value;
+            const mdp = document.getElementById('reg-mdp').value;
+
+            if (!nom || !email || !mdp) {
+                alert("Veuillez remplir tous les champs.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/profils', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        nom,
+                        email,
+                        mdp,
+                        calories: 2000,
+                        budget: 100,
+                        proteines: 150,
+                        glucides: 200,
+                        lipides: 70
+                    })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    alert("Compte créé avec succès ! Connectez-vous maintenant.");
+                    document.getElementById('login-email').value = email;
+                    document.getElementById('login-mdp').value = mdp;
+                    toggleMode(new Event('click'));
+                } else {
+                    alert(data.error || "Erreur lors de la création du compte.");
+                }
+            } catch (err) {
+                alert("Erreur serveur");
+            }
+        }
+    </script>
+</body>
+</html>

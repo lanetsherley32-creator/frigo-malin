@@ -9,8 +9,8 @@
 </head>
 <body class="bg-slate-100 min-h-screen pb-12">
     <div class="max-w-4xl mx-auto p-3 sm:p-6 space-y-4">
-        
-        <!-- Navigation Mobile Friendly -->
+
+        <!-- Navigation -->
         <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
             <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🥗 Gestion des Ingrédients</h1>
             <nav class="grid grid-cols-5 gap-1 text-center text-xs font-medium">
@@ -22,121 +22,94 @@
             </nav>
         </header>
 
-        <!-- Recherche Open Food Facts -->
-        <section class="bg-indigo-50 p-4 rounded-2xl shadow-sm border border-indigo-200 space-y-3">
-            <h2 class="font-bold text-indigo-900 text-sm flex items-center gap-1.5">🔍 Rechercher un produit (Open Food Facts)</h2>
-            <div class="flex gap-2">
-                <input type="text" id="recherche-off-ing" placeholder="Ex: Pâtes, Lait, Nutella..." class="flex-1 border border-indigo-200 p-2.5 rounded-xl bg-white text-xs font-medium">
-                <button type="button" onclick="rechercherOffIngredient()" class="bg-indigo-600 active:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm">Rechercher</button>
-            </div>
-            <div id="resultats-off-container" class="hidden space-y-2 pt-1"></div>
+        <!-- 1. Barre de recherche globale d'aliments -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-2">
+            <label class="font-bold text-slate-700 text-sm block">🔍 Recherche d'un aliment :</label>
+            <input type="text" id="input-recherche-globale" oninput="rechercherAlimentGlobal()" placeholder="Tapez le nom d'un aliment existant..." class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium">
         </section>
 
-        <!-- Formulaire Ingrédient -->
-        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-            <h2 id="form-title" class="font-bold text-slate-700 text-sm">➕ Ajouter ou modifier un ingrédient</h2>
-            <form id="form-ingredient" onsubmit="sauvegarderIngredient(event)" class="space-y-4 text-xs">
-                <input type="hidden" id="ingredient-id">
-                
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div class="space-y-1.5">
-                        <label class="font-bold text-slate-700 text-xs">Nom :</label>
-                        <input type="text" id="nom" placeholder="Ex: Riz blanc" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium" required>
-                    </div>
-                    <div class="space-y-1.5">
-                        <label class="font-bold text-slate-700 text-xs">Marque :</label>
-                        <input type="text" id="marque" placeholder="Ex: Barilla..." class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium">
-                    </div>
-                    <div class="space-y-1.5">
-                        <label class="font-bold text-slate-700 text-xs">Format / Conditionnement :</label>
-                        <input type="text" id="format" placeholder="Ex: 500g, 1L..." class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div class="space-y-1.5">
-                        <label class="font-bold text-slate-700 text-xs">Unité de mesure :</label>
-                        <select id="unite" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium">
-                            <option value="g">Grammes (g)</option>
-                            <option value="ml">Millilitres (ml)</option>
-                            <option value="pièce">Pièce(s)</option>
-                            <option value="c.à.s">Cuillère à soupe</option>
-                        </select>
-                    </div>
-                    <div class="space-y-1.5">
-                        <label class="font-bold text-slate-700 text-xs">Rayon :</label>
-                        <select id="rayon" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium">
-                            <option value="Fruits et Légumes">Fruits et Légumes</option>
-                            <option value="Épicerie">Épicerie</option>
-                            <option value="Frais">Frais</option>
-                            <option value="Surgelés">Surgelés</option>
-                            <option value="Boissons">Boissons</option>
-                            <option value="Divers / Autres">Divers / Autres</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Prix par enseigne -->
-                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
-                    <span class="block font-bold text-slate-700 text-xs">Prix indicatif selon les enseignes (€) :</span>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        <div>
-                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Leclerc</label>
-                            <input type="number" step="any" id="prix-leclerc" placeholder="0.00" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Carrefour</label>
-                            <input type="number" step="any" id="prix-carrefour" placeholder="0.00" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Lidl</label>
-                            <input type="number" step="any" id="prix-lidl" placeholder="0.00" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Valeurs nutritionnelles -->
-                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
-                    <span class="block font-bold text-slate-700 text-xs">Valeurs nutritionnelles (pour 100g ou 100ml) :</span>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <div>
-                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Calories (kcal)</label>
-                            <input type="number" step="any" id="calories" placeholder="0" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Protéines (g)</label>
-                            <input type="number" step="any" id="proteines" placeholder="0" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Glucides (g)</label>
-                            <input type="number" step="any" id="glucides" placeholder="0" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] text-slate-500 font-bold mb-1">Lipides (g)</label>
-                            <input type="number" step="any" id="lipides" placeholder="0" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex gap-2">
-                    <button type="submit" class="flex-1 bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">Enregistrer l'ingrédient</button>
-                    <button type="button" id="btn-annuler" onclick="reinitialiserFormulaire()" class="hidden bg-slate-200 active:bg-slate-300 text-slate-700 px-4 py-3 rounded-xl font-bold">Annuler</button>
-                </div>
-            </form>
-        </section>
-
-        <!-- Liste des Ingrédients -->
+        <!-- 2. Catégories / Rayons (Visibles par défaut) -->
         <section class="space-y-3">
-            <h2 class="font-bold text-slate-700 text-sm">📋 Liste des Ingrédients Enregistrés</h2>
-            <div id="liste-ingredients-container" class="space-y-2">
-                <p class="text-slate-400 italic text-xs">Chargement...</p>
+            <h2 class="font-bold text-slate-700 text-sm">📂 Catégories (Rayons)</h2>
+            <div id="categories-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                <!-- Les cartes de rayons s'injectent ici -->
+            </div>
+            <!-- Conteneur pour afficher les aliments du rayon sélectionné ou le résultat de recherche -->
+            <div id="conteneur-affichage-dynamique" class="space-y-2 pt-2"></div>
+        </section>
+
+        <!-- 3. Formulaire d'ajout ou modification (Fermé par défaut) -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+            <button type="button" onclick="toggleFormulaire()" class="w-full flex justify-between items-center text-left font-bold text-slate-700 text-sm py-1 focus:outline-none">
+                <span id="form-toggle-title">➕ Ajouter ou modifier un ingrédient (cliquer pour ouvrir)</span>
+                <span id="form-toggle-arrow" class="text-slate-400 text-base transition-transform">▼</span>
+            </button>
+
+            <div id="form-content-container" class="hidden space-y-4 pt-2 border-t border-slate-100">
+                
+                <!-- Recherche Open Food Facts à l'intérieur du formulaire -->
+                <div class="bg-indigo-50 p-3 rounded-xl border border-indigo-200 space-y-2">
+                    <h3 class="font-bold text-indigo-900 text-xs flex items-center gap-1.5">🔍 Importer depuis Open Food Facts</h3>
+                    <div class="flex gap-2">
+                        <input type="text" id="recherche-off-ing" placeholder="Ex: Pâtes Barilla, Lait..." class="flex-1 border border-indigo-200 p-2 rounded-lg bg-white text-xs font-medium">
+                        <button type="button" onclick="rechercherOffIngredient()" class="bg-indigo-600 active:bg-indigo-700 text-white px-3 py-2 rounded-lg text-xs font-bold">Rechercher</button>
+                    </div>
+                    <div id="resultats-off-container" class="hidden space-y-2 pt-1"></div>
+                </div>
+
+                <form id="form-ingredient" onsubmit="sauvegarderIngredient(event)" class="space-y-4 text-xs">
+                    <input type="hidden" id="ingredient-id">
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="space-y-1.5">
+                            <label class="font-bold text-slate-700 text-xs">Nom de l'ingrédient / Référence :</label>
+                            <input type="text" id="nom" placeholder="Ex: Riz blanc" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium" required>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="font-bold text-slate-700 text-xs">Rayon :</label>
+                            <select id="rayon" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium">
+                                <option value="Fruit">Fruit</option>
+                                <option value="Légume">Légume</option>
+                                <option value="Conserve">Conserve</option>
+                                <option value="Épicerie salée">Épicerie salée</option>
+                                <option value="Épicerie sucrée">Épicerie sucrée</option>
+                                <option value="Viande">Viande</option>
+                                <option value="Poisson">Poisson</option>
+                                <option value="Crémerie">Crémerie</option>
+                                <option value="Surgelé">Surgelé</option>
+                                <option value="Boisson">Boisson</option>
+                                <option value="Divers / Autre">Divers / Autre</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 pt-2 border-t border-slate-100">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-slate-700 text-xs">🏷️ Marques & Valeurs Nutritionnelles :</span>
+                            <button type="button" onclick="ajouterBlocMarque()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm">+ Ajouter une marque</button>
+                        </div>
+                        <div id="marques-container" class="space-y-4"></div>
+                    </div>
+
+                    <div class="flex gap-2 pt-2">
+                        <button type="submit" class="flex-1 bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">Enregistrer l'ingrédient</button>
+                        <button type="button" id="btn-annuler" onclick="reinitialiserFormulaire()" class="hidden bg-slate-200 active:bg-slate-300 text-slate-700 px-4 py-3 rounded-xl font-bold">Annuler / Fermer</button>
+                    </div>
+                </form>
             </div>
         </section>
     </div>
 
     <script>
-        // Connexion sécurisée Socket.io
         let socket;
+        let listeGlobaleIngredients = [];
+        const rayonsDisponibles = [
+            "Fruit", "Légume", "Conserve", "Épicerie salée", 
+            "Épicerie sucrée", "Viande", "Poisson", "Crémerie", 
+            "Surgelé", "Boisson", "Divers / Autre"
+        ];
+        const enseignesDisponibles = ["Leclerc", "Carrefour", "Lidl", "Auchan", "Intermarché", "Super U", "Monoprix", "Aldi"];
+
         try {
             socket = io();
             socket.on('data_updated', init);
@@ -146,18 +119,272 @@
 
         async function init() {
             try {
-                const container = document.getElementById('liste-ingredients-container');
-                container.innerHTML = `<p class="text-slate-400 italic text-xs">Chargement en cours...</p>`;
-
                 const res = await fetch('/api/ingredients');
-                if (!res.ok) throw new Error("Erreur réseau lors de la récupération");
-                
-                const ingredients = await res.json();
-                renderIngredients(ingredients);
+                if (!res.ok) throw new Error("Erreur réseau");
+                listeGlobaleIngredients = await res.json();
+                renderCategories();
             } catch (err) {
                 console.error("Erreur dans init():", err);
-                document.getElementById('liste-ingredients-container').innerHTML = `<p class="text-rose-500 italic text-xs">Erreur de chargement des données.</p>`;
             }
+        }
+
+        function toggleFormulaire() {
+            const container = document.getElementById('form-content-container');
+            const arrow = document.getElementById('form-toggle-arrow');
+            const isHidden = container.classList.contains('hidden');
+            
+            if (isHidden) {
+                // Ouverture au 1er clic
+                container.classList.remove('hidden');
+                arrow.innerText = "▲";
+                if(document.getElementById('marques-container').children.length === 0) {
+                    ajouterBlocMarque();
+                }
+            } else {
+                // Fermeture au 2ème clic
+                container.classList.add('hidden');
+                arrow.innerText = "▼";
+            }
+        }
+
+        function ouvrirFormulaireModification(i) {
+            const container = document.getElementById('form-content-container');
+            container.classList.remove('hidden');
+            document.getElementById('form-toggle-arrow').innerText = "▲";
+            
+            document.getElementById('ingredient-id').value = i.id;
+            document.getElementById('nom').value = i.nom || '';
+            document.getElementById('rayon').value = i.rayon || 'Épicerie salée';
+            
+            document.getElementById('marques-container').innerHTML = '';
+            if (i.marques && Array.isArray(i.marques)) {
+                i.marques.forEach(m => ajouterBlocMarque(m));
+            } else {
+                ajouterBlocMarque();
+            }
+
+            document.getElementById('form-toggle-title').innerText = "✏️ Modifier l'ingrédient : " + i.nom;
+            document.getElementById('btn-annuler').classList.remove('hidden');
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }
+
+        function reinitialiserFormulaire() {
+            document.getElementById('form-ingredient').reset();
+            document.getElementById('ingredient-id').value = '';
+            document.getElementById('marques-container').innerHTML = '';
+            document.getElementById('form-toggle-title').innerText = "➕ Ajouter ou modifier un ingrédient (cliquer pour ouvrir)";
+            document.getElementById('btn-annuler').classList.add('hidden');
+            document.getElementById('form-content-container').classList.add('hidden');
+            document.getElementById('form-toggle-arrow').innerText = "▼";
+            ajouterBlocMarque();
+        }
+
+        function renderCategories() {
+            const container = document.getElementById('categories-container');
+            container.innerHTML = rayonsDisponibles.map(rayon => {
+                const count = listeGlobaleIngredients.filter(i => (i.rayon || 'Épicerie salée') === rayon).length;
+                return `
+                    <button onclick="afficherRayon('${rayon}')" class="bg-white p-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/30 text-left transition space-y-1 shadow-sm">
+                        <div class="font-bold text-slate-800 text-xs">${rayon}</div>
+                        <div class="text-[10px] text-slate-400">${count} aliment(s)</div>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function afficherRayon(rayonNom) {
+            const container = document.getElementById('conteneur-affichage-dynamique');
+            const ingredientsRayon = listeGlobaleIngredients.filter(i => (i.rayon || 'Épicerie salée') === rayonNom);
+
+            container.innerHTML = `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-blue-900 text-xs">Rayon : ${rayonNom} (${ingredientsRayon.length})</h3>
+                        <button onclick="document.getElementById('conteneur-affichage-dynamique').innerHTML=''" class="text-slate-400 hover:text-slate-600 text-xs font-bold">Fermer ✕</button>
+                    </div>
+                    <div class="space-y-2">
+                        ${ingredientsRayon.length === 0 ? '<p class="text-slate-400 italic text-xs">Aucun ingrédient dans ce rayon.</p>' : ingredientsRayon.map(i => genererHtmlIngredient(i)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function rechercherAlimentGlobal() {
+            const terme = document.getElementById('input-recherche-globale').value.toLowerCase().trim();
+            const container = document.getElementById('conteneur-affichage-dynamique');
+
+            if (!terme) {
+                container.innerHTML = '';
+                return;
+            }
+
+            const resultats = listeGlobaleIngredients.filter(i => i.nom.toLowerCase().includes(terme));
+
+            container.innerHTML = `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-indigo-900 text-xs">Résultats de recherche (${resultats.length})</h3>
+                        <button onclick="document.getElementById('conteneur-affichage-dynamique').innerHTML=''" class="text-slate-400 hover:text-slate-600 text-xs font-bold">Fermer ✕</button>
+                    </div>
+                    <div class="space-y-2">
+                        ${resultats.length === 0 ? '<p class="text-slate-400 italic text-xs">Aucun aliment trouvé.</p>' : resultats.map(i => genererHtmlIngredient(i)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function genererHtmlIngredient(i) {
+            let marquesHtml = '';
+            if (i.marques && Array.isArray(i.marques)) {
+                marquesHtml = i.marques.map(m => {
+                    let formatsHtml = '';
+                    if (m.formats && Array.isArray(m.formats)) {
+                        formatsHtml = m.formats.map(f => {
+                            let prixStr = f.prix_enseignes ? Object.entries(f.prix_enseignes).map(([e, p]) => `${e}: <strong>${p}€</strong>`).join(' • ') : '';
+                            return `
+                                <div class="bg-white p-2 rounded-lg border border-indigo-50 space-y-1 text-[11px]">
+                                    <div class="font-bold text-indigo-950">📦 Format : ${f.qte || 1} ${f.unite || 'g'}</div>
+                                    ${prixStr ? `<div class="text-slate-600 pl-2">💰 ${prixStr}</div>` : '<div class="text-slate-400 italic pl-2">Aucun prix renseigné</div>'}
+                                </div>
+                            `;
+                        }).join('');
+                    }
+
+                    return `
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                            <div class="flex justify-between items-center flex-wrap gap-1">
+                                <span class="font-bold text-slate-700 text-xs">🏷️ ${m.nom || 'Marque générique'}</span>
+                                <span class="text-emerald-700 text-[11px]">🔥 ${m.calories || 0} kcal | P: ${m.proteines || 0}g | G: ${m.glucides || 0}g | L: ${m.lipides || 0}g</span>
+                            </div>
+                            <div class="space-y-1.5 pl-2 border-l-2 border-indigo-200">${formatsHtml}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            return `
+                <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-3 text-xs">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <h4 class="font-bold text-slate-800 text-sm">🥗 ${i.nom}</h4>
+                            <span class="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-xl text-[10px] font-bold">${i.rayon || 'Épicerie salée'}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick='ouvrirFormulaireModification(${JSON.stringify(i)})' class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-xl font-bold">Modifier</button>
+                            <button onclick="supprimerIngredient(${i.id})" class="bg-rose-100 hover:bg-rose-200 text-rose-600 px-3 py-1.5 rounded-xl font-bold">Supprimer</button>
+                        </div>
+                    </div>
+                    <div class="space-y-2">${marquesHtml}</div>
+                </div>
+            `;
+        }
+
+        function ajouterBlocMarque(data = {}) {
+            const container = document.getElementById('marques-container');
+            const blockId = 'marque-block-' + Math.random().toString(36).substring(2, 9);
+            
+            const marqueVal = data.nom || data.marque || '';
+            const calVal = data.calories || data.cal || 0;
+            const protVal = data.proteines || data.prot || 0;
+            const glucVal = data.glucides || data.gluc || 0;
+            const lipVal = data.lipides || data.lip || 0;
+
+            const div = document.createElement('div');
+            div.id = blockId;
+            div.className = "bg-slate-50 p-3.5 rounded-2xl border border-indigo-100 space-y-3 relative";
+            
+            div.innerHTML = `
+                <button type="button" onclick="document.getElementById('${blockId}').remove()" class="absolute top-3 right-3 bg-red-100 text-red-600 hover:bg-red-200 w-7 h-7 rounded-full font-bold flex items-center justify-center text-xs">✕</button>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Nom de la marque :</label>
+                    <input type="text" class="input-marque border border-slate-200 p-2 rounded-xl bg-white w-full font-medium pr-8" placeholder="Ex: Barilla" value="${marqueVal}">
+                </div>
+                <div class="space-y-1.5">
+                    <span class="block text-[11px] font-bold text-slate-600">📊 Valeurs nutritionnelles (pour 100g / 100ml) :</span>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div class="space-y-0.5"><label class="block text-[9px] font-bold text-slate-400">Calories (kcal)</label><input type="number" step="any" class="input-cal border border-slate-200 p-1.5 rounded-lg bg-white w-full text-center font-medium" value="${calVal}"></div>
+                        <div class="space-y-0.5"><label class="block text-[9px] font-bold text-slate-400">Protéines (g)</label><input type="number" step="any" class="input-prot border border-slate-200 p-1.5 rounded-lg bg-white w-full text-center font-medium" value="${protVal}"></div>
+                        <div class="space-y-0.5"><label class="block text-[9px] font-bold text-slate-400">Glucides (g)</label><input type="number" step="any" class="input-gluc border border-slate-200 p-1.5 rounded-lg bg-white w-full text-center font-medium" value="${glucVal}"></div>
+                        <div class="space-y-0.5"><label class="block text-[9px] font-bold text-slate-400">Lipides (g)</label><input type="number" step="any" class="input-lip border border-slate-200 p-1.5 rounded-lg bg-white w-full text-center font-medium" value="${lipVal}"></div>
+                    </div>
+                </div>
+                <div class="space-y-2 pt-2 border-t border-slate-200">
+                    <div class="flex justify-between items-center">
+                        <span class="block text-[11px] font-bold text-indigo-900">📦 Formats & Coûts par enseigne :</span>
+                        <button type="button" onclick="ajouterFormat('${blockId}')" class="text-indigo-600 hover:underline font-bold text-[10px]">+ Ajouter un format</button>
+                    </div>
+                    <div class="formats-container space-y-3"></div>
+                </div>
+            `;
+            container.appendChild(div);
+
+            if (data.formats && Array.isArray(data.formats) && data.formats.length > 0) {
+                data.formats.forEach(f => ajouterFormat(blockId, f));
+            } else if (data.quantite_paquet) {
+                ajouterFormat(blockId, { qte: data.quantite_paquet, unite: data.unite, prix_enseignes: data.prix_enseignes });
+            } else {
+                ajouterFormat(blockId);
+            }
+        }
+
+        function ajouterFormat(blockId, fData = {}) {
+            const block = document.getElementById(blockId);
+            const container = block.querySelector('.formats-container');
+            const formatId = 'format-' + Math.random().toString(36).substring(2, 9);
+            const qteVal = fData.qte || fData.quantite_paquet || '';
+            const uniteVal = fData.unite || 'g';
+
+            const div = document.createElement('div');
+            div.id = formatId;
+            div.className = "bg-white p-3 rounded-xl border border-slate-200 space-y-2 relative";
+            div.innerHTML = `
+                <button type="button" onclick="document.getElementById('${formatId}').remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-600 font-bold text-xs">✕ Supprimer</button>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 pr-20">
+                    <div><label class="block text-[9px] font-bold text-slate-400 mb-0.5">Quantité</label><input type="number" step="any" class="input-format-qte border border-slate-200 p-1.5 rounded-lg bg-slate-50 w-full font-medium text-xs" value="${qteVal}"></div>
+                    <div><label class="block text-[9px] font-bold text-slate-400 mb-0.5">Unité</label>
+                        <select class="select-format-unite border border-slate-200 p-1.5 rounded-lg bg-slate-50 w-full font-medium text-xs">
+                            <option value="g" ${uniteVal === 'g' ? 'selected' : ''}>g</option>
+                            <option value="kg" ${uniteVal === 'kg' ? 'selected' : ''}>kg</option>
+                            <option value="ml" ${uniteVal === 'ml' ? 'selected' : ''}>ml</option>
+                            <option value="L" ${uniteVal === 'L' ? 'selected' : ''}>L</option>
+                            <option value="unité" ${uniteVal === 'unité' ? 'selected' : ''}>unité(s)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="space-y-1.5 pt-1">
+                    <div class="flex justify-between items-center">
+                        <span class="block text-[10px] font-bold text-slate-500">💰 Prix par enseigne (€) :</span>
+                        <button type="button" onclick="ajouterLignePrix('${formatId}')" class="text-blue-600 hover:underline font-bold text-[10px]">+ Enseigne</button>
+                    </div>
+                    <div class="prix-enseignes-container space-y-1"></div>
+                </div>
+            `;
+            container.appendChild(div);
+
+            if (fData.prix_enseignes && typeof fData.prix_enseignes === 'object') {
+                for (const [ens, px] of Object.entries(fData.prix_enseignes)) {
+                    ajouterLignePrix(formatId, ens, px);
+                }
+            } else {
+                ajouterLignePrix(formatId);
+            }
+        }
+
+        function ajouterLignePrix(formatId, enseigneChoisie = "", prixValeur = "") {
+            const formatBlock = document.getElementById(formatId);
+            const container = formatBlock.querySelector('.prix-enseignes-container');
+            const rowId = 'prix-row-' + Math.random().toString(36).substring(2, 9);
+            const optionsEnseignes = enseignesDisponibles.map(e => `<option value="${e}" ${e === enseigneChoisie ? 'selected' : ''}>${e}</option>`).join('');
+
+            const div = document.createElement('div');
+            div.id = rowId;
+            div.className = "flex items-center gap-2";
+            div.innerHTML = `
+                <select class="select-enseigne border border-slate-200 p-1 rounded-lg bg-white font-medium flex-1 text-xs"><option value="">-- Choisir enseigne --</option>${optionsEnseignes}</select>
+                <input type="number" step="any" value="${prixValeur}" placeholder="Prix (€)" class="input-prix border border-slate-200 p-1 rounded-lg bg-white w-20 font-medium text-xs">
+                <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-red-500 font-bold px-1 py-0.5 text-xs">✕</button>
+            `;
+            container.appendChild(div);
         }
 
         async function rechercherOffIngredient() {
@@ -175,12 +402,9 @@
                 }
 
                 container.innerHTML = produits.map(p => `
-                    <div class="flex justify-between items-center bg-white p-2.5 rounded-xl border border-indigo-100 text-xs shadow-sm">
-                        <div>
-                            <span class="font-bold text-slate-800">${p.nom}</span>
-                            ${p.marque ? `<span class="text-slate-400 text-[10px] block">Marque : ${p.marque}</span>` : ''}
-                        </div>
-                        <button type="button" onclick='remplirDepuisOFF(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="bg-indigo-600 active:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold">Sélectionner</button>
+                    <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-indigo-100 text-xs shadow-sm">
+                        <div><span class="font-bold text-slate-800">${p.nom}</span>${p.marque ? `<span class="text-slate-400 text-[10px] block">${p.marque}</span>` : ''}</div>
+                        <button type="button" onclick='remplirDepuisOFF(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="bg-indigo-600 text-white px-2.5 py-1 rounded-lg font-bold">Sélectionner</button>
                     </div>
                 `).join('');
             } catch (err) {
@@ -190,13 +414,15 @@
 
         function remplirDepuisOFF(p) {
             document.getElementById('nom').value = p.nom || '';
-            document.getElementById('marque').value = p.marque || '';
-            document.getElementById('format').value = p.format || '';
-            document.getElementById('calories').value = p.calories || 0;
-            document.getElementById('proteines').value = p.proteines || 0;
-            document.getElementById('glucides').value = p.glucides || 0;
-            document.getElementById('lipides').value = p.lipides || 0;
-            
+            document.getElementById('rayon').value = p.rayon || 'Épicerie salée';
+            ajouterBlocMarque({
+                nom: p.marque || '',
+                calories: p.calories || 0,
+                proteines: p.proteines || 0,
+                glucides: p.glucides || 0,
+                lipides: p.lipides || 0,
+                formats: [{ qte: p.quantite_paquet || 1, unite: p.unite || 'g' }]
+            });
             document.getElementById('resultats-off-container').classList.add('hidden');
             document.getElementById('recherche-off-ing').value = '';
             alert("✅ Produit importé dans le formulaire !");
@@ -204,23 +430,40 @@
 
         async function sauvegarderIngredient(e) {
             e.preventDefault();
-            
             const id = document.getElementById('ingredient-id').value;
-            const data = {
-                nom: document.getElementById('nom').value.trim(),
-                marque: document.getElementById('marque').value.trim(),
-                format: document.getElementById('format').value.trim(),
-                unite: document.getElementById('unite').value,
-                rayon: document.getElementById('rayon').value,
-                prixLeclerc: parseFloat(document.getElementById('prix-leclerc').value) || 0,
-                prixCarrefour: parseFloat(document.getElementById('prix-carrefour').value) || 0,
-                prixLidl: parseFloat(document.getElementById('prix-lidl').value) || 0,
-                calories: parseFloat(document.getElementById('calories').value) || 0,
-                proteines: parseFloat(document.getElementById('proteines').value) || 0,
-                glucides: parseFloat(document.getElementById('glucides').value) || 0,
-                lipides: parseFloat(document.getElementById('lipides').value) || 0
-            };
+            const nom = document.getElementById('nom').value.trim();
+            const rayon = document.getElementById('rayon').value;
 
+            const doublon = listeGlobaleIngredients.find(i => i.nom.toLowerCase() === nom.toLowerCase() && i.id != id);
+            if (doublon) {
+                alert(`⚠️ Cet ingrédient ("${nom}") existe déjà !`);
+                return;
+            }
+
+            let marquesData = [];
+            document.querySelectorAll('#marques-container > div').forEach(block => {
+                const nomMarque = block.querySelector('.input-marque').value.trim();
+                const calories = parseFloat(block.querySelector('.input-cal').value) || 0;
+                const proteines = parseFloat(block.querySelector('.input-prot').value) || 0;
+                const glucides = parseFloat(block.querySelector('.input-gluc').value) || 0;
+                const lipides = parseFloat(block.querySelector('.input-lip').value) || 0;
+
+                let formatsData = [];
+                block.querySelectorAll('.formats-container > div').forEach(formatDiv => {
+                    const qte = parseFloat(formatDiv.querySelector('.input-format-qte').value) || 1;
+                    const unite = formatDiv.querySelector('.select-format-unite').value;
+                    let prix_enseignes = {};
+                    formatDiv.querySelectorAll('.prix-enseignes-container > div').forEach(row => {
+                        const ens = row.querySelector('.select-enseigne').value;
+                        const px = parseFloat(row.querySelector('.input-prix').value);
+                        if (ens && !isNaN(px)) prix_enseignes[ens] = px;
+                    });
+                    formatsData.push({ qte, unite, prix_enseignes });
+                });
+                marquesData.push({ nom: nomMarque, calories, proteines, glucides, lipides, formats: formatsData });
+            });
+
+            const data = { nom, rayon, marques: marquesData };
             const url = id ? `/api/ingredients/${id}` : '/api/ingredients';
             const method = id ? 'PUT' : 'POST';
 
@@ -238,73 +481,18 @@
 
             reinitialiserFormulaire();
             init();
-        }
-
-        function renderIngredients(ingredients) {
-            const container = document.getElementById('liste-ingredients-container');
-            if (!ingredients || ingredients.length === 0) {
-                container.innerHTML = `<p class="text-slate-400 italic text-xs bg-white p-4 rounded-2xl border border-slate-200 text-center">Aucun ingrédient enregistré.</p>`;
-                return;
-            }
-
-            container.innerHTML = ingredients.map(i => `
-                <div class="bg-white border border-slate-200 p-3.5 rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
-                    <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                            <h3 class="font-bold text-slate-800 text-sm">${i.nom}</h3>
-                            ${i.marque ? `<span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md text-[10px] font-bold">${i.marque}</span>` : ''}
-                            ${i.format ? `<span class="text-slate-400 text-[10px]">(${i.format})</span>` : ''}
-                        </div>
-                        <p class="text-emerald-700 font-medium">🔥 ${i.calories || 0} kcal | P: ${i.proteines || 0}g | G: ${i.glucides || 0}g | L: ${i.lipides || 0}g</p>
-                        <div class="flex gap-2 text-[10px] text-slate-500">
-                            <span>Leclerc: <strong>${i.prixLeclerc || 0}€</strong></span>
-                            <span>Carrefour: <strong>${i.prixCarrefour || 0}€</strong></span>
-                            <span>Lidl: <strong>${i.prixLidl || 0}€</strong></span>
-                        </div>
-                    </div>
-                    <div class="flex gap-2 w-full sm:w-auto justify-end">
-                        <button onclick='preparerModification(${JSON.stringify(i)})' class="bg-slate-100 active:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl font-bold">Modifier</button>
-                        <button onclick="supprimerIngredient(${i.id})" class="bg-rose-100 active:bg-rose-200 text-rose-600 px-3 py-1.5 rounded-xl font-bold">Supprimer</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function preparerModification(i) {
-            document.getElementById('ingredient-id').value = i.id;
-            document.getElementById('nom').value = i.nom || '';
-            document.getElementById('marque').value = i.marque || '';
-            document.getElementById('format').value = i.format || '';
-            document.getElementById('unite').value = i.unite || 'g';
-            document.getElementById('rayon').value = i.rayon || 'Divers / Autres';
-            document.getElementById('prix-leclerc').value = i.prixLeclerc || '';
-            document.getElementById('prix-carrefour').value = i.prixCarrefour || '';
-            document.getElementById('prix-lidl').value = i.prixLidl || '';
-            document.getElementById('calories').value = i.calories || 0;
-            document.getElementById('proteines').value = i.proteines || 0;
-            document.getElementById('glucides').value = i.glucides || 0;
-            document.getElementById('lipides').value = i.lipides || 0;
-            
-            document.getElementById('form-title').innerText = "✏️ Modifier l'ingrédient";
-            document.getElementById('btn-annuler').classList.remove('hidden');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function reinitialiserFormulaire() {
-            document.getElementById('form-ingredient').reset();
-            document.getElementById('ingredient-id').value = '';
-            document.getElementById('form-title').innerText = "➕ Ajouter ou modifier un ingrédient";
-            document.getElementById('btn-annuler').classList.add('hidden');
+            document.getElementById('conteneur-affichage-dynamique').innerHTML = '';
         }
 
         async function supprimerIngredient(id) {
             if (confirm("Voulez-vous vraiment supprimer cet ingrédient ?")) {
                 await fetch(`/api/ingredients/${id}`, { method: 'DELETE' });
                 init();
+                document.getElementById('conteneur-affichage-dynamique').innerHTML = '';
             }
         }
 
-        // Lancement direct au chargement de la page
+        // Chargement initial
         init();
     </script>
 </body>

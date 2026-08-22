@@ -109,10 +109,10 @@
 
             select.innerHTML = profilsGlobal.length === 0 
                 ? `<option value="">-- Aucun profil créé --</option>` 
-                : profilsGlobal.map(p => `<option value="${p.id}" ${p.id == currentValue ? 'selected' : ''}>${p.nom}</option>`).join('');
+                : profilsGlobal.map(p => `<option value="${p.nom}" ${p.nom === currentValue ? 'selected' : ''}>${p.nom}</option>`).join('');
 
             if (!select.value && profilsGlobal.length > 0) {
-                select.value = profilsGlobal[0].id;
+                select.value = profilsGlobal[0].nom;
             }
         }
 
@@ -130,7 +130,7 @@
             const select = document.getElementById('select-ingredient');
             select.innerHTML = ingredientsGlobal.length === 0 
                 ? `<option value="">-- Aucun ingrédient disponible --</option>` 
-                : ingredientsGlobal.map(i => `<option value="${i.id}">${i.nom} (${i.unite || ''})</option>`).join('');
+                : ingredientsGlobal.map(i => `<option value="${i.id}">${i.nom}</option>`).join('');
         }
 
         function ajouterIngredientFrigo() {
@@ -190,12 +190,11 @@
             container.innerHTML = ids.map(id => {
                 const ing = ingredientsGlobal.find(i => i.id == id);
                 const nom = ing ? ing.nom : "Inconnu";
-                const unite = ing ? (ing.unite || '') : '';
                 const qte = frigoActuel[id];
 
                 return `
                     <div class="flex justify-between items-center bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs">
-                        <span class="font-bold text-slate-800">${nom} : <strong class="text-blue-600">${qte} ${unite}</strong></span>
+                        <span class="font-bold text-slate-800">${nom} : <strong class="text-blue-600">${qte}</strong></span>
                         <button onclick="supprimerDuFrigo(${id})" class="text-rose-500 font-bold px-2 py-1">✕</button>
                     </div>
                 `;
@@ -213,7 +212,16 @@
             }
 
             let recettesAnalysees = recettesGlobal.map(recette => {
-                let ingredientsRecette = recette.ingredients || [];
+                let ingredientsRecette = recette.ingredients;
+                if (typeof ingredientsRecette === 'string') {
+                    try {
+                        ingredientsRecette = JSON.parse(ingredientsRecette);
+                    } catch (e) {
+                        ingredientsRecette = [];
+                    }
+                }
+                if (!Array.isArray(ingredientsRecette)) ingredientsRecette = [];
+
                 if (ingredientsRecette.length === 0) return { ...recette, faisable: false, taux: 0, manquant: [] };
 
                 let toutBon = true;
@@ -221,8 +229,8 @@
                 let ingredientsPossedesCount = 0;
 
                 ingredientsRecette.forEach(ingR => {
-                    let stockDispo = frigoActuel[ingR.ingredient_id || ingR.id] || 0;
-                    let ingInfo = ingredientsGlobal.find(i => i.id == (ingR.ingredient_id || ingR.id));
+                    let stockDispo = frigoActuel[ingR.id || ingR.ingredient_id] || 0;
+                    let ingInfo = ingredientsGlobal.find(i => i.id == (ingR.id || ingR.ingredient_id));
                     let nomIng = ingInfo ? ingInfo.nom : 'Ingrédient';
 
                     if (stockDispo >= ingR.quantite) {
@@ -232,14 +240,13 @@
                         manquant.push({
                             nom: nomIng,
                             besoin: ingR.quantite,
-                            reste: stockDispo,
-                            unite: ingInfo ? (ingInfo.unite || '') : ''
+                            reste: stockDispo
                         });
                     }
                 });
 
                 let taux = Math.round((ingredientsPossedesCount / ingredientsRecette.length) * 100);
-                return { ...recette, faisable: toutBon, taux, manquant };
+                return { ...recette, faisable: toutBon, taux, manquant, ingredientsRecetteParsed: ingredientsRecette };
             });
 
             recettesAnalysees.sort((a, b) => b.taux - a.taux);
@@ -252,14 +259,14 @@
                     <div class="mt-2 text-[11px] text-slate-500 border-t border-slate-100 pt-2 space-y-1">
                         <span class="font-bold text-rose-600">Il te manque :</span>
                         <ul class="list-disc list-inside space-y-0.5">
-                            ${r.manquant.map(m => `<li><b>${m.nom}</b> (Besoin : ${m.besoin}${m.unite}, En stock : ${m.reste}${m.unite})</li>`).join('')}
+                            ${r.manquant.map(m => `<li><b>${m.nom}</b> (Besoin : ${m.besoin}, En stock : ${m.reste})</li>`).join('')}
                         </ul>
                     </div>
                 ` : `<p class="mt-2 text-[11px] text-emerald-700 font-bold">Tu as tout ce qu'il faut en quantité suffisante !</p>`;
 
-                let listeIngs = (r.ingredients || []).map(i => {
-                    let ingInfo = ingredientsGlobal.find(x => x.id == (i.ingredient_id || i.id));
-                    return `<li>${ingInfo ? ingInfo.nom : 'Ingrédient'} : ${i.quantite} ${ingInfo ? (ingInfo.unite || '') : ''}</li>`;
+                let listeIngs = r.ingredientsRecetteParsed.map(i => {
+                    let ingInfo = ingredientsGlobal.find(x => x.id == (i.id || i.ingredient_id));
+                    return `<li>${ingInfo ? ingInfo.nom : 'Ingrédient'} : ${i.quantite}</li>`;
                 }).join('');
 
                 return `

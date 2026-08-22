@@ -10,25 +10,18 @@
 </head>
 <body class="bg-slate-100 min-h-screen pb-12">
     <div class="max-w-4xl mx-auto p-3 sm:p-6 space-y-4">
-        
-        <!-- Navigation Mobile Friendly -->
         <header class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3 print:hidden">
             <div class="flex justify-between items-center flex-wrap gap-2">
                 <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🛒 Liste de Courses</h1>
-                <!-- Sélecteur de profil dynamique & Bouton PDF -->
                 <div class="flex items-center gap-2">
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase">Profil :</span>
-                        <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-bold text-blue-600">
-                            <option value="">Chargement...</option>
-                        </select>
-                    </div>
-                    <button onclick="telechargerPDF()" class="bg-emerald-600 active:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">📥 Télécharger PDF</button>
+                    <select id="select-profil" onchange="chargerCourses()" class="bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-bold text-blue-600">
+                        <option value="">Chargement...</option>
+                    </select>
+                    <button onclick="telechargerPDF()" class="bg-emerald-600 active:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">📥 PDF</button>
                 </div>
             </div>
-            <nav class="grid grid-cols-6 gap-1 text-center text-[11px] font-medium">
+            <nav class="grid grid-cols-5 gap-1 text-center text-[11px] font-medium">
                 <a href="index.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
-                <a href="semaine.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">📅 Semaine</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
                 <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
                 <a href="courses.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Courses</a>
@@ -36,223 +29,137 @@
             </nav>
         </header>
 
-        <!-- Formulaire et Options (Masqués à l'export PDF) -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4 print:hidden">
-            
-            <!-- Ajout manuel d'un article à la volée -->
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                    <input type="checkbox" id="check-deja" onchange="chargerCourses()" class="w-4 h-4 rounded text-blue-600">
+                    Inclure "Ce que j'ai déjà" (Frigo) dans la liste
+                </label>
+            </div>
             <div class="space-y-1.5">
-                <label class="text-[10px] font-bold text-slate-500 uppercase">Ajouter un article à la volée :</label>
-                <div class="flex gap-2">
-                    <input type="text" id="ajout-nom" placeholder="Ex: Lait, PQ, Beurre..." class="flex-1 bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium">
-                    <input type="number" step="any" id="ajout-prix" placeholder="Prix (€)" class="w-20 bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium">
-                    <button onclick="ajouterArticleManuel()" class="bg-emerald-600 active:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-sm">Ajouter</button>
-                </div>
+                <label class="text-[10px] font-bold text-slate-500 uppercase">Optimisation :</label>
+                <select id="select-enseigne" onchange="chargerCourses()" class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium">
+                    <option value="toutes">Toutes les enseignes</option>
+                    <option value="meilleur_prix">⚡ Meilleur prix global (par article)</option>
+                    <option value="Leclerc">Leclerc</option>
+                    <option value="Carrefour">Carrefour</option>
+                    <option value="Lidl">Lidl</option>
+                </select>
             </div>
-
-            <!-- Choix d'enseignes & Option "Ce que j'ai déjà" -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
-                <div>
-                    <label class="text-[10px] font-bold text-slate-500 uppercase">Choix d'enseignes :</label>
-                    <select id="select-enseigne" onchange="chargerCourses()" class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-medium mt-1">
-                        <option value="toutes">Toutes les enseignes</option>
-                        <option value="Leclerc">Leclerc</option>
-                        <option value="Carrefour">Carrefour</option>
-                        <option value="Lidl">Lidl</option>
-                    </select>
-                </div>
-                <div class="flex items-center pt-4">
-                    <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
-                        <input type="checkbox" id="check-deja" onchange="chargerCourses()" class="w-4 h-4 rounded text-blue-600">
-                        Inclure "Ce que j'ai déjà"
-                    </label>
-                </div>
-            </div>
-            
-            <!-- Boutons de génération / vidage -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-2">
-                <button onclick="genererCourses()" class="w-full bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">🔄 Générer depuis le Menu</button>
-                <button onclick="viderCourses()" class="w-full bg-rose-50 active:bg-rose-100 text-rose-600 border border-rose-200 p-3 rounded-xl font-bold">🗑️ Vider la liste</button>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                <button onclick="genererCourses()" class="bg-blue-600 text-white p-3 rounded-xl font-bold text-xs shadow-sm">🔄 Générer depuis le Menu</button>
+                <button onclick="viderCourses()" class="bg-rose-50 text-rose-600 border border-rose-200 p-3 rounded-xl font-bold text-xs">🗑️ Vider la liste</button>
             </div>
         </section>
 
-        <!-- Zone capturée pour le PDF -->
-        <div id="pdf-container" class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h2 class="text-sm font-bold text-slate-800">📋 Liste des courses à effectuer</h2>
-                <span id="label-profil-pdf" class="text-xs text-blue-600 font-bold"></span>
-            </div>
-
-            <!-- Total estimé -->
-            <div id="total-affichage" class="text-xs font-bold text-slate-600 px-1"></div>
-
-            <!-- Liste triée par rayons -->
-            <section class="space-y-4">
-                <div id="liste-courses-container" class="space-y-4">
-                    <p class="text-slate-400 italic text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center">Chargement de la liste...</p>
-                </div>
-            </section>
+        <div id="pdf-container" class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
+            <div id="total-affichage" class="text-xs font-bold text-slate-600 px-1 mb-4"></div>
+            <div id="liste-courses-container" class="space-y-4"></div>
         </div>
     </div>
-
     <script>
         const socket = io();
-
-        function getProfilActuel() {
-            return document.getElementById('select-profil').value;
-        }
-
-        function changerProfil() {
-            localStorage.setItem('profil_actif', getProfilActuel());
-            chargerCourses();
-        }
+        let ingredientsRefCache = [];
 
         async function init() {
-            try {
-                const resProfils = await fetch('/api/profils');
-                const profils = await resProfils.json();
-                
-                const select = document.getElementById('select-profil');
-                const saved = localStorage.getItem('profil_actif');
-
-                select.innerHTML = profils.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
-
-                if (saved && profils.some(p => p.nom === saved)) {
-                    select.value = saved;
-                } else if (profils.length > 0) {
-                    select.value = profils[0].nom;
-                    localStorage.setItem('profil_actif', select.value);
-                }
-
-                chargerCourses();
-            } catch (err) {
-                console.error("Erreur chargement profils", err);
-            }
+            const [resProfils, resIngs] = await Promise.all([fetch('/api/profils'), fetch('/api/ingredients')]);
+            const profils = await resProfils.json();
+            ingredientsRefCache = await resIngs.json();
+            const select = document.getElementById('select-profil');
+            select.innerHTML = profils.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+            chargerCourses();
         }
 
         async function chargerCourses() {
             const enseigne = document.getElementById('select-enseigne').value;
             const inclureDeja = document.getElementById('check-deja').checked;
-            const profil = getProfilActuel();
-            
+            const profil = document.getElementById('select-profil').value;
             if (!profil) return;
-            document.getElementById('label-profil-pdf').innerText = `Profil : ${profil}`;
 
-            try {
-                const res = await fetch(`/api/courses?enseigne=${enseigne}&inclureDeja=${inclureDeja}&profil=${encodeURIComponent(profil)}`);
-                const courses = await res.json();
-                renderCourses(courses);
-            } catch (err) {
-                console.error("Erreur de chargement", err);
-            }
+            const res = await fetch(`/api/courses?enseigne=${enseigne}&inclureDeja=${inclureDeja}&profil=${encodeURIComponent(profil)}`);
+            const courses = await res.json();
+            renderCourses(courses);
         }
 
         function renderCourses(courses) {
             const container = document.getElementById('liste-courses-container');
-            
+            console.log("Données reçues pour affichage :", courses);
+
             if (!courses || courses.length === 0) {
-                document.getElementById('total-affichage').innerText = '';
-                container.innerHTML = `<p class="text-slate-400 italic text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center">Votre liste de courses est vide pour ce profil.</p>`;
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Aucune course pour le moment.</p>`;
                 return;
             }
-
-            const total = courses.reduce((sum, item) => sum + (parseFloat(item.prix || 0) * (parseFloat(item.quantite) || 1)), 0);
-            document.getElementById('total-affichage').innerText = `💰 Total estimé : ${total.toFixed(2)}€ (${courses.length} articles)`;
-
-            const groupes = courses.reduce((acc, item) => {
-                const rayon = item.rayon || "Divers / Autres";
-                if (!acc[rayon]) acc[rayon] = [];
-                acc[rayon].push(item);
-                return acc;
-            }, {});
-
-            container.innerHTML = Object.keys(groupes).map(rayon => `
-                <div class="space-y-2">
-                    <h3 class="text-[11px] font-bold text-slate-500 uppercase px-1 tracking-wider">📌 ${rayon}</h3>
-                    <div class="space-y-2">
-                        ${groupes[rayon].map(item => `
-                            <div class="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl shadow-sm flex items-center justify-between gap-3 text-xs">
-                                <label class="flex items-center gap-3 flex-1 cursor-pointer select-none">
-                                    <input type="checkbox" ${item.achete ? 'checked' : ''} onchange="toggleAchete(${item.id}, this.checked)" class="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
-                                    <span class="font-bold text-slate-800 text-sm ${item.achete ? 'line-through text-slate-400' : ''}">${item.nom}</span>
-                                </label>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-xl border border-blue-100 whitespace-nowrap">${item.quantite || 1} ${item.unite || ''}</span>
-                                    <span class="font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-xl border border-emerald-100 whitespace-nowrap">${item.prix ? item.prix + '€' : '0€'}</span>
-                                    <button onclick="supprimerItem(${item.id})" class="bg-rose-50 active:bg-rose-100 text-rose-600 p-2 rounded-xl font-bold border border-rose-200 print:hidden">✕</button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
+            
+            container.innerHTML = courses.map(c => `
+                <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                        <input type="checkbox" ${c.coche === 1 ? 'checked' : ''} onchange="toggleCoche(${c.id}, this.checked)" class="w-4 h-4 rounded text-blue-600">
+                        <span class="${c.coche === 1 ? 'line-through text-slate-400' : ''}">
+                            ${c.nom} ${c.quantite_necessaire ? '(' + c.quantite_necessaire + ' ' + (c.unite || 'g') + ')' : ''}
+                        </span>
+                    </label>
+                    <span class="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md">${c.rayon || 'Épicerie'}</span>
                 </div>
             `).join('');
         }
 
-        function telechargerPDF() {
-            const element = document.getElementById('pdf-container');
-            const opt = {
-                margin:       10,
-                filename:     `liste-courses-${document.getElementById('select-profil').value}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-            html2pdf().from(element).set(opt).save();
-        }
-
-        async function ajouterArticleManuel() {
-            const nom = document.getElementById('ajout-nom').value.trim();
-            const prix = parseFloat(document.getElementById('ajout-prix').value) || 0;
-            const profil = getProfilActuel();
-            
-            if(!nom) {
-                alert("Veuillez saisir un nom d'article.");
-                return;
-            }
-
-            await fetch('/api/courses', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ nom, prix, quantite: 1, unite: 'unité', rayon: 'Divers / Autres', profil })
-            });
-
-            document.getElementById('ajout-nom').value = '';
-            document.getElementById('ajout-prix').value = '';
-            chargerCourses();
-        }
-
-        async function toggleAchete(id, achete) {
+        async function toggleCoche(id, coche) {
             await fetch(`/api/courses/${id}`, {
                 method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ achete })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ coche: coche ? 1 : 0 })
             });
-            chargerCourses();
         }
 
         async function genererCourses() {
-            const profil = getProfilActuel();
-            const res = await fetch('/api/courses/generer', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ profil })
-            });
-            if (res.ok) chargerCourses();
-        }
+            const profil = document.getElementById('select-profil').value;
+            if (!profil) {
+                alert("Veuillez sélectionner un profil.");
+                return;
+            }
 
-        async function viderCourses() {
-            const profil = getProfilActuel();
-            if (confirm(`Voulez-vous vider toute la liste de courses pour le profil ${profil} ?`)) {
-                await fetch(`/api/courses?profil=${encodeURIComponent(profil)}`, { method: 'DELETE' });
-                chargerCourses();
+            try {
+                const response = await fetch('/api/courses/generer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profil })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    alert(data.message || "Liste générée avec succès !");
+                    // Délai de sécurité pour laisser le temps à SQLite d'écrire et éviter un affichage vide
+                    setTimeout(() => {
+                        chargerCourses();
+                    }, 300);
+                } else {
+                    alert("Erreur : " + (data.error || "Impossible de générer la liste"));
+                }
+            } catch (err) {
+                console.error("Erreur réseau :", err);
+                alert("Erreur de communication avec le serveur.");
             }
         }
 
-        async function supprimerItem(id) {
-            await fetch(`/api/courses/${id}`, { method: 'DELETE' });
+        async function viderCourses() {
+            const profil = document.getElementById('select-profil').value;
+            if (!profil) return;
+            if (!confirm("Voulez-vous vraiment vider toute la liste de courses ?")) return;
+
+            const res = await fetch(`/api/courses?profil=${encodeURIComponent(profil)}`);
+            const courses = await res.json();
+            
+            for (let c of courses) {
+                await fetch(`/api/courses/${c.id}`, { method: 'DELETE' });
+            }
             chargerCourses();
         }
 
-        socket.on('data_updated', init);
+        function telechargerPDF() {
+            const element = document.getElementById('pdf-container');
+            html2pdf().from(element).save('liste-de-courses.pdf');
+        }
+
+        socket.on('data_updated', chargerCourses);
         init();
     </script>
 </body>
