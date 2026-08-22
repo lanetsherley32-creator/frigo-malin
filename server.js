@@ -1,6 +1,6 @@
 const express = require('express');
 const http = require('http');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const bodyParser = require('body-parser');
 const socketIo = require('socket.io');
 const bcrypt = require('bcryptjs');
@@ -11,7 +11,12 @@ const session = require('express-session');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
-const db = new sqlite3.Database('./database.sqlite');
+
+// --- CONNEXION POSTGRESQL (SUPABASE) ---
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
 
 app.use(bodyParser.json());
 
@@ -54,64 +59,81 @@ const transporter = nodemailer.createTransport({
     auth: { user: 'votre_email@example.com', pass: 'votre_mot_de_passe_smtp' }
 });
 
-// --- INITIALISATION BDD ---
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS profils (nom TEXT PRIMARY KEY, email TEXT UNIQUE, mdp TEXT, reset_token TEXT, reset_expires INTEGER, calories REAL, budget REAL, proteines REAL, glucides REAL, lipides REAL)`);
-    db.run(`CREATE TABLE IF NOT EXISTS recettes (id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT, categorie TEXT, parts INTEGER, ingredients TEXT, etapes TEXT, cout REAL, calories REAL, proteines REAL, glucides REAL, lipides REAL)`);
-    db.run(`CREATE TABLE IF NOT EXISTS ingredients (id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT, rayon TEXT, calories REAL, proteines REAL, glucides REAL, lipides REAL, prix REAL, marques TEXT)`);
-    db.run(`CREATE TABLE IF NOT EXISTS menu_prevu (profil TEXT, jour TEXT, petitDejeuner TEXT, repas1 TEXT, repas2 TEXT, dessertCollation TEXT, PRIMARY KEY (profil, jour))`);
-    db.run(`CREATE TABLE IF NOT EXISTS suivi_consomme (id INTEGER PRIMARY KEY AUTOINCREMENT, profil TEXT, jour TEXT, categorie TEXT, recette_id INTEGER, quantite REAL)`);
-    db.run(`CREATE TABLE IF NOT EXISTS courses (id INTEGER PRIMARY KEY AUTOINCREMENT, profil TEXT, ingredient_id INTEGER, nom TEXT, rayon TEXT, quantite_necessaire REAL, unite TEXT, prix_total REAL, coche INTEGER DEFAULT 0)`);
-});
-
 // --- API AUTHENTIFICATION & PROFILS ---
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { email, mdp } = req.body;
-    db.get("SELECT * FROM profils WHERE email = ?", [email], async (err, user) => {
+    try {
+        const result = await pool.query("SELECT * FROM profils WHERE email = $1", [email]);
+        const user = result.rows[0];
         if (user && user.mdp && await bcrypt.compare(mdp, user.mdp)) {
             req.session.user = user.nom;
             res.json({ success: true, nom: user.nom });
         } else {
             res.status(401).json({ error: "E-mail ou mot de passe incorrect." });
         }
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/logout', (req, res) => { req.session.destroy(() => res.json({ success: true })); });
 
-app.get('/api/current-user', (req, res) => {
+app.get('/api/current-user', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: "Non connecté" });
-    db.get("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils WHERE nom = ?", [req.session.user], (err, user) => {
-        if (err || !user) return res.status(404).json({ error: "Profil introuvable" });
+    try {
+        const result = await pool.query("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils WHERE nom = $1", [req.session.user]);
+        const user = result.rows[0];
+        if (!user) return res.status(404).json({ error: "Profil introuvable" });
         res.json(user);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/profils', (req, res) => {
-    db.all("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils", [], (err, rows) => res.json(rows || []));
+app.get('/api/profils', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils");
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/profils', async (req, res) => {
     const { nom, email, mdp, calories, budget, proteines, glucides, lipides } = req.body;
     try {
         const hashedPassword = mdp ? await bcrypt.hash(mdp, 10) : null;
-        db.run(`INSERT INTO profils (nom, email, mdp, calories, budget, proteines, glucides, lipides) VALUES (?,?,?,?,?,?,?,?)
-                ON CONFLICT(nom) DO UPDATE SET email=excluded.email, mdp=COALESCE(excluded.mdp, mdp), calories=excluded.calories, budget=excluded.budget`,
-        [nom, email, hashedPassword, calories || 2000, budget || 50, proteines || 100, glucides || 250, lipides || 70], (err) => {
-            if (err) return res.status(500).json({ error: err.message });
-            req.session.user = nom;
-            io.emit('data_updated');
-            res.json({ success: true });
-        });
+        const query = `
+            INSERT INTO profils (nom, email, mdp, calories, budget, proteines, glucides, lipides) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (nom) DO UPDATE SET 
+                email = EXCLUDED.email, 
+                mdp = COALESCE(EXCLUDED.mdp, profils.mdp), 
+                calories = EXCLUDED.calories, 
+                budget = EXCLUDED.budget,
+                proteines = EXCLUDED.proteines,
+                glucides = EXCLUDED.glucides,
+                lipides = EXCLUDED.lipides
+        `;
+        await pool.query(query, [
+            nom, email, hashedPassword, 
+            calories || 2000, budget || 50, 
+            proteines || 100, glucides || 250, lipides || 70
+        ]);
+        req.session.user = nom;
+        io.emit('data_updated');
+        res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
 // --- API MOT DE PASSE OUBLIÉ & RESET ---
-app.post('/api/mot-de-passe-oublie', (req, res) => {
+app.post('/api/mot-de-passe-oublie', async (req, res) => {
     const { email } = req.body;
-    db.get("SELECT * FROM profils WHERE email = ?", [email], (err, user) => {
+    try {
+        const result = await pool.query("SELECT * FROM profils WHERE email = $1", [email]);
+        const user = result.rows[0];
         if (!user) {
             return res.status(404).json({ error: "Aucun compte associé à cet e-mail." });
         }
@@ -119,169 +141,220 @@ app.post('/api/mot-de-passe-oublie', (req, res) => {
         const token = crypto.randomBytes(32).toString('hex');
         const expires = Date.now() + 3600000; // Valide 1 heure
 
-        db.run("UPDATE profils SET reset_token = ?, reset_expires = ? WHERE email = ?", [token, expires, email], async (err) => {
-            if (err) return res.status(500).json({ error: "Erreur serveur." });
+        await pool.query("UPDATE profils SET reset_token = $1, reset_expires = $2 WHERE email = $3", [token, expires, email]);
 
-            const resetLink = `${req.protocol}://${req.get('host')}/reset.html?token=${token}`;
-            
-            try {
-                await transporter.sendMail({
-                    from: '"Menu de la Semaine" <noreply@menudesemaine.com>',
-                    to: email,
-                    subject: 'Réinitialisation de votre mot de passe',
-                    text: `Bonjour, cliquez sur ce lien pour réinitialiser votre mot de passe : ${resetLink}`
-                });
-                res.json({ success: true, message: "E-mail de réinitialisation envoyé." });
-            } catch (e) {
-                // Mode développement : renvoie le lien directement dans la réponse pour pouvoir tester sans serveur mail configuré
-                res.json({ success: true, message: "Lien de réinitialisation généré (mode dev)", debug_link: resetLink });
-            }
-        });
-    });
+        const resetLink = `${req.protocol}://${req.get('host')}/reset.html?token=${token}`;
+        
+        try {
+            await transporter.sendMail({
+                from: '"Menu de la Semaine" <noreply@menudesemaine.com>',
+                to: email,
+                subject: 'Réinitialisation de votre mot de passe',
+                text: `Bonjour, cliquez sur ce lien pour réinitialiser votre mot de passe : ${resetLink}`
+            });
+            res.json({ success: true, message: "E-mail de réinitialisation envoyé." });
+        } catch (e) {
+            res.json({ success: true, message: "Lien de réinitialisation généré (mode dev)", debug_link: resetLink });
+        }
+    } catch (err) {
+        res.status(500).json({ error: "Erreur serveur." });
+    }
 });
 
 app.post('/api/reset-password', async (req, res) => {
     const { token, nouveauMdp } = req.body;
-    db.get("SELECT * FROM profils WHERE reset_token = ? AND reset_expires > ?", [token, Date.now()], async (err, user) => {
+    try {
+        const result = await pool.query("SELECT * FROM profils WHERE reset_token = $1 AND reset_expires > $2", [token, Date.now()]);
+        const user = result.rows[0];
         if (!user) {
             return res.status(400).json({ error: "Token invalide ou expiré." });
         }
 
-        try {
-            const hashedPassword = await bcrypt.hash(nouveauMdp, 10);
-            db.run("UPDATE profils SET mdp = ?, reset_token = NULL, reset_expires = NULL WHERE nom = ?", [hashedPassword, user.nom], (err) => {
-                if (err) return res.status(500).json({ error: "Erreur lors de la mise à jour." });
-                res.json({ success: true, message: "Mot de passe mis à jour avec succès." });
-            });
-        } catch (e) {
-            res.status(500).json({ error: "Erreur de cryptage." });
-        }
-    });
+        const hashedPassword = await bcrypt.hash(nouveauMdp, 10);
+        await pool.query("UPDATE profils SET mdp = $1, reset_token = NULL, reset_expires = NULL WHERE nom = $2", [hashedPassword, user.nom]);
+        res.json({ success: true, message: "Mot de passe mis à jour avec succès." });
+    } catch (e) {
+        res.status(500).json({ error: "Erreur lors de la mise à jour." });
+    }
 });
 
 // --- API RECETTES & INGREDIENTS (PARTAGÉS) ---
-app.get('/api/recettes', (req, res) => {
-    db.all("SELECT * FROM recettes", [], (err, rows) => res.json(rows || []));
+app.get('/api/recettes', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM recettes");
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/recettes', (req, res) => {
+app.post('/api/recettes', async (req, res) => {
     const { nom, categorie, parts, ingredients, etapes, cout, calories, proteines, glucides, lipides } = req.body;
     let ingredientsToSave = Array.isArray(ingredients) ? JSON.stringify(ingredients) : (typeof ingredients === 'string' ? ingredients : JSON.stringify([]));
 
-    db.run(`INSERT INTO recettes (nom, categorie, parts, ingredients, etapes, cout, calories, proteines, glucides, lipides) VALUES (?,?,?,?,?,?,?,?,?,?)`,
-    [nom, categorie, parts, ingredientsToSave, etapes, cout, calories, proteines, glucides, lipides], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const query = `
+            INSERT INTO recettes (nom, categorie, parts, ingredients, etapes, cout, calories, proteines, glucides, lipides) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
+        `;
+        const result = await pool.query(query, [nom, categorie, parts, ingredientsToSave, etapes, cout, calories, proteines, glucides, lipides]);
         io.emit('data_updated');
-        res.json({ success: true, id: this.lastID });
-    });
+        res.json({ success: true, id: result.rows[0].id });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/ingredients', (req, res) => {
-    db.all("SELECT * FROM ingredients", [], (err, rows) => {
-        res.json((rows || []).map(r => ({ ...r, marques: r.marques ? JSON.parse(r.marques) : [] })));
-    });
+app.get('/api/ingredients', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM ingredients");
+        const rows = (result.rows || []).map(r => ({ ...r, marques: r.marques ? JSON.parse(r.marques) : [] }));
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/ingredients', (req, res) => {
+app.post('/api/ingredients', async (req, res) => {
     const { nom, rayon, calories, proteines, glucides, lipides, prix, marques } = req.body;
     const marquesStr = Array.isArray(marques) ? JSON.stringify(marques) : (marques || '[]');
     
-    db.run(`INSERT INTO ingredients (nom, rayon, calories, proteines, glucides, lipides, prix, marques) VALUES (?,?,?,?,?,?,?,?)`,
-    [nom, rayon || 'Épicerie', calories || 0, proteines || 0, glucides || 0, lipides || 0, prix || 0, marquesStr], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const query = `
+            INSERT INTO ingredients (nom, rayon, calories, proteines, glucides, lipides, prix, marques) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
+        `;
+        const result = await pool.query(query, [nom, rayon || 'Épicerie', calories || 0, proteines || 0, glucides || 0, lipides || 0, prix || 0, marquesStr]);
         io.emit('data_updated');
-        res.json({ success: true, id: this.lastID });
-    });
+        res.json({ success: true, id: result.rows[0].id });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- API MENU, COURSES & FRIGO (PRIVÉS) ---
-app.get('/api/menu-prevu', (req, res) => {
+app.get('/api/menu-prevu', async (req, res) => {
     const profil = req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
-    db.all("SELECT * FROM menu_prevu WHERE profil = ?", [profil], (err, rows) => res.json(rows || []));
+    try {
+        const result = await pool.query("SELECT * FROM menu_prevu WHERE profil = $1", [profil]);
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/menu-prevu', (req, res) => {
+app.post('/api/menu-prevu', async (req, res) => {
     const profil = req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
 
     const { jour, petitDejeuner, repas1, repas2, dessertCollation } = req.body;
-    const q = `INSERT INTO menu_prevu (profil, jour, petitDejeuner, repas1, repas2, dessertCollation) VALUES (?,?,?,?,?,?) 
-               ON CONFLICT(profil, jour) DO UPDATE SET petitDejeuner=excluded.petitDejeuner, repas1=excluded.repas1, repas2=excluded.repas2, dessertCollation=excluded.dessertCollation`;
-    db.run(q, [profil, jour, petitDejeuner, repas1, repas2, dessertCollation], (err) => {
-        if (err) res.status(500).json({ error: err.message });
-        else { io.emit('data_updated'); res.sendStatus(200); }
-    });
+    const q = `
+        INSERT INTO menu_prevu (profil, jour, petitDejeuner, repas1, repas2, dessertCollation) 
+        VALUES ($1, $2, $3, $4, $5, $6) 
+        ON CONFLICT (profil, jour) DO UPDATE SET 
+            petitDejeuner = EXCLUDED.petitDejeuner, 
+            repas1 = EXCLUDED.repas1, 
+            repas2 = EXCLUDED.repas2, 
+            dessertCollation = EXCLUDED.dessertCollation
+    `;
+    try {
+        await pool.query(q, [profil, jour, petitDejeuner, repas1, repas2, dessertCollation]);
+        io.emit('data_updated');
+        res.sendStatus(200);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/courses', (req, res) => {
+app.get('/api/courses', async (req, res) => {
     const profil = req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
-    db.all("SELECT * FROM courses WHERE profil = ?", [profil], (err, rows) => res.json(rows || []));
+    try {
+        const result = await pool.query("SELECT * FROM courses WHERE profil = $1", [profil]);
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/courses/cocher', (req, res) => {
+app.post('/api/courses/cocher', async (req, res) => {
     const profil = req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
     const { id, coche } = req.body;
-    db.run("UPDATE courses SET coche = ? WHERE id = ? AND profil = ?", [coche ? 1 : 0, id, profil], (err) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        await pool.query("UPDATE courses SET coche = $1 WHERE id = $2 AND profil = $3", [coche ? 1 : 0, id, profil]);
         io.emit('data_updated');
         res.json({ success: true });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/courses/generer', (req, res) => {
+app.post('/api/courses/generer', async (req, res) => {
     const profil = req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
 
-    db.all("SELECT * FROM menu_prevu WHERE profil = ?", [profil], (err, menus) => {
+    try {
+        const menusRes = await pool.query("SELECT * FROM menu_prevu WHERE profil = $1", [profil]);
         let idsRecettes = new Set();
-        (menus || []).forEach(m => ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation'].forEach(c => { if (m[c]) idsRecettes.add(m[c]); }));
+        (menusRes.rows || []).forEach(m => ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation'].forEach(c => { if (m[c]) idsRecettes.add(m[c]); }));
         
         if (idsRecettes.size === 0) return res.json({ success: true });
 
-        const placeholders = Array.from(idsRecettes).map(() => '?').join(',');
-        db.all(`SELECT * FROM recettes WHERE id IN (${placeholders})`, Array.from(idsRecettes), (err, recettes) => {
-            db.all("SELECT * FROM ingredients", [], (err, ingsRef) => {
-                let besoins = {};
-                (recettes || []).forEach(r => {
-                    try {
-                        let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
-                        if (Array.isArray(ings)) ings.forEach(i => {
-                            let id = i.id || i.ingredient_id;
-                            if (id) besoins[id] = (besoins[id] || 0) + parseFloat(i.quantite || 0);
-                        });
-                    } catch (e) {}
+        const idsArray = Array.from(idsRecettes);
+        const placeholders = idsArray.map((_, i) => `$${i + 1}`).join(',');
+        const recettesRes = await pool.query(`SELECT * FROM recettes WHERE id IN (${placeholders})`, idsArray);
+        const ingsRefRes = await pool.query("SELECT * FROM ingredients");
+
+        let besoins = {};
+        (recettesRes.rows || []).forEach(r => {
+            try {
+                let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
+                if (Array.isArray(ings)) ings.forEach(i => {
+                    let id = i.id || i.ingredient_id;
+                    if (id) besoins[id] = (besoins[id] || 0) + parseFloat(i.quantite || 0);
                 });
-                db.run("DELETE FROM courses WHERE profil = ?", [profil], () => {
-                    const stmt = db.prepare("INSERT INTO courses (profil, ingredient_id, nom, rayon, quantite_necessaire, unite, prix_total, coche) VALUES (?,?,?,?,?,?,?,0)");
-                    for (const [id, qte] of Object.entries(besoins)) {
-                        const ref = (ingsRef || []).find(i => i.id == id);
-                        if (ref) stmt.run(profil, ref.id, ref.nom, ref.rayon || 'Épicerie', qte, 'g', 0);
-                    }
-                    stmt.finalize(() => { io.emit('data_updated'); res.json({ success: true }); });
-                });
-            });
+            } catch (e) {}
         });
-    });
+
+        await pool.query("DELETE FROM courses WHERE profil = $1", [profil]);
+
+        for (const [id, qte] of Object.entries(besoins)) {
+            const ref = (ingsRefRes.rows || []).find(i => i.id == id);
+            if (ref) {
+                await pool.query(
+                    "INSERT INTO courses (profil, ingredient_id, nom, rayon, quantite_necessaire, unite, prix_total, coche) VALUES ($1, $2, $3, $4, $5, $6, $7, 0)",
+                    [profil, ref.id, ref.nom, ref.rayon || 'Épicerie', qte, 'g', 0]
+                );
+            }
+        }
+        io.emit('data_updated');
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/frigo/recettes-faisables', (req, res) => {
+app.get('/api/frigo/recettes-faisables', async (req, res) => {
     const profil = req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
 
-    db.all("SELECT * FROM recettes", [], (err, recettes) => {
-        db.all("SELECT ingredient_id FROM courses WHERE profil = ? AND coche = 1", [profil], (err, courses) => {
-            const dispo = new Set((courses || []).map(c => c.ingredient_id));
-            res.json((recettes || []).filter(r => {
-                try {
-                    let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
-                    return Array.isArray(ings) && ings.every(i => dispo.has(Number(i.id || i.ingredient_id)));
-                } catch { return false; }
-            }));
+    try {
+        const recettesRes = await pool.query("SELECT * FROM recettes");
+        const coursesRes = await pool.query("SELECT ingredient_id FROM courses WHERE profil = $1 AND coche = 1", [profil]);
+        
+        const dispo = new Set((coursesRes.rows || []).map(c => c.ingredient_id));
+        const faisables = (recettesRes.rows || []).filter(r => {
+            try {
+                let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
+                return Array.isArray(ings) && ings.every(i => dispo.has(Number(i.id || i.ingredient_id)));
+            } catch { return false; }
         });
-    });
+        res.json(faisables);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 const PORT = process.env.PORT || 3000;
