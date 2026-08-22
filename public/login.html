@@ -84,11 +84,13 @@
 
         async function login(event) {
             if (event) event.preventDefault();
+            console.log("=== CLIC SUR CONNEXION DÉTECTÉ ===");
 
             const email = document.getElementById('login-email').value;
             const mdp = document.getElementById('login-mdp').value;
 
             try {
+                console.log("Envoi fetch vers /api/login avec :", email);
                 const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -96,13 +98,16 @@
                 });
 
                 const data = await res.json();
+                console.log("Réponse du serveur reçue :", data);
+
                 if (res.ok) {
                     window.location.href = '/index.html';
                 } else {
                     alert(data.error || "Erreur de connexion");
                 }
             } catch (err) {
-                alert("Erreur serveur");
+                console.error("Erreur attrapée dans le bloc catch :", err);
+                alert("Erreur serveur : " + err.message);
             }
         }
 
