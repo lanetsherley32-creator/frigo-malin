@@ -28,7 +28,7 @@
                 <a href="#" id="link-forgot" class="text-xs text-blue-600 hover:underline font-medium">Mot de passe oublié ?</a>
             </div>
 
-            <!-- Bouton sans onclick HTML -->
+            <!-- Bouton de Connexion -->
             <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4 cursor-pointer">
                 Se connecter
             </button>
@@ -55,6 +55,7 @@
                 <input type="password" id="reg-mdp" class="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
 
+            <!-- Bouton d'Inscription -->
             <button id="btn-register" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl font-bold transition duration-200 mb-4 cursor-pointer">
                 Créer mon compte
             </button>
@@ -66,7 +67,7 @@
     </div>
 
     <script>
-        const API_URL = 'https://frigomalin.onrender.com';
+        const API_URL = '';
 
         function toggleMode(e) {
             if (e) e.preventDefault();
@@ -85,10 +86,11 @@
             }
         }
 
-        // Écouteurs d'événements propres
+        // Bascule entre les formulaires
         document.getElementById('link-toggle-reg').addEventListener('click', toggleMode);
         document.getElementById('link-toggle-log').addEventListener('click', toggleMode);
 
+        // Mot de passe oublié
         document.getElementById('link-forgot').addEventListener('click', async function(e) {
             e.preventDefault();
             const emailSaisi = document.getElementById('login-email').value.trim();
@@ -118,12 +120,18 @@
             }
         });
 
+        // Connexion
         document.getElementById('btn-login').addEventListener('click', async function(e) {
             e.preventDefault();
             console.log("=== CLIC SUR CONNEXION SÉCURISÉ ===");
 
             const email = document.getElementById('login-email').value;
             const mdp = document.getElementById('login-mdp').value;
+
+            if (!email || !mdp) {
+                alert("Veuillez remplir tous les champs.");
+                return;
+            }
 
             try {
                 const res = await fetch(`${API_URL}/api/login`, {
@@ -138,7 +146,7 @@
                 if (res.ok) {
                     window.location.href = `${API_URL}/index.html`;
                 } else {
-                    alert(data.error || "Erreur de connexion");
+                    alert(data.error || "E-mail ou mot de passe incorrect.");
                 }
             } catch (err) {
                 console.error("Erreur :", err);
@@ -146,6 +154,7 @@
             }
         });
 
+        // Inscription
         document.getElementById('btn-register').addEventListener('click', async function(e) {
             e.preventDefault();
             const nom = document.getElementById('reg-nom').value;
@@ -166,10 +175,8 @@
 
                 const data = await res.json();
                 if (res.ok) {
-                    alert("Compte créé avec succès ! Connectez-vous maintenant.");
-                    document.getElementById('login-email').value = email;
-                    document.getElementById('login-mdp').value = mdp;
-                    toggleMode();
+                    alert("Compte créé avec succès ! Vous êtes connecté.");
+                    window.location.href = `${API_URL}/index.html`;
                 } else {
                     alert(data.error || "Erreur lors de la création du compte.");
                 }

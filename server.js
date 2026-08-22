@@ -11,6 +11,10 @@ const pgSession = require('connect-pg-simple')(session);
 
 const app = express();
 const server = http.createServer(app);
+
+// Indispensable sur Render / Heroku pour la gestion correcte des cookies sécurisés derrière un proxy
+app.set('trust proxy', 1);
+
 const io = socketIo(server, {
     cors: {
         origin: "*",
@@ -38,9 +42,10 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        maxAge: 1000 * 60 * 60 * 24 * 7,
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
         secure: process.env.NODE_ENV === 'production',
-        httpOnly: true
+        httpOnly: true,
+        sameSite: 'lax'
     }
 }));
 
@@ -98,11 +103,7 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ error: "E-mail ou mot de passe incorrect." });
         }
 
-        console.log("LOGIN - Utilisateur trouvé:", user.email);
-        console.log("LOGIN - Hash en bdd:", user.mdp);
-
         const match = await bcrypt.compare(mdp, user.mdp);
-        console.log("LOGIN - Résultat comparaison bcrypt:", match);
 
         if (match) {
             req.session.user = user.email;
@@ -719,4 +720,4 @@ app.post('/api/courses/generer', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));
+server.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`)); 
