@@ -81,7 +81,7 @@ app.post('/api/logout', (req, res) => { req.session.destroy(() => res.json({ suc
 app.get('/api/current-user', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: "Non connecté" });
     try {
-        const result = await pool.query("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils WHERE nom = $1", [req.session.user]);
+        const result = await pool.query("SELECT nom, email FROM profils WHERE nom = $1", [req.session.user]);
         const user = result.rows[0];
         if (!user) return res.status(404).json({ error: "Profil introuvable" });
         res.json(user);
@@ -92,7 +92,7 @@ app.get('/api/current-user', async (req, res) => {
 
 app.get('/api/profils', async (req, res) => {
     try {
-        const result = await pool.query("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils");
+        const result = await pool.query("SELECT nom, email FROM profils");
         res.json(result.rows || []);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -100,26 +100,17 @@ app.get('/api/profils', async (req, res) => {
 });
 
 app.post('/api/profils', async (req, res) => {
-    const { nom, email, mdp, calories, budget, proteines, glucides, lipides } = req.body;
+    const { nom, email, mdp } = req.body;
     try {
         const hashedPassword = mdp ? await bcrypt.hash(mdp, 10) : null;
         const query = `
-            INSERT INTO profils (nom, email, mdp, calories, budget, proteines, glucides, lipides) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO profils (nom, email, mdp) 
+            VALUES ($1, $2, $3)
             ON CONFLICT (nom) DO UPDATE SET 
                 email = EXCLUDED.email, 
-                mdp = COALESCE(EXCLUDED.mdp, profils.mdp), 
-                calories = EXCLUDED.calories, 
-                budget = EXCLUDED.budget,
-                proteines = EXCLUDED.proteines,
-                glucides = EXCLUDED.glucides,
-                lipides = EXCLUDED.lipides
+                mdp = COALESCE(EXCLUDED.mdp, profils.mdp)
         `;
-        await pool.query(query, [
-            nom, email, hashedPassword, 
-            calories || 2000, budget || 50, 
-            proteines || 100, glucides || 250, lipides || 70
-        ]);
+        await pool.query(query, [nom, email, hashedPassword]);
         req.session.user = nom;
         io.emit('data_updated');
         res.json({ success: true });
