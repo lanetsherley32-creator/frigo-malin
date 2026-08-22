@@ -23,10 +23,19 @@ app.use(session({
     cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
 
-// --- MIDDLEWARE DE PROTECTION ---
+// --- MIDDLEWARE DE PROTECTION (CORRIGÉ & ÉLARGI) ---
 app.use((req, res, next) => {
-    const cheminsPublics = ['/', '/index.html', '/login.html', '/reset.html', '/api/login', '/api/profils', '/api/mot-de-passe-oublie', '/api/reset-password'];
-    const estPublic = cheminsPublics.includes(req.path) || req.path.startsWith('/css/') || req.path.startsWith('/js/') || req.path.startsWith('/api/recettes') || req.path.startsWith('/api/ingredients');
+    const cheminsPublics = [
+        '/', '/index.html', '/login.html', '/reset.html', '/courses.html', '/menu.html', '/recettes.html', '/frigo.html',
+        '/api/login', '/api/profils', '/api/mot-de-passe-oublie', '/api/reset-password'
+    ];
+    const estPublic = cheminsPublics.includes(req.path) || 
+                      req.path.startsWith('/css/') || 
+                      req.path.startsWith('/js/') || 
+                      req.path.startsWith('/api/recettes') || 
+                      req.path.startsWith('/api/ingredients') ||
+                      req.path.startsWith('/api/profils'); // Permet la création/lecture des profils librement
+                      
     if (req.session.user || estPublic) next();
     else res.status(401).json({ error: "Accès non autorisé. Veuillez vous connecter." });
 });
@@ -50,7 +59,7 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS courses (id INTEGER PRIMARY KEY AUTOINCREMENT, profil TEXT, ingredient_id INTEGER, nom TEXT, rayon TEXT, quantite_necessaire REAL, unite TEXT, prix_total REAL, coche INTEGER DEFAULT 0)`);
 });
 
-// --- API AUTHENTIFICATION ---
+// --- API AUTHENTIFICATION & PROFILS ---
 app.post('/api/login', (req, res) => {
     const { email, mdp } = req.body;
     db.get("SELECT * FROM profils WHERE email = ?", [email], async (err, user) => {
@@ -64,6 +73,28 @@ app.post('/api/login', (req, res) => {
 });
 
 app.post('/api/logout', (req, res) => { req.session.destroy(() => res.json({ success: true })); });
+
+app.get('/api/profils', (req, res) => {
+    db.all("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils", [], (err, rows) => res.json(rows || []));
+});
+
+// Route d'inscription / création de profil si absente
+app.post('/api/profils', async (req, res) => {
+    const { nom, email, mdp, calories, budget, proteines, glucides, lipides } = req.body;
+    try {
+        const hashedPassword = mdp ? await bcrypt.hash(mdp, 10) : null;
+        db.run(`INSERT INTO profils (nom, email, mdp, calories, budget, proteines, glucides, lipides) VALUES (?,?,?,?,?,?,?,?)
+                ON CONFLICT(nom) DO UPDATE SET email=excluded.email, mdp=COALESCE(excluded.mdp, mdp), calories=excluded.calories, budget=excluded.budget`,
+        [nom, email, hashedPassword, calories || 2000, budget || 50, proteines || 100, glucides || 250, lipides || 70], (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            req.session.user = nom;
+            io.emit('data_updated');
+            res.json({ success: true });
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 
 // --- API RECETTES ---
 app.get('/api/recettes', (req, res) => {
@@ -203,11 +234,6 @@ app.get('/api/frigo/recettes-faisables', (req, res) => {
             }));
         });
     });
-});
-
-// --- PROFILS ET AUTRES ---
-app.get('/api/profils', (req, res) => {
-    db.all("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils", [], (err, rows) => res.json(rows || []));
 });
 
 const PORT = process.env.PORT || 3000;
