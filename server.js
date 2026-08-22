@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session); // <--- AJOUTÉ
 
 const app = express();
 const server = http.createServer(app);
@@ -26,8 +27,13 @@ const pool = new Pool({
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- CONFIGURATION DES SESSIONS ---
+// --- CONFIGURATION DES SESSIONS (STOCKÉES DANS POSTGRES) ---
 app.use(session({
+    store: new pgSession({
+        pool: pool,                // Utilise votre connexion Supabase
+        tableName: 'session',      // Nom de la table en base de données
+        createTableIfMissing: true // Crée la table automatiquement si absente
+    }),
     secret: process.env.SESSION_SECRET || 'votre_secret_tres_securise_et_aleatoire',
     resave: false,
     saveUninitialized: false,
@@ -354,7 +360,6 @@ app.get('/api/menu-prevu-resume-jour', async (req, res) => {
     if (!profil || !jour) return res.status(400).json({ error: "Profil ou jour manquant" });
     
     try {
-        // 1. Récupérer le menu prévu pour ce profil et ce jour
         const menuRes = await pool.query(
             "SELECT petitDejeuner, repas1, repas2, dessertCollation FROM menu_prevu WHERE profil = $1 AND jour = $2", 
             [profil, jour]
@@ -371,7 +376,6 @@ app.get('/api/menu-prevu-resume-jour', async (req, res) => {
             return res.json({ calories: 0, proteines: 0, glucides: 0, lipides: 0, cout: 0 });
         }
         
-        // 2. Récupérer les informations nutritionnelles et de coût de ces recettes
         const placeholders = idsRecettes.map((_, i) => `$${i + 1}`).join(',');
         const recettesRes = await pool.query(`SELECT calories, proteines, glucides, lipides, cout FROM recettes WHERE id IN (${placeholders})`, idsRecettes);
         
