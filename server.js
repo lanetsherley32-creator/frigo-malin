@@ -93,7 +93,7 @@ app.get('/api/current-user', async (req, res) => {
 
 app.get('/api/profils', async (req, res) => {
     try {
-        const result = await pool.query("SELECT nom, email FROM profils");
+        const result = await pool.query("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils");
         res.json(result.rows || []);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -101,23 +101,71 @@ app.get('/api/profils', async (req, res) => {
 });
 
 app.post('/api/profils', async (req, res) => {
-    const { nom, email, mdp } = req.body;
+    const { nom, email, mdp, calories, budget, proteines, glucides, lipides } = req.body;
     try {
         const hashedPassword = mdp ? await bcrypt.hash(mdp, 10) : null;
         const query = `
-            INSERT INTO profils (nom, email, mdp) 
-            VALUES ($1, $2, $3)
+            INSERT INTO profils (nom, email, mdp, calories, budget, proteines, glucides, lipides) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (nom) DO UPDATE SET 
                 email = EXCLUDED.email, 
-                mdp = COALESCE(EXCLUDED.mdp, profils.mdp)
+                mdp = COALESCE(EXCLUDED.mdp, profils.mdp),
+                calories = EXCLUDED.calories,
+                budget = EXCLUDED.budget,
+                proteines = EXCLUDED.proteines,
+                glucides = EXCLUDED.glucides,
+                lipides = EXCLUDED.lipides
         `;
-        await pool.query(query, [nom, email, hashedPassword]);
+        await pool.query(query, [nom, email, hashedPassword, calories || 0, budget || 0, proteines || 0, glucides || 0, lipides || 0]);
         req.session.user = nom;
         io.emit('data_updated');
         res.json({ success: true });
     } catch (e) {
         console.error("ERREUR DÉTAILLÉE SIGNUP:", e);
         res.status(500).json({ error: e.message || "Erreur inconnue", detail: e.stack });
+    }
+});
+
+// --- ROUTE PUT POUR MODIFIER UN PROFIL (AVEC GESTION SÉCURISÉE DU MOT DE PASSE) ---
+app.put('/api/profils', async (req, res) => {
+    const { ancienNom, nom, email, mdp, calories, budget, proteines, glucides, lipides } = req.body;
+    try {
+        let query = 'UPDATE profils SET nom = $1, email = $2, calories = $3, budget = $4, proteines = $5, glucides = $6, lipides = $7';
+        let values = [nom, email, calories || 0, budget || 0, proteines || 0, glucides || 0, lipides || 0];
+
+        // Si l'utilisateur a rempli le champ mot de passe, on le valide et on le met à jour
+        if (mdp && mdp.trim() !== '') {
+            const hashedPassword = await bcrypt.hash(mdp, 10);
+            query += ', mdp = $8 WHERE nom = $9';
+            values.push(hashedPassword, ancienNom);
+        } else {
+            query += ' WHERE nom = $8';
+            values.push(ancienNom);
+        }
+
+        await pool.query(query, values);
+        req.session.user = nom; // Met à jour la session avec le nouveau nom si modifié
+        io.emit('data_updated');
+        res.json({ success: true, message: "Profil mis à jour avec succès !" });
+    } catch (error) {
+        console.error("Erreur mise à jour profil :", error);
+        res.status(500).json({ error: "Erreur serveur lors de la mise à jour." });
+    }
+});
+
+// --- ROUTE DELETE POUR SUPPRIMER UN PROFIL ---
+app.delete('/api/profils', async (req, res) => {
+    const nom = req.query.nom;
+    if (!nom) return res.status(400).json({ error: "Nom manquant" });
+    try {
+        await pool.query("DELETE FROM profils WHERE nom = $1", [nom]);
+        if (req.session.user === nom) {
+            req.session.destroy();
+        }
+        io.emit('data_updated');
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -227,18 +275,18 @@ app.post('/api/ingredients', async (req, res) => {
 
 // --- API MENU, COURSES & FRIGO (PRIVÉS) ---
 app.get('/api/menu-prevu', async (req, res) => {
-    const profil = req.session.user;
+    const profil = req.query.profil || req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
     try {
-        const result = await pool.query("SELECT * FROM menu_prevu WHERE profil = $1", [profil]);
-        res.json(result.rows || []);
+        const result = await pool.query("SELECT * FROM menu_prevu WHERE profil = $1 AND jour = $2", [profil, req.query.jour]);
+        res.json(result.rows[0] || {});
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
 app.post('/api/menu-prevu', async (req, res) => {
-    const profil = req.session.user;
+    const profil = req.body.profil || req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
 
     const { jour, petitDejeuner, repas1, repas2, dessertCollation } = req.body;
@@ -252,7 +300,7 @@ app.post('/api/menu-prevu', async (req, res) => {
             dessertCollation = EXCLUDED.dessertCollation
     `;
     try {
-        await pool.query(q, [profil, jour, petitDejeuner, repas1, repas2, dessertCollation]);
+        await pool.query(q, [profil, jour, petitDejeuner || null, repas1 || null, repas2 || null, dessertCollation || null]);
         io.emit('data_updated');
         res.sendStatus(200);
     } catch (err) {
@@ -260,8 +308,40 @@ app.post('/api/menu-prevu', async (req, res) => {
     }
 });
 
+// --- API SUIVI CONSOMMÉ ---
+app.get('/api/suivi-conso', async (req, res) => {
+    const { profil, jour } = req.query;
+    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+    try {
+        const result = await pool.query("SELECT * FROM suivi_conso WHERE profil = $1 AND jour = $2", [profil, jour]);
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/suivi-conso', async (req, res) => {
+    const { profil, jour, categorie, recette_id, quantite } = req.body;
+    try {
+        const q = `INSERT INTO suivi_conso (profil, jour, categorie, recette_id, quantite) VALUES ($1, $2, $3, $4, $5) RETURNING id`;
+        const result = await pool.query(q, [profil, jour, categorie, recette_id, quantite]);
+        res.json({ success: true, id: result.rows[0].id });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/suivi-conso/:id', async (req, res) => {
+    try {
+        await pool.query("DELETE FROM suivi_conso WHERE id = $1", [req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/courses', async (req, res) => {
-    const profil = req.session.user;
+    const profil = req.query.profil || req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
     try {
         const result = await pool.query("SELECT * FROM courses WHERE profil = $1", [profil]);
@@ -285,7 +365,7 @@ app.post('/api/courses/cocher', async (req, res) => {
 });
 
 app.post('/api/courses/generer', async (req, res) => {
-    const profil = req.session.user;
+    const profil = req.body.profil || req.session.user;
     if (!profil) return res.status(401).json({ error: "Non connecté" });
 
     try {
@@ -324,27 +404,6 @@ app.post('/api/courses/generer', async (req, res) => {
         }
         io.emit('data_updated');
         res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.get('/api/frigo/recettes-faisables', async (req, res) => {
-    const profil = req.session.user;
-    if (!profil) return res.status(401).json({ error: "Non connecté" });
-
-    try {
-        const recettesRes = await pool.query("SELECT * FROM recettes");
-        const coursesRes = await pool.query("SELECT ingredient_id FROM courses WHERE profil = $1 AND coche = 1", [profil]);
-        
-        const dispo = new Set((coursesRes.rows || []).map(c => c.ingredient_id));
-        const faisables = (recettesRes.rows || []).filter(r => {
-            try {
-                let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
-                return Array.isArray(ings) && ings.every(i => dispo.has(Number(i.id || i.ingredient_id)));
-            } catch { return false; }
-        });
-        res.json(faisables);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
