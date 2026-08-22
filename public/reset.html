@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Réinitialisation du mot de passe - Frigo Malin</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body style="display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f6f8; font-family: sans-serif;">
+    <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 350px;">
+        <h2 style="margin-top: 0; text-align: center; color: #333;">Nouveau mot de passe</h2>
+        <form id="resetForm">
+            <input type="hidden" id="token" name="token">
+            <div style="margin-bottom: 15px;">
+                <label for="nouveauMdp" style="display: block; margin-bottom: 5px; color: #555;">Nouveau mot de passe :</label>
+                <input type="password" id="nouveauMdp" required style="width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            <button type="submit" style="width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Réinitialiser</button>
+        </form>
+        <p id="message" style="margin-top: 15px; text-align: center; font-size: 14px;"></p>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        if (token) document.getElementById('token').value = token;
+
+        document.getElementById('resetForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nouveauMdp = document.getElementById('nouveauMdp').value;
+            const msg = document.getElementById('message');
+
+            try {
+                const res = await fetch('/api/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, nouveauMdp })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    msg.style.color = 'green';
+                    msg.textContent = "Mot de passe modifié avec succès ! Redirection...";
+                    setTimeout(() => window.location.href = '/login.html', 2000);
+                } else {
+                    msg.style.color = 'red';
+                    msg.textContent = data.error || "Erreur lors de la réinitialisation.";
+                }
+            } catch (err) {
+                msg.style.color = 'red';
+                msg.textContent = "Erreur de connexion au serveur.";
+            }
+        });
+    </script>
+</body>
+</html>
