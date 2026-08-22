@@ -72,7 +72,8 @@ app.post('/api/login', async (req, res) => {
             res.status(401).json({ error: "E-mail ou mot de passe incorrect." });
         }
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error("ERREUR LOGIN:", err);
+        res.status(500).json({ error: err.message, detail: err.stack });
     }
 });
 
@@ -115,7 +116,8 @@ app.post('/api/profils', async (req, res) => {
         io.emit('data_updated');
         res.json({ success: true });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error("ERREUR DÉTAILLÉE SIGNUP:", e);
+        res.status(500).json({ error: e.message || "Erreur inconnue", detail: e.stack });
     }
 });
 
