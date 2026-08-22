@@ -121,7 +121,6 @@
                 const data = await res.json();
                 if (res.ok) {
                     if (data.debug_link) {
-                        // Utile en local/dev : affiche directement le lien dans une alerte si l'e-mail n'est pas configuré
                         alert("Demande prise en compte.\n\n[Mode Dev] Lien de réinitialisation :\n" + data.debug_link);
                     } else {
                         alert("Un e-mail de réinitialisation a été envoyé à cette adresse.");
@@ -151,12 +150,7 @@
                     body: JSON.stringify({
                         nom,
                         email,
-                        mdp,
-                        calories: 2000,
-                        budget: 100,
-                        proteines: 150,
-                        glucides: 200,
-                        lipides: 70
+                        mdp
                     })
                 });
 
