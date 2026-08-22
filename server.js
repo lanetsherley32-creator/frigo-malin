@@ -59,7 +59,7 @@ const transporter = nodemailer.createTransport({
     auth: { user: 'votre_email@example.com', pass: 'votre_mot_de_passe_smtp' }
 });
 
-// --- API AUTHENTIFICATION & PROFILS ---
+// --- API AUTHENTIFICATION & COMPTE UTILISATEUR ---
 app.post('/api/login', async (req, res) => {
     const { email, mdp } = req.body;
     try {
@@ -84,91 +84,113 @@ app.get('/api/current-user', async (req, res) => {
     try {
         const result = await pool.query("SELECT nom, email FROM profils WHERE nom = $1", [req.session.user]);
         const user = result.rows[0];
-        if (!user) return res.status(404).json({ error: "Profil introuvable" });
+        if (!user) return res.status(404).json({ error: "Compte introuvable" });
         res.json(user);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.get('/api/profils', async (req, res) => {
-    try {
-        const result = await pool.query("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils");
-        res.json(result.rows || []);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
+// Inscription / Création de compte global
 app.post('/api/profils', async (req, res) => {
-    const { nom, email, mdp, calories, budget, proteines, glucides, lipides } = req.body;
+    const { nom, email, mdp } = req.body;
     try {
         const hashedPassword = mdp ? await bcrypt.hash(mdp, 10) : null;
         const query = `
-            INSERT INTO profils (nom, email, mdp, calories, budget, proteines, glucides, lipides) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT (nom) DO UPDATE SET 
-                email = EXCLUDED.email, 
-                mdp = COALESCE(EXCLUDED.mdp, profils.mdp),
-                calories = EXCLUDED.calories,
-                budget = EXCLUDED.budget,
-                proteines = EXCLUDED.proteines,
-                glucides = EXCLUDED.glucides,
-                lipides = EXCLUDED.lipides
+            INSERT INTO profils (nom, email, mdp) 
+            VALUES ($1, $2, $3)
+            ON CONFLICT (email) DO UPDATE SET 
+                nom = EXCLUDED.nom, 
+                mdp = COALESCE(EXCLUDED.mdp, profils.mdp)
         `;
-        await pool.query(query, [nom, email, hashedPassword, calories || 0, budget || 0, proteines || 0, glucides || 0, lipides || 0]);
+        await pool.query(query, [nom, email, hashedPassword]);
         req.session.user = nom;
         io.emit('data_updated');
         res.json({ success: true });
     } catch (e) {
-        console.error("ERREUR DÉTAILLÉE SIGNUP:", e);
-        res.status(500).json({ error: e.message || "Erreur inconnue", detail: e.stack });
+        console.error("ERREUR SIGNUP:", e);
+        res.status(500).json({ error: e.message || "Erreur inconnue" });
     }
 });
 
+// Mise à jour du compte de connexion
 app.put('/api/profils', async (req, res) => {
     const utilisateurActuel = req.session.user;
     if (!utilisateurActuel) {
         return res.status(401).json({ error: "Non connecté" });
     }
 
-    const { ancienNom, nom, email, mdp, calories, budget, proteines, glucides, lipides } = req.body;
-    const cible = ancienNom || utilisateurActuel;
+    const { nom, email, mdp } = req.body;
 
     try {
-        let query = `
-            UPDATE profils 
-            SET nom = $1, email = $2, calories = $3, budget = $4, proteines = $5, glucides = $6, lipides = $7
-        `;
-        let values = [nom, email, calories || 0, budget || 0, proteines || 0, glucides || 0, lipides || 0];
+        let query = `UPDATE profils SET nom = $1, email = $2`;
+        let values = [nom, email];
 
         if (mdp && mdp.trim() !== '') {
             const hashedPassword = await bcrypt.hash(mdp, 10);
-            query += `, mdp = $8 WHERE nom = $9`;
-            values.push(hashedPassword, cible);
+            query += `, mdp = $3 WHERE nom = $4`;
+            values.push(hashedPassword, utilisateurActuel);
         } else {
-            query += ` WHERE nom = $8`;
-            values.push(cible);
+            query += ` WHERE nom = $3`;
+            values.push(utilisateurActuel);
         }
 
         await pool.query(query, values);
         req.session.user = nom;
         io.emit('data_updated');
-        res.json({ success: true, message: "Profil mis à jour avec succès !" });
+        res.json({ success: true, message: "Compte mis à jour avec succès !" });
     } catch (error) {
-        console.error("Erreur mise à jour profil :", error);
-        res.status(500).json({ error: "Erreur serveur lors de la mise à jour : " + error.message });
+        console.error("Erreur mise à jour compte :", error);
+        res.status(500).json({ error: "Erreur serveur : " + error.message });
     }
 });
 
-app.delete('/api/profils', async (req, res) => {
+// --- API PERSONNES / OBJECTIFS (Pour les menus et la nutrition) ---
+app.get('/api/personnes-objectifs', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM personnes_objectifs");
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/personnes-objectifs', async (req, res) => {
+    const { nom, ancienNom, calories, eau, budget, budget_periode, proteines, glucides, lipides } = req.body;
+    try {
+        if (ancienNom) {
+            await pool.query(
+                `UPDATE personnes_objectifs SET nom = $1, calories = $2, eau = $3, budget = $4, budget_periode = $5, proteines = $6, glucides = $7, lipides = $8 WHERE nom = $9`,
+                [nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0, ancienNom]
+            );
+        } else {
+            await pool.query(
+                `INSERT INTO personnes_objectifs (nom, calories, eau, budget, budget_periode, proteines, glucides, lipides) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 ON CONFLICT (nom) DO UPDATE SET 
+                    calories = EXCLUDED.calories,
+                    eau = EXCLUDED.eau,
+                    budget = EXCLUDED.budget,
+                    budget_periode = EXCLUDED.budget_periode,
+                    proteines = EXCLUDED.proteines,
+                    glucides = EXCLUDED.glucides,
+                    lipides = EXCLUDED.lipides`,
+                [nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0]
+            );
+        }
+        io.emit('data_updated');
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Erreur personnes_objectifs:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/personnes-objectifs', async (req, res) => {
     const nom = req.query.nom;
     if (!nom) return res.status(400).json({ error: "Nom manquant" });
     try {
-        await pool.query("DELETE FROM profils WHERE nom = $1", [nom]);
-        if (req.session.user === nom) {
-            req.session.destroy();
-        }
+        await pool.query("DELETE FROM personnes_objectifs WHERE nom = $1", [nom]);
         io.emit('data_updated');
         res.json({ success: true });
     } catch (err) {
@@ -414,7 +436,7 @@ app.post('/api/courses/generer', async (req, res) => {
                 );
             }
         }
-        io.emit('data_updated');
+        io.setItem('data_updated');
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
