@@ -3,7 +3,7 @@ const http = require('http');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
 const socketIo = require('socket.io');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const session = require('express-session');
@@ -210,4 +210,5 @@ app.get('/api/profils', (req, res) => {
     db.all("SELECT nom, email, calories, budget, proteines, glucides, lipides FROM profils", [], (err, rows) => res.json(rows || []));
 });
 
-server.listen(3000, () => console.log('Serveur démarré sur http://localhost:3000'));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));
