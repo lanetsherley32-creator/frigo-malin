@@ -74,20 +74,22 @@
             </div>
         </section>
 
-        <!-- Filtrage Avancé par Catégories (AVANT la génération ou sélection) -->
+        <!-- Filtrage Avancé par Catégories (Multi-sélection par jour) -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3 text-xs">
-            <h3 class="font-bold text-slate-800 flex items-center gap-2">⚙️ Filtrage avancé des catégories (pour génération / sélection)</h3>
+            <h3 class="font-bold text-slate-800 flex items-center gap-2">⚙️ Filtrage avancé des catégories (Génération & Sélection)</h3>
             <div class="flex flex-wrap gap-4 items-center">
                 <label class="flex items-center gap-1.5 font-medium cursor-pointer">
-                    <input type="checkbox" id="filtre-cat-pt-dej" checked onchange="mettreAJourDatalistIntelligent()" class="rounded border-slate-300"> Petit-déjeuner
+                    <input type="checkbox" id="filtre-cat-pt-dej" checked onchange="mettreAJourDatalistIntelligent()" class="rounded border-slate-300"> Petit dej
                 </label>
                 <label class="flex items-center gap-1.5 font-medium cursor-pointer">
-                    <input type="checkbox" id="filtre-cat-midi" checked onchange="mettreAJourDatalistIntelligent()" class="rounded border-slate-300"> Déjeuner / Dîner
+                    <input type="checkbox" id="filtre-cat-midi" checked onchange="mettreAJourDatalistIntelligent()" class="rounded border-slate-300"> Repas midi
                 </label>
                 <label class="flex items-center gap-1.5 font-medium cursor-pointer">
-                    <input type="checkbox" id="filtre-cat-dessert" checked onchange="mettreAJourDatalistIntelligent()" class="rounded border-slate-300"> Dessert / Collation
+                    <input type="checkbox" id="filtre-cat-soir" checked onchange="mettreAJourDatalistIntelligent()" class="rounded border-slate-300"> Repas soir
                 </label>
-                <span class="text-slate-400 italic ml-auto text-[11px]">💡 Le grignotage se saisit manuellement (laissé vide par défaut en génération auto).</span>
+                <label class="flex items-center gap-1.5 font-medium cursor-pointer">
+                    <input type="checkbox" id="filtre-cat-collation" checked onchange="mettreAJourDatalistIntelligent()" class="rounded border-slate-300"> Collation / Grignotage
+                </label>
             </div>
         </section>
 
@@ -101,7 +103,7 @@
             </button>
         </section>
 
-        <!-- Propositions Repas Recommandés (En Vert - Axé Protéines, Fibres & Coût) -->
+        <!-- Propositions Repas Recommandés -->
         <section class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl shadow-sm space-y-2">
             <h3 class="font-bold text-xs text-emerald-800 uppercase tracking-wider">🌱 Recommandations prioritaires (Protéines, Fibres & Économie) :</h3>
             <div id="container-suggestions-vertes" class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -309,20 +311,20 @@
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
                                 <div>
-                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Petit-déj / Dessert</label>
+                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Petit dej</label>
                                     <input type="text" list="liste-recettes" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'petitdejeuner', this.value)" value="${getNomRecette(menuJour.petitdejeuner)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Repas Midi</label>
+                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Repas midi</label>
                                     <input type="text" list="liste-recettes" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'repas1', this.value)" value="${getNomRecette(menuJour.repas1)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Repas Soir</label>
+                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Repas soir</label>
                                     <input type="text" list="liste-recettes" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'repas2', this.value)" value="${getNomRecette(menuJour.repas2)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-slate-400 font-bold mb-1">Collation / Grignotage</label>
-                                    <input type="text" list="liste-recettes" placeholder="Entrer manuellement..." onchange="sauvegarderRepasParNom('${jour}', 'dessertcollation', this.value)" value="${getNomRecette(menuJour.dessertcollation)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    <input type="text" list="liste-recettes" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'dessertcollation', this.value)" value="${getNomRecette(menuJour.dessertcollation)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                             </div>
                         </div>
@@ -356,7 +358,10 @@
                         protJour += rec.proteines || 0;
                         glucJour += rec.glucides || 0;
                         lipJour += rec.lipides || 0;
-                        coutJour += rec.cout_par_part || rec.cout || 0;
+                        
+                        // Utilisation stricte de cout_par_part (ou coût unitaire/portion)
+                        const coutUnitaire = rec.cout_par_part !== undefined ? rec.cout_par_part : (rec.cout || rec.prix || 0);
+                        coutJour += coutUnitaire;
                     }
                 }
             });
@@ -373,31 +378,41 @@
             }
         }
 
-        // Tri intelligent basé sur protéines, fibres et coût (économique)
+        // Filtrage avancé gérant la multi-sélection des 4 catégories
         function mettreAJourDatalistIntelligent() {
             const datalist = document.getElementById('liste-recettes');
             if (!datalist) return;
 
             const okPtDej = document.getElementById('filtre-cat-pt-dej')?.checked;
             const okMidi = document.getElementById('filtre-cat-midi')?.checked;
-            const okDessert = document.getElementById('filtre-cat-dessert')?.checked;
+            const okSoir = document.getElementById('filtre-cat-soir')?.checked;
+            const okCollation = document.getElementById('filtre-cat-collation')?.checked;
 
             const filtrees = recettesCache.filter(r => {
                 const cat = (r.type_repas || '').toLowerCase();
-                if (!cat) return true;
-                if (cat.includes('petit') && !okPtDej) return false;
-                if ((cat.includes('déjeuner') || cat.includes('dîner') || cat.includes('plat')) && !okMidi) return false;
-                if ((cat.includes('dessert') || cat.includes('collation')) && !okDessert) return false;
-                return true;
+                if (!cat) return true; 
+
+                let match = false;
+                if (okPtDej && (cat.includes('petit') || cat.includes('dej'))) match = true;
+                if (okMidi && (cat.includes('midi') || cat.includes('déjeuner') || cat.includes('plat'))) match = true;
+                if (okSoir && (cat.includes('soir') || cat.includes('dîner'))) match = true;
+                if (okCollation && (cat.includes('collation') || cat.includes('grignotage') || cat.includes('dessert'))) match = true;
+
+                return match;
             });
 
             const triees = [...filtrees].sort((a, b) => {
-                const scoreA = (a.proteines || 0) * 2 + (a.fibres || 0) * 1.5 - (a.cout_par_part || a.cout || 0) * 0.5;
-                const scoreB = (b.proteines || 0) * 2 + (b.fibres || 0) * 1.5 - (b.cout_par_part || b.cout || 0) * 0.5;
+                const coutA = a.cout_par_part !== undefined ? a.cout_par_part : (a.cout || a.prix || 0);
+                const coutB = b.cout_par_part !== undefined ? b.cout_par_part : (b.cout || b.prix || 0);
+                const scoreA = (a.proteines || 0) * 2 + (a.fibres || 0) * 1.5 - coutA * 0.5;
+                const scoreB = (b.proteines || 0) * 2 + (b.fibres || 0) * 1.5 - coutB * 0.5;
                 return scoreB - scoreA;
             });
 
-            datalist.innerHTML = triees.map(r => `<option value="${r.nom}">[P: ${r.proteines || 0}g | Fibres: ${r.fibres || 0}g | ${r.cout_par_part || 0}€] - ${r.type_repas || 'Général'}</option>`).join('');
+            datalist.innerHTML = triees.map(r => {
+                const coutUnitaire = r.cout_par_part !== undefined ? r.cout_par_part : (r.cout || r.prix || 0);
+                return `<option value="${r.nom}">[P: ${r.proteines || 0}g | Fibres: ${r.fibres || 0}g | ${coutUnitaire}€/part] - ${r.type_repas || 'Général'}</option>`;
+            }).join('');
         }
 
         async function sauvegarderRepasParNom(jour, typeRepas, nomRecette) {
@@ -421,7 +436,10 @@
                     body: JSON.stringify({
                         profil,
                         jour,
-                        [typeRepas]: idRecette
+                        petitdejeuner: menuJour.petitdejeuner,
+                        repas1: menuJour.repas1,
+                        repas2: menuJour.repas2,
+                        dessertcollation: menuJour.dessertcollation
                     })
                 });
                 recalculTotauxJour(jour);
@@ -436,18 +454,27 @@
 
             const okPtDej = document.getElementById('filtre-cat-pt-dej')?.checked;
             const okMidi = document.getElementById('filtre-cat-midi')?.checked;
-            const okDessert = document.getElementById('filtre-cat-dessert')?.checked;
+            const okSoir = document.getElementById('filtre-cat-soir')?.checked;
+            const okCollation = document.getElementById('filtre-cat-collation')?.checked;
 
-            const poolPtDej = recettesCache.filter(r => !r.type_repas || r.type_repas.includes('Petit') || (okDessert && r.type_repas.includes('Dessert')));
-            const poolStd = recettesCache.filter(r => !r.type_repas || r.type_repas.includes('Déjeuner') || r.type_repas.includes('Dîner') || r.type_repas.includes('Plat'));
-            const poolCollation = recettesCache.filter(r => !r.type_repas || r.type_repas.includes('Dessert') || r.type_repas.includes('Collation'));
+            const poolPtDej = recettesCache.filter(r => !r.type_repas || r.type_repas.toLowerCase().includes('petit') || r.type_repas.toLowerCase().includes('dej'));
+            const poolMidi = recettesCache.filter(r => !r.type_repas || r.type_repas.toLowerCase().includes('midi') || r.type_repas.toLowerCase().includes('déjeuner') || r.type_repas.toLowerCase().includes('plat'));
+            const poolSoir = recettesCache.filter(r => !r.type_repas || r.type_repas.toLowerCase().includes('soir') || r.type_repas.toLowerCase().includes('dîner'));
+            const poolCollation = recettesCache.filter(r => !r.type_repas || r.type_repas.toLowerCase().includes('collation') || r.type_repas.toLowerCase().includes('grignotage') || r.type_repas.toLowerCase().includes('dessert'));
 
             const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
             for (let jour of jours) {
-                const r1 = okPtDej.length > 0 ? poolPtDej[Math.floor(Math.random() * poolPtDej.length)]?.id : null;
-                const r2 = okMidi.length > 0 ? poolStd[Math.floor(Math.random() * poolStd.length)]?.id : null;
-                const r3 = okMidi.length > 0 ? poolStd[Math.floor(Math.random() * poolStd.length)]?.id : null;
-                const r4 = null; // Grignotage laissé vide pour saisie manuelle
+                const r1 = (okPtDej && poolPtDej.length > 0) ? poolPtDej[Math.floor(Math.random() * poolPtDej.length)]?.id : null;
+                const r2 = (okMidi && poolMidi.length > 0) ? poolMidi[Math.floor(Math.random() * poolMidi.length)]?.id : null;
+                const r3 = (okSoir && poolSoir.length > 0) ? poolSoir[Math.floor(Math.random() * poolSoir.length)]?.id : null;
+                const r4 = (okCollation && poolCollation.length > 0) ? poolCollation[Math.floor(Math.random() * poolCollation.length)]?.id : null;
+
+                let menuJour = menusCache.find(m => m.jour === jour);
+                if (!menuJour) { menuJour = { jour }; menusCache.push(menuJour); }
+                menuJour.petitdejeuner = r1;
+                menuJour.repas1 = r2;
+                menuJour.repas2 = r3;
+                menuJour.dessertcollation = r4;
 
                 await fetch('/api/menu-prevu', {
                     method: 'POST',
@@ -466,8 +493,10 @@
 
             const cibleCal = (profilObj.calories || 2000) / 4;
             const recettesOptimisees = [...recettesCache].sort((a, b) => {
-                const scoreA = (a.proteines || 0) * 2 + (a.fibres || 0) * 1.5 - (a.cout_par_part || 0) * 0.5 - Math.abs((a.calories || 500) - cibleCal);
-                const scoreB = (b.proteines || 0) * 2 + (b.fibres || 0) * 1.5 - (b.cout_par_part || 0) * 0.5 - Math.abs((b.calories || 500) - cibleCal);
+                const coutA = a.cout_par_part !== undefined ? a.cout_par_part : (a.cout || a.prix || 0);
+                const coutB = b.cout_par_part !== undefined ? b.cout_par_part : (b.cout || b.prix || 0);
+                const scoreA = (a.proteines || 0) * 2 + (a.fibres || 0) * 1.5 - coutA * 0.5 - Math.abs((a.calories || 500) - cibleCal);
+                const scoreB = (b.proteines || 0) * 2 + (b.fibres || 0) * 1.5 - coutB * 0.5 - Math.abs((b.calories || 500) - cibleCal);
                 return scoreB - scoreA;
             });
 
@@ -476,7 +505,14 @@
                 const r1 = recettesOptimisees[Math.floor(Math.random() * Math.min(5, recettesOptimisees.length))]?.id || null;
                 const r2 = recettesOptimisees[Math.floor(Math.random() * Math.min(5, recettesOptimisees.length))]?.id || null;
                 const r3 = recettesOptimisees[Math.floor(Math.random() * Math.min(5, recettesOptimisees.length))]?.id || null;
-                const r4 = null; // Grignotage laissé vide
+                const r4 = recettesOptimisees[Math.floor(Math.random() * Math.min(5, recettesOptimisees.length))]?.id || null;
+
+                let menuJour = menusCache.find(m => m.jour === jour);
+                if (!menuJour) { menuJour = { jour }; menusCache.push(menuJour); }
+                menuJour.petitdejeuner = r1;
+                menuJour.repas1 = r2;
+                menuJour.repas2 = r3;
+                menuJour.dessertcollation = r4;
 
                 await fetch('/api/menu-prevu', {
                     method: 'POST',
@@ -492,17 +528,24 @@
             const container = document.getElementById('container-suggestions-vertes');
             if (!container || recettesCache.length === 0) return;
             
-            const suggestions = [...recettesCache].sort((a, b) => ((b.proteines || 0) + (b.fibres || 0) - (b.cout_par_part || 0)) - ((a.proteines || 0) + (a.fibres || 0) - (a.cout_par_part || 0))).slice(0, 3);
+            const suggestions = [...recettesCache].sort((a, b) => {
+                const coutA = a.cout_par_part !== undefined ? a.cout_par_part : (a.cout || a.prix || 0);
+                const coutB = b.cout_par_part !== undefined ? b.cout_par_part : (b.cout || b.prix || 0);
+                return ((b.proteines || 0) + (b.fibres || 0) - coutB) - ((a.proteines || 0) + (a.fibres || 0) - coutA);
+            }).slice(0, 3);
             
-            container.innerHTML = suggestions.map(r => `
-                <div class="bg-white p-2.5 rounded-xl border border-emerald-100 flex justify-between items-center text-xs">
-                    <div>
-                        <span class="font-bold text-slate-800">${r.nom}</span>
-                        <span class="text-emerald-600 block text-[10px]">🔥 ${r.calories || 0} kcal | 🥩 ${r.proteines || 0}g P | 🌾 ${r.fibres || 0}g Fibres | 💶 ${r.cout_par_part || 0}€</span>
+            container.innerHTML = suggestions.map(r => {
+                const coutUnitaire = r.cout_par_part !== undefined ? r.cout_par_part : (r.cout || r.prix || 0);
+                return `
+                    <div class="bg-white p-2.5 rounded-xl border border-emerald-100 flex justify-between items-center text-xs">
+                        <div>
+                            <span class="font-bold text-slate-800">${r.nom}</span>
+                            <span class="text-emerald-600 block text-[10px]">🔥 ${r.calories || 0} kcal | 🥩 ${r.proteines || 0}g P | 🌾 ${r.fibres || 0}g Fibres | 💶 ${coutUnitaire}€</span>
+                        </div>
+                        <span class="text-emerald-600 font-bold text-sm">✓</span>
                     </div>
-                    <span class="text-emerald-600 font-bold text-sm">✓</span>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function ouvrirModalPersonne(mode) {
@@ -534,24 +577,21 @@
 
         async function sauvegarderPersonne(event) {
             event.preventDefault();
-            const data = {
-                nom: document.getElementById('personne-nom').value,
-                ancienNom: document.getElementById('personne-ancien-nom').value,
-                calories: document.getElementById('personne-cal').value,
-                budget: document.getElementById('personne-budget').value,
-                proteines: document.getElementById('personne-prot').value,
-                glucides: document.getElementById('personne-gluc').value,
-                lipides: document.getElementById('personne-lip').value
-            };
+            const ancienNom = document.getElementById('personne-ancien-nom').value;
+            const nom = document.getElementById('personne-nom').value;
+            const calories = document.getElementById('personne-cal').value;
+            const budget = document.getElementById('personne-budget').value;
+            const proteines = document.getElementById('personne-prot').value;
+            const glucides = document.getElementById('personne-gluc').value;
+            const lipides = document.getElementById('personne-lip').value;
 
             try {
                 await fetch('/api/personnes-objectifs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify({ nom, ancienNom, calories, budget, proteines, glucides, lipides })
                 });
                 fermerModalPersonne();
-                localStorage.setItem('profilActif', data.nom);
                 initPlanification();
             } catch (e) {
                 console.error("Erreur sauvegarde profil", e);
@@ -559,18 +599,22 @@
         }
 
         async function supprimerPersonneActuelle() {
-            const profilActif = document.getElementById('select-profil').value;
-            if (!confirm(`Voulez-vous vraiment supprimer le profil ${profilActif} ?`)) return;
+            const nom = document.getElementById('personne-nom').value;
+            if (!confirm(`Voulez-vous vraiment supprimer le profil ${nom} ?`)) return;
+
             try {
-                await fetch(`/api/personnes-objectifs?nom=${encodeURIComponent(profilActif)}`, { method: 'DELETE' });
+                await fetch('/api/personnes-objectifs', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nom })
+                });
                 fermerModalPersonne();
+                localStorage.removeItem('profilActif');
                 initPlanification();
             } catch (e) {
                 console.error("Erreur suppression profil", e);
             }
         }
-
-        socket.on('data_updated', initPlanification);
     </script>
 </body>
 </html>

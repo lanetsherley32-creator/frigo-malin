@@ -62,9 +62,6 @@
                 window.location.href = '/login.html';
             }
         </script>
-    </div>
-</body>
-</html>
 
         <!-- 1. Barre de recherche globale d'aliments -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-2">
@@ -160,6 +157,10 @@
         } catch (e) {
             console.warn("Socket.io non initialisé", e);
         }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            init();
+        });
 
         async function init() {
             try {
@@ -292,11 +293,13 @@
                         }).join('');
                     }
 
+                    const portionStr = m.quantite_portion ? ` | 🥣 Portion type : ${m.quantite_portion} ${m.unite_portion || 'g'}` : '';
+
                     return `
                         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
                             <div class="flex justify-between items-center flex-wrap gap-1">
                                 <span class="font-bold text-slate-700 text-xs">🏷️ ${m.nom || 'Marque générique'}</span>
-                                <span class="text-emerald-700 text-[11px]">🔥 ${m.calories || 0} kcal | P: ${m.proteines || 0}g | G: ${m.glucides || 0}g (sucres: ${m.sucres || 0}g) | L: ${m.lipides || 0}g | Fibres: ${m.fibres || 0}g</span>
+                                <span class="text-emerald-700 text-[11px]">🔥 ${m.calories || 0} kcal | P: ${m.proteines || 0}g | G: ${m.glucides || 0}g (sucres: ${m.sucres || 0}g) | L: ${m.lipides || 0}g | Fibres: ${m.fibres || 0}g${portionStr}</span>
                             </div>
                             <div class="space-y-1.5 pl-2 border-l-2 border-indigo-200">${formatsHtml}</div>
                         </div>
@@ -332,6 +335,10 @@
             const sucresVal = data.sucres || 0;
             const lipVal = data.lipides || data.lip || 0;
             const fibresVal = data.fibres || 0;
+            
+            // Gestion de la quantité d'une portion
+            const qtePortionVal = data.quantite_portion || '';
+            const unitePortionVal = data.unite_portion || 'g';
 
             const div = document.createElement('div');
             div.id = blockId;
@@ -343,6 +350,19 @@
                     <label class="block text-[10px] font-bold text-slate-500 mb-1">Nom de la marque :</label>
                     <input type="text" class="input-marque border border-slate-200 p-2 rounded-xl bg-white w-full font-medium pr-8" placeholder="Ex: Barilla" value="${marqueVal}">
                 </div>
+
+                <!-- Entrée de la quantité d'une portion en grammes ou mL -->
+                <div class="bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100 space-y-1">
+                    <label class="block text-[11px] font-bold text-indigo-900">🥣 Quantité d'une portion standard :</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" step="any" class="input-portion-qte border border-slate-200 p-1.5 rounded-lg bg-white w-28 text-center font-medium" placeholder="Ex: 50" value="${qtePortionVal}">
+                        <select class="input-portion-unite border border-slate-200 p-1.5 rounded-lg bg-white font-medium">
+                            <option value="g" ${unitePortionVal === 'g' ? 'selected' : ''}>g</option>
+                            <option value="ml" ${unitePortionVal === 'ml' ? 'selected' : ''}>ml</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="space-y-1.5">
                     <span class="block text-[11px] font-bold text-slate-600">📊 Valeurs nutritionnelles (pour 100g / 100ml) :</span>
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
@@ -469,6 +489,8 @@
                 sucres: p.sucres || 0,
                 lipides: p.lipides || 0,
                 fibres: p.fibres || 0,
+                quantite_portion: p.quantite_portion || '',
+                unite_portion: p.unite_portion || 'g',
                 formats: [{ qte: p.quantite_paquet || 1, unite: p.unite || 'g' }]
             });
             document.getElementById('resultats-off-container').classList.add('hidden');
@@ -491,6 +513,8 @@
             let marquesData = [];
             document.querySelectorAll('#marques-container > div').forEach(block => {
                 const nomMarque = block.querySelector('.input-marque').value.trim();
+                const quantite_portion = parseFloat(block.querySelector('.input-portion-qte').value) || null;
+                const unite_portion = block.querySelector('.input-portion-unite').value;
                 const calories = parseFloat(block.querySelector('.input-cal').value) || 0;
                 const proteines = parseFloat(block.querySelector('.input-prot').value) || 0;
                 const glucides = parseFloat(block.querySelector('.input-gluc').value) || 0;
@@ -510,39 +534,46 @@
                     });
                     formatsData.push({ qte, unite, prix_enseignes });
                 });
-                marquesData.push({ nom: nomMarque, calories, proteines, glucides, sucres, lipides, fibres, formats: formatsData });
+                marquesData.push({ nom: nomMarque, quantite_portion, unite_portion, calories, proteines, glucides, sucres, lipides, fibres, formats: formatsData });
             });
 
             const data = { nom, rayon, marques: marquesData };
             const url = id ? `/api/ingredients/${id}` : '/api/ingredients';
             const method = id ? 'PUT' : 'POST';
 
-            const response = await fetch(url, {
-                method: method,
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
 
-            if (!response.ok) {
-                const errData = await response.json();
-                alert(errData.error || "Erreur lors de l'enregistrement");
-                return;
+                if (res.ok) {
+                    reinitialiserFormulaire();
+                    init();
+                    alert("✅ Ingrédient enregistré avec succès !");
+                } else {
+                    alert("❌ Erreur lors de l'enregistrement.");
+                }
+            } catch (err) {
+                console.error("Erreur sauvegarde ingrédient", err);
             }
-
-            reinitialiserFormulaire();
-            init();
-            document.getElementById('conteneur-affichage-dynamique').innerHTML = '';
         }
 
         async function supprimerIngredient(id) {
-            if (confirm("Voulez-vous vraiment supprimer cet ingrédient ?")) {
-                await fetch(`/api/ingredients/${id}`, { method: 'DELETE' });
-                init();
-                document.getElementById('conteneur-affichage-dynamique').innerHTML = '';
+            if (!confirm("Voulez-vous vraiment supprimer cet ingrédient ?")) return;
+            try {
+                const res = await fetch(`/api/ingredients/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    init();
+                    document.getElementById('conteneur-affichage-dynamique').innerHTML = '';
+                } else {
+                    alert("❌ Erreur lors de la suppression.");
+                }
+            } catch (err) {
+                console.error("Erreur suppression ingrédient", err);
             }
         }
-
-        init();
     </script>
 </body>
 </html>
