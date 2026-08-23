@@ -110,7 +110,7 @@
 
                 const data = await res.json();
                 if (res.ok) {
-                    window.location.href = `${API_URL}/index.html`;
+                    window.location.href = `${API_URL}/global.html`;
                 } else {
                     alert(data.error || "E-mail ou mot de passe incorrect.");
                 }
@@ -141,7 +141,7 @@
                 const data = await res.json();
                 if (res.ok) {
                     alert("Compte créé avec succès ! Vous êtes connecté.");
-                    window.location.href = `${API_URL}/index.html`;
+                    window.location.href = `${API_URL}/global.html`;
                 } else {
                     alert(data.error || "Erreur lors de la création du compte.");
                 }
