@@ -711,30 +711,103 @@ async function traiterGenerationMenu(req, res) {
     }
 }
 
-// --- API GET /api/menus-semaine (Corrigé pour renvoyer un objet par jour) ---
+// --- API GET /api/menus-semaine (Avec calculs nutritionnels et budget par jour) ---
 app.get('/api/menus-semaine', async (req, res) => {
-    const profil = req.query.profil;
-    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+    let profil = req.query.profil;
+    const compteEmail = req.session.user;
+
     try {
+        if (!profil || profil === 'undefined' || profil === 'null' || profil.trim() === '') {
+            if (compteEmail) {
+                const profilsRes = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [compteEmail]);
+                if (profilsRes.rows.length > 0) {
+                    profil = profilsRes.rows[0].nom;
+                } else {
+                    profil = compteEmail;
+                }
+            } else {
+                return res.status(400).json({ error: "Profil manquant et utilisateur non connecté" });
+            }
+        }
+
         const result = await pool.query("SELECT * FROM menu_prevu WHERE profil = $1", [profil]);
         
-        // Transformer le tableau de la base de données en un objet { Lundi: { "Petit Déjeuner": "...", ... }, ... }
         const semaineObj = {};
-        result.rows.forEach(row => {
-            semaineObj[row.jour] = {
+        const totauxSemaine = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, budget: 0 };
+
+        for (const row of result.rows) {
+            const jour = row.jour;
+            const repasJour = {
                 'Petit Déjeuner': row.petitdejeuner || '',
                 'Repas 1': row.repas1 || '',
                 'Repas 2': row.repas2 || '',
                 'Dessert/Collation': row.dessertcollation || ''
             };
-        });
 
-        res.json({ semaine: semaineObj });
+            // Récupérer tous les noms / IDs des plats du jour pour calculer leurs apports
+            const nomsPlats = Object.values(repasJour).filter(Boolean);
+            let totauxJour = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, budget: 0 };
+
+            if (nomsPlats.length > 0) {
+                // Recherche dans les recettes (par nom)
+                const recettesRes = await pool.query(
+                    `SELECT parts, calories, proteines, glucides, lipides, fibres, sucre, cout FROM recettes WHERE nom = ANY($1::text[])`, 
+                    [nomsPlats]
+                );
+                
+                recettesRes.rows.forEach(r => {
+                    const parts = parseFloat(r.parts) || 1;
+                    const ratioPart = 1 / parts; // Calcul proportionnel à la part
+                    totauxJour.calories += (parseFloat(r.calories) || 0) * ratioPart;
+                    totauxJour.proteines += (parseFloat(r.proteines) || 0) * ratioPart;
+                    totauxJour.glucides += (parseFloat(r.glucides) || 0) * ratioPart;
+                    totauxJour.lipides += (parseFloat(r.lipides) || 0) * ratioPart;
+                    totauxJour.fibres += (parseFloat(r.fibres) || 0) * ratioPart;
+                    totauxJour.sucre += (parseFloat(r.sucre) || 0) * ratioPart;
+                    totauxJour.budget += (parseFloat(r.cout) || 0) * ratioPart;
+                });
+            }
+
+            // Cumul pour la semaine globale
+            totauxSemaine.calories += totauxJour.calories;
+            totauxSemaine.proteines += totauxJour.proteines;
+            totauxSemaine.glucides += totauxJour.glucides;
+            totauxSemaine.lipides += totauxJour.lipides;
+            totauxSemaine.fibres += totauxJour.fibres;
+            totauxSemaine.sucre += totauxJour.sucre;
+            totauxSemaine.budget += totauxJour.budget;
+
+            semaineObj[jour] = {
+                repas: repasJour,
+                totaux: {
+                    calories: Math.round(totauxJour.calories),
+                    proteines: Math.round(totauxJour.proteines),
+                    glucides: Math.round(totauxJour.glucides),
+                    lipides: Math.round(totauxJour.lipides),
+                    fibres: Math.round(totauxJour.fibres),
+                    sucre: Math.round(totauxJour.sucre),
+                    budget: Math.round(totauxJour.budget * 100) / 100
+                }
+            };
+        }
+
+        res.json({ 
+            semaine: semaineObj, 
+            totauxSemaine: {
+                calories: Math.round(totauxSemaine.calories),
+                proteines: Math.round(totauxSemaine.proteines),
+                glucides: Math.round(totauxSemaine.glucides),
+                lipides: Math.round(totauxSemaine.lipides),
+                fibres: Math.round(totauxSemaine.fibres),
+                sucre: Math.round(totauxSemaine.sucre),
+                budget: Math.round(totauxSemaine.budget * 100) / 100
+            }
+        });
     } catch (err) {
+        console.error("ERREUR /api/menus-semaine :", err);
         res.status(500).json({ error: err.message });
     }
 });
-
 // --- API GÉNÉRATION AUTOMATIQUE DE MENU (LES DEUX ROUTES SUPPORTÉES) ---
 app.post('/api/generer-menu', traiterGenerationMenu);
 app.post('/api/menus-semaine', traiterGenerationMenu);
