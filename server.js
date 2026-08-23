@@ -194,21 +194,21 @@ app.post('/api/mot-de-passe-oublie', async (req, res) => {
         const expires = Date.now() + 3600000;
 
         await pool.query("UPDATE profils SET reset_token = $1, reset_expires = $2 WHERE email = $3", [token, expires, email]);
-        const resetLink = `${req.protocol}://${req.get('host')}/reset.html?token=${token}`;
         
-        try {
-            await transporter.sendMail({
-                from: '"Menu de la Semaine" <noreply@menudesemaine.com>',
-                to: email,
-                subject: 'Réinitialisation de votre mot de passe',
-                text: `Bonjour, cliquez sur ce lien pour réinitialiser votre mot de passe : ${resetLink}`
-            });
-            res.json({ success: true, message: "E-mail de réinitialisation envoyé." });
-        } catch (e) {
-            res.json({ success: true, message: "Lien de réinitialisation généré (mode dev)", debug_link: resetLink });
-        }
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const resetLink = `${protocol}://${req.get('host')}/reset.html?token=${token}`;
+        
+        await transporter.sendMail({
+            from: '"Menu de la Semaine" <noreply@menudesemaine.com>',
+            to: email,
+            subject: 'Réinitialisation de votre mot de passe',
+            text: `Bonjour, cliquez sur ce lien pour réinitialiser votre mot de passe : ${resetLink}`
+        });
+        
+        res.json({ success: true, message: "E-mail de réinitialisation envoyé." });
     } catch (err) {
-        res.status(500).json({ error: "Erreur serveur." });
+        console.error("ERREUR MDP OUBLIE:", err);
+        res.status(500).json({ error: "Erreur lors de l'envoi de l'e-mail." });
     }
 });
 
@@ -220,9 +220,10 @@ app.post('/api/reset-password', async (req, res) => {
         if (!user) return res.status(400).json({ error: "Token invalide ou expiré." });
 
         const hashedPassword = await bcrypt.hash(nouveauMdp, 10);
-        await pool.query("UPDATE profils SET mdp = $1, reset_token = NULL, reset_expires = NULL WHERE nom = $2", [hashedPassword, user.nom]);
+        await pool.query("UPDATE profils SET mdp = $1, reset_token = NULL, reset_expires = NULL WHERE email = $2", [hashedPassword, user.email]);
         res.json({ success: true, message: "Mot de passe mis à jour avec succès." });
     } catch (e) {
+        console.error("ERREUR RESET PASSWORD:", e);
         res.status(500).json({ error: "Erreur lors de la mise à jour." });
     }
 });
@@ -250,14 +251,12 @@ app.post('/api/personnes-objectifs', async (req, res) => {
     try {
         const cibleNom = ancienNom || nom;
         
-        // 1. On vérifie si le sous-profil existe déjà pour ce compte
         const check = await pool.query(
             "SELECT id FROM personnes_objectifs WHERE compte_email = $1 AND nom = $2", 
             [compteEmail, cibleNom]
         );
 
         if (check.rows.length > 0) {
-            // 2. Si il existe, on met à jour
             await pool.query(
                 `UPDATE personnes_objectifs 
                  SET nom = $1, calories = $2, eau = $3, budget = $4, budget_periode = $5, proteines = $6, glucides = $7, lipides = $8 
@@ -265,7 +264,6 @@ app.post('/api/personnes-objectifs', async (req, res) => {
                 [nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0, compteEmail, cibleNom]
             );
         } else {
-            // 3. Sinon, on insère un nouveau
             await pool.query(
                 `INSERT INTO personnes_objectifs (compte_email, nom, calories, eau, budget, budget_periode, proteines, glucides, lipides) 
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
@@ -732,4 +730,4 @@ app.post('/api/courses/generer', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`)); 
+server.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));

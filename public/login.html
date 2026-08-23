@@ -93,10 +93,12 @@
         // Mot de passe oublié
         document.getElementById('link-forgot').addEventListener('click', async function(e) {
             e.preventDefault();
-            const emailSaisi = document.getElementById('login-email').value.trim();
-            const email = emailSaisi || prompt("Veuillez entrer votre adresse e-mail :");
+            const email = document.getElementById('login-email').value.trim();
             
-            if (!email) return;
+            if (!email) {
+                alert("Veuillez d'abord saisir votre adresse e-mail dans le champ e-mail ci-dessus.");
+                return;
+            }
 
             try {
                 const res = await fetch(`${API_URL}/api/mot-de-passe-oublie`, {
@@ -123,8 +125,6 @@
         // Connexion
         document.getElementById('btn-login').addEventListener('click', async function(e) {
             e.preventDefault();
-            console.log("=== CLIC SUR CONNEXION SÉCURISÉ ===");
-
             const email = document.getElementById('login-email').value;
             const mdp = document.getElementById('login-mdp').value;
 
@@ -141,15 +141,12 @@
                 });
 
                 const data = await res.json();
-                console.log("Réponse reçue :", data);
-
                 if (res.ok) {
                     window.location.href = `${API_URL}/index.html`;
                 } else {
                     alert(data.error || "E-mail ou mot de passe incorrect.");
                 }
             } catch (err) {
-                console.error("Erreur :", err);
                 alert("Erreur serveur : " + err.message);
             }
         });
