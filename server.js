@@ -785,14 +785,21 @@ app.post('/api/courses/generer', async (req, res) => {
                     const qte = ingItem.quantite || 1;
                     const unite = ingItem.unite || '';
                     
-                    // Chercher l'ingrédient de référence pour récupérer ses marques/prix disponibles
+                    // Chercher l'ingrédient de référence pour récupérer son vrai rayon et ses marques/prix disponibles
                     const refIngRes = await pool.query("SELECT * FROM ingredients WHERE LOWER(nom) = LOWER($1)", [nomIng]);
                     let marquesDispos = [];
                     let prixRetenu = parseFloat(ingItem.prix || 0);
                     let marqueRetenue = 'Standard';
+                    let rayonFinal = ingItem.rayon || 'Épicerie'; // Valeur par défaut initiale
 
                     if (refIngRes.rows.length > 0) {
                         const ref = refIngRes.rows[0];
+                        
+                        // Récupération prioritaire du vrai rayon depuis la table des ingrédients
+                        if (ref.rayon) {
+                            rayonFinal = ref.rayon;
+                        }
+
                         try {
                             marquesDispos = typeof ref.marques === 'string' ? JSON.parse(ref.marques) : (ref.marques || []);
                         } catch (e) { marquesDispos = []; }
@@ -810,7 +817,7 @@ app.post('/api/courses/generer', async (req, res) => {
                     await pool.query(
                         `INSERT INTO courses (profil, nom, quantite_necessaire, unite, rayon, prix, marque, marques_disponibles, coche) 
                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0)`,
-                        [profil, nomIng, qte, unite, ingItem.rayon || 'Épicerie', prixRetenu, marqueRetenue, JSON.stringify(marquesDispos)]
+                        [profil, nomIng, qte, unite, rayonFinal, prixRetenu, marqueRetenue, JSON.stringify(marquesDispos)]
                     );
                 }
             }
