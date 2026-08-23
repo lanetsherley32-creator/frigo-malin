@@ -110,14 +110,15 @@
 
         async function chargerDonnees() {
             try {
-                const resProfils = await fetch('/api/profils');
-                if (resProfils.ok) profilsGlobal = await resProfils.json();
+                const [resProfils, resIng, resRec] = await Promise.all([
+                    fetch('/api/personnes-objectifs').catch(() => fetch('/api/profils')),
+                    fetch('/api/ingredients'),
+                    fetch('/api/recettes')
+                ]);
 
-                const resIng = await fetch('/api/ingredients');
-                if (resIng.ok) ingredientsGlobal = await resIng.json();
-
-                const resRec = await fetch('/api/recettes');
-                if (resRec.ok) recettesGlobal = await resRec.json();
+                if (resProfils && resProfils.ok) profilsGlobal = await resProfils.json();
+                if (resIng && resIng.ok) ingredientsGlobal = await resIng.json();
+                if (resRec && resRec.ok) recettesGlobal = await resRec.json();
 
                 chargerStockStocke();
                 renderProfils();
@@ -165,9 +166,10 @@
 
         function convertirEnGrammeOuUnite(valeur, unite) {
             valeur = parseFloat(valeur) || 0;
-            if (unite === 'kg' || unite === 'L') return valeur * 1000;
-            if (unite === 'c.à.s') return valeur * 15;
-            if (unite === 'c.à.c') return valeur * 5;
+            const u = (unite || '').toString().toLowerCase().trim();
+            if (u === 'kg' || u === 'l') return valeur * 1000;
+            if (u === 'c.à.s' || u === 'cas') return valeur * 15;
+            if (u === 'c.à.c' || u === 'cac') return valeur * 5;
             return valeur; 
         }
 
@@ -244,7 +246,7 @@
                 return `
                     <div class="flex justify-between items-center bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs">
                         <span class="font-bold text-slate-800">${nom} : <strong class="text-blue-600">${qte} ${unite}</strong></span>
-                        <button onclick="supprimerDuFrigo('${id}')" class="text-rose-500 font-bold px-2 py-1">✕</button>
+                        <button onclick="supprimerDuFrigo('${id}')" class="text-rose-500 font-bold px-2 py-1 hover:bg-rose-50 rounded-lg">✕</button>
                     </div>
                 `;
             }).join('');
@@ -255,22 +257,27 @@
             if (!ingredientsData) return parsedList;
 
             try {
-                const parsed = typeof ingredientsData === 'string' ? JSON.parse(ingredientsData) : ingredientsData;
+                let parsed = typeof ingredientsData === 'string' ? JSON.parse(ingredientsData) : ingredientsData;
+                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+
                 if (Array.isArray(parsed)) {
                     return parsed.map(ing => {
-                        const ingObj = ingredientsGlobal.find(i => i.id == (ing.id || ing.ingredient_id));
-                        const qteVal = parseFloat(ing.quantite || 0);
+                        const targetId = ing.id || ing.ingredient_id;
+                        const ingObj = ingredientsGlobal.find(i => i.id == targetId);
+                        const qteVal = parseFloat(ing.quantite || ing.qte || 0);
                         const uniteVal = ing.unite || 'g';
                         return {
-                            id: ingObj ? ingObj.id : (ing.id || ing.ingredient_id),
-                            nom: ingObj ? ingObj.nom : "Ingrédient",
+                            id: targetId,
+                            nom: ingObj ? ingObj.nom : (ing.nom || "Ingrédient"),
                             quantite: qteVal,
                             unite: uniteVal,
                             quantiteBase: convertirEnGrammeOuUnite(qteVal, uniteVal)
                         };
                     });
                 }
-            } catch(e) {}
+            } catch(e) {
+                console.error("Erreur lors du traitement des ingrédients de recette :", e);
+            }
             return parsedList;
         }
 
@@ -304,15 +311,15 @@
                 listeIngsParsed.forEach(ingR => {
                     let stockDispoBase = frigoNormalise[ingR.id] || 0;
                     if (stockDispoBase < ingR.quantiteBase) {
+                        const manquantBase = ingR.quantiteBase - stockDispoBase;
                         manquant.push({
                             nom: ingR.nom,
                             besoin: `${ingR.quantite} ${ingR.unite}`,
-                            reste: `${stockDispoBase} ${ingR.unite}`
+                            reste: stockDispoBase > 0 ? `${(stockDispoBase / (ingR.quantiteBase / ingR.quantite)).toFixed(1)} ${ingR.unite}` : '0'
                         });
                     }
                 });
 
-                // On ne garde que les recettes nécessitant au maximum 4 achats
                 if (manquant.length <= 4) {
                     const nbAchats = manquant.length;
                     const faisable = (nbAchats === 0);
@@ -326,7 +333,6 @@
                 }
             });
 
-            // Tri : du plus recommandé (0 achat / nbAchats le plus bas) au moins recommandé (4 achats)
             recettesAnalysees.sort((a, b) => a.nbAchats - b.nbAchats);
 
             if (recettesAnalysees.length === 0) {

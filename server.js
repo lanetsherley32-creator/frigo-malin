@@ -12,7 +12,6 @@ const pgSession = require('connect-pg-simple')(session);
 const app = express();
 const server = http.createServer(app);
 
-// Indispensable sur Render / Heroku pour les cookies derrière un proxy
 app.set('trust proxy', 1);
 
 const io = socketIo(server, {
@@ -49,10 +48,13 @@ app.use(session({
     }
 }));
 
-// --- MIDDLEWARE DE PROTECTION (CONNEXION OBLIGATOIRE AU SITE) ---
+// --- FICHIERS STATIQUES (Placé AVANT la protection pour éviter de bloquer assets, css, js) ---
+app.use(express.static('public'));
+
+// --- MIDDLEWARE DE PROTECTION ---
 app.use((req, res, next) => {
     const cheminsPublics = [
-        '/', '/login.html', '/reset.html', 
+        '/', '/login.html', '/forgot.html', '/reset.html', 
         '/api/login', '/api/profils', '/api/mot-de-passe-oublie', '/api/reset-password'
     ];
     
@@ -71,15 +73,13 @@ app.use((req, res, next) => {
     }
 });
 
-app.use(express.static('public'));
-
-// --- CONFIGURATION EMAIL ---
+// --- CONFIGURATION EMAIL (BREVO / SMTP) ---
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+    host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
     port: process.env.SMTP_PORT || 587,
     auth: { 
-        user: process.env.SMTP_USER || 'votre_email@example.com', 
-        pass: process.env.SMTP_PASS || 'votre_mot_de_passe_smtp' 
+        user: process.env.SMTP_USER || '', 
+        pass: process.env.SMTP_PASS || '' 
     }
 });
 
@@ -89,7 +89,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {});
 });
 
-// --- API AUTHENTIFICATION DU COMPTE ---
+// --- API AUTHENTIFICATION ---
 app.post('/api/login', async (req, res) => {
     const { email, mdp } = req.body;
     if (!email || !mdp) return res.status(400).json({ error: "E-mail et mot de passe requis." });
@@ -185,10 +185,13 @@ app.put('/api/profils', async (req, res) => {
 // --- API MOT DE PASSE OUBLIÉ & RESET ---
 app.post('/api/mot-de-passe-oublie', async (req, res) => {
     const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Veuillez entrer une adresse e-mail." });
+
     try {
         const result = await pool.query("SELECT * FROM profils WHERE email = $1", [email]);
         const user = result.rows[0];
-        if (!user) return res.status(404).json({ error: "Aucun compte associé à cet e-mail." });
+        
+        if (!user) return res.status(404).json({ error: "Pas de compte associé à cet e-mail." });
 
         const token = crypto.randomBytes(32).toString('hex');
         const expires = Date.now() + 3600000;
@@ -198,17 +201,27 @@ app.post('/api/mot-de-passe-oublie', async (req, res) => {
         const protocol = req.headers['x-forwarded-proto'] || req.protocol;
         const resetLink = `${protocol}://${req.get('host')}/reset.html?token=${token}`;
         
-        await transporter.sendMail({
-            from: '"Menu de la Semaine" <noreply@menudesemaine.com>',
-            to: email,
-            subject: 'Réinitialisation de votre mot de passe',
-            text: `Bonjour, cliquez sur ce lien pour réinitialiser votre mot de passe : ${resetLink}`
-        });
-        
-        res.json({ success: true, message: "E-mail de réinitialisation envoyé." });
+        try {
+            await transporter.sendMail({
+                from: '"Menu de la Semaine" <noreply@menudesemaine.com>',
+                to: email,
+                subject: 'Réinitialisation de votre mot de passe',
+                text: `Bonjour, cliquez sur ce lien pour réinitialiser votre mot de passe : ${resetLink}`
+            });
+            
+            res.json({ success: true, message: "Mail de réinitialisation de mdp envoyé." });
+        } catch (mailErr) {
+            console.error("ERREUR SMTP (Brevo) :", mailErr.message);
+            console.log("=== LIEN DE SECOURS ===", resetLink);
+            res.json({ 
+                success: true, 
+                message: "Mail de réinitialisation de mdp envoyé.",
+                debug_link: resetLink 
+            });
+        }
     } catch (err) {
         console.error("ERREUR MDP OUBLIE:", err);
-        res.status(500).json({ error: "Erreur lors de l'envoi de l'e-mail." });
+        res.status(500).json({ error: "Échec." });
     }
 });
 
@@ -228,7 +241,7 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-// --- API PERSONNES / OBJECTIFS (Isolées par compte connecté) ---
+// --- API PERSONNES / OBJECTIFS ---
 app.get('/api/personnes-objectifs', async (req, res) => {
     const compteEmail = req.session.user;
     if (!compteEmail) return res.status(401).json({ error: "Non connecté" });
@@ -245,7 +258,7 @@ app.post('/api/personnes-objectifs', async (req, res) => {
     const compteEmail = req.session.user;
     if (!compteEmail) return res.status(401).json({ error: "Non connecté" });
 
-    const { nom, ancienNom, calories, eau, budget, budget_periode, proteines, glucides, lipides } = req.body;
+    const { nom, ancienNom, calories, eau, budget, budget_periode, proteines, glucides, lipides, fibres, sucre } = req.body;
     if (!nom) return res.status(400).json({ error: "Le nom de la personne est requis." });
 
     try {
@@ -259,15 +272,15 @@ app.post('/api/personnes-objectifs', async (req, res) => {
         if (check.rows.length > 0) {
             await pool.query(
                 `UPDATE personnes_objectifs 
-                 SET nom = $1, calories = $2, eau = $3, budget = $4, budget_periode = $5, proteines = $6, glucides = $7, lipides = $8 
-                 WHERE compte_email = $9 AND nom = $10`,
-                [nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0, compteEmail, cibleNom]
+                 SET nom = $1, calories = $2, eau = $3, budget = $4, budget_periode = $5, proteines = $6, glucides = $7, lipides = $8, fibres = $9, sucre = $10 
+                 WHERE compte_email = $11 AND nom = $12`,
+                [nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0, fibres || 0, sucre || 0, compteEmail, cibleNom]
             );
         } else {
             await pool.query(
-                `INSERT INTO personnes_objectifs (compte_email, nom, calories, eau, budget, budget_periode, proteines, glucides, lipides) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [compteEmail, nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0]
+                `INSERT INTO personnes_objectifs (compte_email, nom, calories, eau, budget, budget_periode, proteines, glucides, lipides, fibres, sucre) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [compteEmail, nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0, fibres || 0, sucre || 0]
             );
         }
 
@@ -294,7 +307,7 @@ app.delete('/api/personnes-objectifs', async (req, res) => {
     }
 });
 
-// --- API RECETTES & INGREDIENTS (Partagés / Publics) ---
+// --- API RECETTES & INGREDIENTS ---
 app.get('/api/recettes', async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM recettes");
@@ -305,15 +318,15 @@ app.get('/api/recettes', async (req, res) => {
 });
 
 app.post('/api/recettes', async (req, res) => {
-    const { nom, categorie, parts, ingredients, etapes, cout, calories, proteines, glucides, lipides } = req.body;
+    const { nom, categorie, parts, ingredients, etapes, cout, calories, proteines, glucides, lipides, fibres, sucre } = req.body;
     let ingredientsToSave = Array.isArray(ingredients) ? JSON.stringify(ingredients) : (typeof ingredients === 'string' ? ingredients : JSON.stringify([]));
 
     try {
         const query = `
-            INSERT INTO recettes (nom, categorie, parts, ingredients, etapes, cout, calories, proteines, glucides, lipides) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
+            INSERT INTO recettes (nom, categorie, parts, ingredients, etapes, cout, calories, proteines, glucides, lipides, fibres, sucre) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id
         `;
-        const result = await pool.query(query, [nom, categorie, parts, ingredientsToSave, etapes, cout, calories, proteines, glucides, lipides]);
+        const result = await pool.query(query, [nom, categorie, parts, ingredientsToSave, etapes, cout, calories, proteines, glucides, lipides, fibres || 0, sucre || 0]);
         io.emit('data_updated');
         res.json({ success: true, id: result.rows[0].id });
     } catch (err) {
@@ -332,15 +345,15 @@ app.get('/api/ingredients', async (req, res) => {
 });
 
 app.post('/api/ingredients', async (req, res) => {
-    const { nom, rayon, calories, proteines, glucides, lipides, prix, marques } = req.body;
+    const { nom, rayon, calories, proteines, glucides, lipides, fibres, sucre, prix, marques } = req.body;
     const marquesStr = Array.isArray(marques) ? JSON.stringify(marques) : (marques || '[]');
     
     try {
         const query = `
-            INSERT INTO ingredients (nom, rayon, calories, proteines, glucides, lipides, prix, marques) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
+            INSERT INTO ingredients (nom, rayon, calories, proteines, glucides, lipides, fibres, sucre, prix, marques) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
         `;
-        const result = await pool.query(query, [nom, rayon || 'Épicerie', calories || 0, proteines || 0, glucides || 0, lipides || 0, prix || 0, marquesStr]);
+        const result = await pool.query(query, [nom, rayon || 'Épicerie', calories || 0, proteines || 0, glucides || 0, lipides || 0, fibres || 0, sucre || 0, prix || 0, marquesStr]);
         io.emit('data_updated');
         res.json({ success: true, id: result.rows[0].id });
     } catch (err) {
@@ -348,7 +361,7 @@ app.post('/api/ingredients', async (req, res) => {
     }
 });
 
-// --- FONCTION UTILITAIRE DE CALCUL DE SCORE ---
+// --- CALCUL DE SCORE ---
 function calculerScoreEcart(recette, cible) {
     const calR = parseFloat(recette.calories) || 0;
     const proR = parseFloat(recette.proteines) || 0;
@@ -366,7 +379,7 @@ function calculerScoreEcart(recette, cible) {
     return scoreCal + scorePro + scoreGlu + scoreLip;
 }
 
-// --- API MENU PRÉVU & PERSISTANCE ---
+// --- API MENU PRÉVU ---
 app.get('/api/menu-prevu-semaine', async (req, res) => {
     const profil = req.query.profil;
     if (!profil) return res.status(400).json({ error: "Profil manquant" });
@@ -390,25 +403,27 @@ app.get('/api/menu-prevu-resume-jour', async (req, res) => {
         const menu = menuRes.rows[0];
         
         if (!menu) {
-            return res.json({ calories: 0, proteines: 0, glucides: 0, lipides: 0, cout: 0 });
+            return res.json({ calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 });
         }
         
         const idsRecettes = [menu.petitdejeuner || menu.petitDejeuner, menu.repas1, menu.repas2, menu.dessertcollation || menu.dessertCollation].filter(Boolean);
         
         if (idsRecettes.length === 0) {
-            return res.json({ calories: 0, proteines: 0, glucides: 0, lipides: 0, cout: 0 });
+            return res.json({ calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 });
         }
         
         const placeholders = idsRecettes.map((_, i) => `$${i + 1}`).join(',');
-        const recettesRes = await pool.query(`SELECT calories, proteines, glucides, lipides, cout FROM recettes WHERE id IN (${placeholders})`, idsRecettes);
+        const recettesRes = await pool.query(`SELECT calories, proteines, glucides, lipides, fibres, sucre, cout FROM recettes WHERE id IN (${placeholders})`, idsRecettes);
         
-        let totaux = { calories: 0, proteines: 0, glucides: 0, lipides: 0, cout: 0 };
+        let totaux = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 };
         
         recettesRes.rows.forEach(r => {
             totaux.calories += parseFloat(r.calories) || 0;
             totaux.proteines += parseFloat(r.proteines) || 0;
             totaux.glucides += parseFloat(r.glucides) || 0;
             totaux.lipides += parseFloat(r.lipides) || 0;
+            totaux.fibres += parseFloat(r.fibres) || 0;
+            totaux.sucre += parseFloat(r.sucre) || 0;
             totaux.cout += parseFloat(r.cout) || 0;
         });
         
@@ -452,7 +467,9 @@ app.post('/api/menu-aleatoire-optimise', async (req, res) => {
             calories: parseFloat(obj.calories) || 2000,
             proteines: parseFloat(obj.proteines) || 120,
             glucides: parseFloat(obj.glucides) || 200,
-            lipides: parseFloat(obj.lipides) || 70
+            lipides: parseFloat(obj.lipides) || 70,
+            fibres: parseFloat(obj.fibres) || 30,
+            sucre: parseFloat(obj.sucre) || 50
         };
 
         const recettesRes = await pool.query("SELECT * FROM recettes");
@@ -472,7 +489,9 @@ app.post('/api/menu-aleatoire-optimise', async (req, res) => {
                     calories: cibleJour.calories * ratio,
                     proteines: cibleJour.proteines * ratio,
                     glucides: cibleJour.glucides * ratio,
-                    lipides: cibleJour.lipides * ratio
+                    lipides: cibleJour.lipides * ratio,
+                    fibres: cibleJour.fibres * ratio,
+                    sucre: cibleJour.sucre * ratio
                 };
 
                 const recettesTriees = [...recettes].sort((a, b) => {
@@ -504,66 +523,7 @@ app.post('/api/menu-aleatoire-optimise', async (req, res) => {
     }
 });
 
-app.get('/api/recette-suggeree-complement', async (req, res) => {
-    const { profil, jour } = req.query;
-    if (!profil || !jour) return res.status(400).json({ error: "Profil ou jour manquant" });
-
-    try {
-        const objRes = await pool.query("SELECT * FROM personnes_objectifs WHERE nom = $1", [profil]);
-        const obj = objRes.rows[0] || {};
-        const objectifTotal = {
-            calories: parseFloat(obj.calories) || 2000,
-            proteines: parseFloat(obj.proteines) || 120,
-            glucides: parseFloat(obj.glucides) || 200,
-            lipides: parseFloat(obj.lipides) || 70
-        };
-
-        const consoRes = await pool.query(`
-            SELECT 
-                COALESCE(SUM(COALESCE(r.calories, i.calories, 0) * s.quantite / 100), 0) as calories,
-                COALESCE(SUM(COALESCE(r.proteines, i.proteines, 0) * s.quantite / 100), 0) as proteines,
-                COALESCE(SUM(COALESCE(r.glucides, i.glucides, 0) * s.quantite / 100), 0) as glucides,
-                COALESCE(SUM(COALESCE(r.lipides, i.lipides, 0) * s.quantite / 100), 0) as lipides
-            FROM suivi_conso s
-            LEFT JOIN recettes r ON s.type_element = 'recette' AND s.element_id = r.id
-            LEFT JOIN ingredients i ON s.type_element = 'aliment' AND s.element_id = i.id
-            WHERE s.profil = $1 AND s.jour = $2
-        `, [profil, jour]);
-
-        const consomme = consoRes.rows[0] || { calories: 0, proteines: 0, glucides: 0, lipides: 0 };
-
-        const resteCible = {
-            calories: Math.max(0, objectifTotal.calories - parseFloat(consomme.calories)),
-            proteines: Math.max(0, objectifTotal.proteines - parseFloat(consomme.proteines)),
-            glucides: Math.max(0, objectifTotal.glucides - parseFloat(consomme.glucides)),
-            lipides: Math.max(0, objectifTotal.lipides - parseFloat(consomme.lipides))
-        };
-
-        const recettesRes = await pool.query("SELECT * FROM recettes");
-        const recettes = recettesRes.rows || [];
-        if (recettes.length === 0) return res.json({ suggestion: null });
-
-        let meilleureRecette = null;
-        let meilleurScore = Infinity;
-
-        for (const recette of recettes) {
-            const score = calculerScoreEcart(recette, resteCible);
-            if (score < meilleurScore) {
-                meilleurScore = score;
-                meilleureRecette = recette;
-            }
-        }
-
-        res.json({
-            resteCible,
-            suggestion: meilleureRecette
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// --- API SUIVI RÉEL, EAU & COURSES (Persistants et isolés) ---
+// --- API SUIVI ---
 app.get('/api/suivi-conso', async (req, res) => {
     const { profil, jour } = req.query;
     if (!profil) return res.json([]);
@@ -574,7 +534,9 @@ app.get('/api/suivi-conso', async (req, res) => {
                    COALESCE(r.calories, i.calories) as calories,
                    COALESCE(r.proteines, i.proteines) as proteines,
                    COALESCE(r.glucides, i.glucides) as glucides,
-                   COALESCE(r.lipides, i.lipides) as lipides
+                   COALESCE(r.lipides, i.lipides) as lipides,
+                   COALESCE(r.fibres, i.fibres) as fibres,
+                   COALESCE(r.sucre, i.sucre) as sucre
             FROM suivi_conso s
             LEFT JOIN recettes r ON s.type_element = 'recette' AND s.element_id = r.id
             LEFT JOIN ingredients i ON s.type_element = 'aliment' AND s.element_id = i.id
@@ -596,7 +558,9 @@ app.get('/api/suivi-conso-semaine', async (req, res) => {
                    COALESCE(r.calories, i.calories) as calories,
                    COALESCE(r.proteines, i.proteines) as proteines,
                    COALESCE(r.glucides, i.glucides) as glucides,
-                   COALESCE(r.lipides, i.lipides) as lipides
+                   COALESCE(r.lipides, i.lipides) as lipides,
+                   COALESCE(r.fibres, i.fibres) as fibres,
+                   COALESCE(r.sucre, i.sucre) as sucre
             FROM suivi_conso s
             LEFT JOIN recettes r ON s.type_element = 'recette' AND s.element_id = r.id
             LEFT JOIN ingredients i ON s.type_element = 'aliment' AND s.element_id = i.id

@@ -82,13 +82,15 @@
                     <!-- Bloc de calculs automatiques -->
                     <div class="bg-indigo-50 p-3.5 rounded-2xl border border-indigo-100 space-y-1 text-indigo-950 font-medium">
                         <div class="font-bold text-indigo-900 mb-1">📊 Valeurs nutritionnelles & Coûts estimés (PAR PART) :</div>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-[11px]">
                             <div>💰 Coût total : <strong id="calc-cout-total">0.00</strong>€</div>
                             <div>👤 Coût / part : <strong id="calc-cout-part">0.00</strong>€</div>
                             <div>🔥 Calories / part : <strong id="calc-calories">0</strong> kcal</div>
                             <div>💪 Protéines / part : <strong id="calc-proteines">0</strong>g</div>
                             <div>🍞 Glucides / part : <strong id="calc-glucides">0</strong>g</div>
+                            <div>🍬 Sucres / part : <strong id="calc-sucres">0</strong>g</div>
                             <div>🥑 Lipides / part : <strong id="calc-lipides">0</strong>g</div>
+                            <div>🌾 Fibres / part : <strong id="calc-fibres">0</strong>g</div>
                         </div>
                     </div>
 
@@ -273,7 +275,7 @@
                     </div>
                     <div class="bg-white p-2.5 rounded-lg border border-slate-100 space-y-1 text-slate-700">
                         <div>👤 Parts : <strong>${parts}</strong> | 💰 Coût total : <strong>${coutTotal.toFixed(2)}€</strong> (${coutPart.toFixed(2)}€ / part)</div>
-                        <div class="text-emerald-700">🔥 ${r.calories || 0} kcal/part | P: ${r.proteines || 0}g | G: ${r.glucides || 0}g | L: ${r.lipides || 0}g</div>
+                        <div class="text-emerald-700">🔥 ${r.calories || 0} kcal/part | P: ${r.proteines || 0}g | G: ${r.glucides || 0}g (sucres: ${r.sucres || 0}g) | L: ${r.lipides || 0}g | Fibres: ${r.fibres || 0}g</div>
                         ${r.ingredients ? `<div class="text-slate-500 text-[11px] pt-1 border-t border-slate-50"><strong>Ingrédients :</strong> ${r.ingredients}</div>` : ''}
                         ${r.etapes ? `<div class="text-slate-500 text-[11px]"><strong>Étapes :</strong> ${r.etapes}</div>` : ''}
                     </div>
@@ -313,7 +315,7 @@
 
         function calculerTotauxFormulaire() {
             let coutTotal = 0;
-            let totalCal = 0, totalPro = 0, totalGlu = 0, totalLip = 0;
+            let totalCal = 0, totalPro = 0, totalGlu = 0, totalSucres = 0, totalLip = 0, totalFibres = 0;
             const parts = parseInt(document.getElementById('parts').value) || 1;
 
             document.querySelectorAll('#ingredients-container > div').forEach(row => {
@@ -335,14 +337,16 @@
                     const ing = tousLesIngredients.find(i => i.id == ingId);
                     if (ing && ing.marques && ing.marques.length > 0) {
                         let prixAuGrammeMoyenIngredient = 0;
-                        let calMoyen = 0, proMoyen = 0, gluMoyen = 0, lipMoyen = 0;
+                        let calMoyen = 0, proMoyen = 0, gluMoyen = 0, sucresMoyen = 0, lipMoyen = 0, fibresMoyen = 0;
                         let nbMarques = ing.marques.length;
 
                         ing.marques.forEach(m => {
                             calMoyen += m.calories || 0;
                             proMoyen += m.proteines || 0;
                             gluMoyen += m.glucides || 0;
+                            sucresMoyen += m.sucres || 0;
                             lipMoyen += m.lipides || 0;
+                            fibresMoyen += m.fibres || 0;
 
                             if (m.formats && m.formats.length > 0) {
                                 let prixMoyenDuFormat = 0;
@@ -371,7 +375,9 @@
                         calMoyen /= nbMarques;
                         proMoyen /= nbMarques;
                         gluMoyen /= nbMarques;
+                        sucresMoyen /= nbMarques;
                         lipMoyen /= nbMarques;
+                        fibresMoyen /= nbMarques;
                         
                         let prixFinalParGramme = nbMarques > 0 ? (prixAuGrammeMoyenIngredient / nbMarques) : 0;
 
@@ -381,7 +387,9 @@
                         totalCal += (calMoyen * qteBase) / 100;
                         totalPro += (proMoyen * qteBase) / 100;
                         totalGlu += (gluMoyen * qteBase) / 100;
+                        totalSucres += (sucresMoyen * qteBase) / 100;
                         totalLip += (lipMoyen * qteBase) / 100;
+                        totalFibres += (fibresMoyen * qteBase) / 100;
                     }
                 }
             });
@@ -390,14 +398,18 @@
             const caloriesParPart = parts > 0 ? totalCal / parts : totalCal;
             const proteinesParPart = parts > 0 ? totalPro / parts : totalPro;
             const glucidesParPart = parts > 0 ? totalGlu / parts : totalGlu;
+            const sucresParPart = parts > 0 ? totalSucres / parts : totalSucres;
             const lipidesParPart = parts > 0 ? totalLip / parts : totalLip;
+            const fibresParPart = parts > 0 ? totalFibres / parts : totalFibres;
 
             document.getElementById('calc-cout-total').innerText = coutTotal.toFixed(2);
             document.getElementById('calc-cout-part').innerText = (parts > 0 ? coutTotal / parts : coutTotal).toFixed(2);
             document.getElementById('calc-calories').innerText = Math.round(caloriesParPart);
             document.getElementById('calc-proteines').innerText = proteinesParPart.toFixed(1);
             document.getElementById('calc-glucides').innerText = glucidesParPart.toFixed(1);
+            document.getElementById('calc-sucres').innerText = sucresParPart.toFixed(1);
             document.getElementById('calc-lipides').innerText = lipidesParPart.toFixed(1);
+            document.getElementById('calc-fibres').innerText = fibresParPart.toFixed(1);
         }
 
         async function sauvegarderRecette(e) {
@@ -422,7 +434,9 @@
             const calories = parseFloat(document.getElementById('calc-calories').innerText) || 0;
             const proteines = parseFloat(document.getElementById('calc-proteines').innerText) || 0;
             const glucides = parseFloat(document.getElementById('calc-glucides').innerText) || 0;
+            const sucres = parseFloat(document.getElementById('calc-sucres').innerText) || 0;
             const lipides = parseFloat(document.getElementById('calc-lipides').innerText) || 0;
+            const fibres = parseFloat(document.getElementById('calc-fibres').innerText) || 0;
 
             const data = {
                 nom,
@@ -434,7 +448,9 @@
                 calories,
                 proteines,
                 glucides,
-                lipides
+                sucres,
+                lipides,
+                fibres
             };
 
             const url = id ? `/api/recettes/${id}` : '/api/recettes';

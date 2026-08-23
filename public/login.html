@@ -23,9 +23,9 @@
                 <input type="password" id="login-mdp" class="w-full p-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
 
-            <!-- Lien Mot de passe oublié -->
+            <!-- Lien Mot de passe oublié (Redirige vers forgot.html) -->
             <div class="mb-6 text-right">
-                <a href="#" id="link-forgot" class="text-xs text-blue-600 hover:underline font-medium">Mot de passe oublié ?</a>
+                <a href="/forgot.html" class="text-xs text-blue-600 hover:underline font-medium">Mot de passe oublié ?</a>
             </div>
 
             <!-- Bouton de Connexion -->
@@ -89,38 +89,6 @@
         // Bascule entre les formulaires
         document.getElementById('link-toggle-reg').addEventListener('click', toggleMode);
         document.getElementById('link-toggle-log').addEventListener('click', toggleMode);
-
-        // Mot de passe oublié
-        document.getElementById('link-forgot').addEventListener('click', async function(e) {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value.trim();
-            
-            if (!email) {
-                alert("Veuillez d'abord saisir votre adresse e-mail dans le champ e-mail ci-dessus.");
-                return;
-            }
-
-            try {
-                const res = await fetch(`${API_URL}/api/mot-de-passe-oublie`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ email })
-                });
-
-                const data = await res.json();
-                if (res.ok) {
-                    if (data.debug_link) {
-                        alert("Demande prise en compte.\n\n[Mode Dev] Lien de réinitialisation :\n" + data.debug_link);
-                    } else {
-                        alert("Un e-mail de réinitialisation a été envoyé à cette adresse.");
-                    }
-                } else {
-                    alert(data.error || "Une erreur est survenue.");
-                }
-            } catch (err) {
-                alert("Erreur de connexion au serveur.");
-            }
-        });
 
         // Connexion
         document.getElementById('btn-login').addEventListener('click', async function(e) {

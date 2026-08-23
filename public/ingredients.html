@@ -252,7 +252,7 @@
                         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
                             <div class="flex justify-between items-center flex-wrap gap-1">
                                 <span class="font-bold text-slate-700 text-xs">🏷️ ${m.nom || 'Marque générique'}</span>
-                                <span class="text-emerald-700 text-[11px]">🔥 ${m.calories || 0} kcal | P: ${m.proteines || 0}g | G: ${m.glucides || 0}g | L: ${m.lipides || 0}g</span>
+                                <span class="text-emerald-700 text-[11px]">🔥 ${m.calories || 0} kcal | P: ${m.proteines || 0}g | G: ${m.glucides || 0}g (sucres: ${m.sucres || 0}g) | L: ${m.lipides || 0}g | Fibres: ${m.fibres || 0}g</span>
                             </div>
                             <div class="space-y-1.5 pl-2 border-l-2 border-indigo-200">${formatsHtml}</div>
                         </div>
@@ -285,7 +285,9 @@
             const calVal = data.calories || data.cal || 0;
             const protVal = data.proteines || data.prot || 0;
             const glucVal = data.glucides || data.gluc || 0;
+            const sucresVal = data.sucres || 0;
             const lipVal = data.lipides || data.lip || 0;
+            const fibresVal = data.fibres || 0;
 
             const div = document.createElement('div');
             div.id = blockId;
@@ -299,11 +301,13 @@
                 </div>
                 <div class="space-y-1.5">
                     <span class="block text-[11px] font-bold text-slate-600">📊 Valeurs nutritionnelles (pour 100g / 100ml) :</span>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                         <div class="space-y-0.5"><label class="block text-[9px] font-bold text-slate-400">Calories (kcal)</label><input type="number" step="any" class="input-cal border border-slate-200 p-1.5 rounded-lg bg-white w-full text-center font-medium" value="${calVal}"></div>
                         <div class="space-y-0.5"><label class="block text-[9px] font-bold text-slate-400">Protéines (g)</label><input type="number" step="any" class="input-prot border border-slate-200 p-1.5 rounded-lg bg-white w-full text-center font-medium" value="${protVal}"></div>
                         <div class="space-y-0.5"><label class="block text-[9px] font-bold text-slate-400">Glucides (g)</label><input type="number" step="any" class="input-gluc border border-slate-200 p-1.5 rounded-lg bg-white w-full text-center font-medium" value="${glucVal}"></div>
+                        <div class="space-y-0.5"><label class="block text-[9px] font-bold text-slate-400">Sucres (g)</label><input type="number" step="any" class="input-sucres border border-slate-200 p-1.5 rounded-lg bg-white w-full text-center font-medium" value="${sucresVal}"></div>
                         <div class="space-y-0.5"><label class="block text-[9px] font-bold text-slate-400">Lipides (g)</label><input type="number" step="any" class="input-lip border border-slate-200 p-1.5 rounded-lg bg-white w-full text-center font-medium" value="${lipVal}"></div>
+                        <div class="space-y-0.5"><label class="block text-[9px] font-bold text-slate-400">Fibres (g)</label><input type="number" step="any" class="input-fibres border border-slate-200 p-1.5 rounded-lg bg-white w-full text-center font-medium" value="${fibresVal}"></div>
                     </div>
                 </div>
                 <div class="space-y-2 pt-2 border-t border-slate-200">
@@ -418,7 +422,9 @@
                 calories: p.calories || 0,
                 proteines: p.proteines || 0,
                 glucides: p.glucides || 0,
+                sucres: p.sucres || 0,
                 lipides: p.lipides || 0,
+                fibres: p.fibres || 0,
                 formats: [{ qte: p.quantite_paquet || 1, unite: p.unite || 'g' }]
             });
             document.getElementById('resultats-off-container').classList.add('hidden');
@@ -444,7 +450,9 @@
                 const calories = parseFloat(block.querySelector('.input-cal').value) || 0;
                 const proteines = parseFloat(block.querySelector('.input-prot').value) || 0;
                 const glucides = parseFloat(block.querySelector('.input-gluc').value) || 0;
+                const sucres = parseFloat(block.querySelector('.input-sucres').value) || 0;
                 const lipides = parseFloat(block.querySelector('.input-lip').value) || 0;
+                const fibres = parseFloat(block.querySelector('.input-fibres').value) || 0;
 
                 let formatsData = [];
                 block.querySelectorAll('.formats-container > div').forEach(formatDiv => {
@@ -458,7 +466,7 @@
                     });
                     formatsData.push({ qte, unite, prix_enseignes });
                 });
-                marquesData.push({ nom: nomMarque, calories, proteines, glucides, lipides, formats: formatsData });
+                marquesData.push({ nom: nomMarque, calories, proteines, glucides, sucres, lipides, fibres, formats: formatsData });
             });
 
             const data = { nom, rayon, marques: marquesData };
