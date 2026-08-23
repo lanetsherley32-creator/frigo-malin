@@ -227,10 +227,13 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-// --- API PERSONNES / OBJECTIFS (Multiples profils autorisés) ---
+// --- API PERSONNES / OBJECTIFS (Isolées par compte connecté) ---
 app.get('/api/personnes-objectifs', async (req, res) => {
+    const compteEmail = req.session.user;
+    if (!compteEmail) return res.status(401).json({ error: "Non connecté" });
+
     try {
-        const result = await pool.query("SELECT * FROM personnes_objectifs");
+        const result = await pool.query("SELECT * FROM personnes_objectifs WHERE compte_email = $1", [compteEmail]);
         res.json(result.rows || []);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -238,30 +241,38 @@ app.get('/api/personnes-objectifs', async (req, res) => {
 });
 
 app.post('/api/personnes-objectifs', async (req, res) => {
+    const compteEmail = req.session.user;
+    if (!compteEmail) return res.status(401).json({ error: "Non connecté" });
+
     const { nom, ancienNom, calories, eau, budget, budget_periode, proteines, glucides, lipides } = req.body;
     if (!nom) return res.status(400).json({ error: "Le nom de la personne est requis." });
 
     try {
-        if (ancienNom && ancienNom !== nom) {
+        const cibleNom = ancienNom || nom;
+        
+        // 1. On vérifie si le sous-profil existe déjà pour ce compte
+        const check = await pool.query(
+            "SELECT id FROM personnes_objectifs WHERE compte_email = $1 AND nom = $2", 
+            [compteEmail, cibleNom]
+        );
+
+        if (check.rows.length > 0) {
+            // 2. Si il existe, on met à jour
             await pool.query(
-                `UPDATE personnes_objectifs SET nom = $1, calories = $2, eau = $3, budget = $4, budget_periode = $5, proteines = $6, glucides = $7, lipides = $8 WHERE nom = $9`,
-                [nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0, ancienNom]
+                `UPDATE personnes_objectifs 
+                 SET nom = $1, calories = $2, eau = $3, budget = $4, budget_periode = $5, proteines = $6, glucides = $7, lipides = $8 
+                 WHERE compte_email = $9 AND nom = $10`,
+                [nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0, compteEmail, cibleNom]
             );
         } else {
+            // 3. Sinon, on insère un nouveau
             await pool.query(
-                `INSERT INTO personnes_objectifs (nom, calories, eau, budget, budget_periode, proteines, glucides, lipides) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                 ON CONFLICT (nom) DO UPDATE SET 
-                    calories = EXCLUDED.calories,
-                    eau = EXCLUDED.eau,
-                    budget = EXCLUDED.budget,
-                    budget_periode = EXCLUDED.budget_periode,
-                    proteines = EXCLUDED.proteines,
-                    glucides = EXCLUDED.glucides,
-                    lipides = EXCLUDED.lipides`,
-                [nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0]
+                `INSERT INTO personnes_objectifs (compte_email, nom, calories, eau, budget, budget_periode, proteines, glucides, lipides) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                [compteEmail, nom, calories || 0, eau || 0, budget || 0, budget_periode || 'semaine', proteines || 0, glucides || 0, lipides || 0]
             );
         }
+
         io.emit('data_updated');
         res.json({ success: true });
     } catch (err) {
@@ -271,10 +282,13 @@ app.post('/api/personnes-objectifs', async (req, res) => {
 });
 
 app.delete('/api/personnes-objectifs', async (req, res) => {
+    const compteEmail = req.session.user;
+    if (!compteEmail) return res.status(401).json({ error: "Non connecté" });
+
     const nom = req.query.nom;
     if (!nom) return res.status(400).json({ error: "Nom manquant" });
     try {
-        await pool.query("DELETE FROM personnes_objectifs WHERE nom = $1", [nom]);
+        await pool.query("DELETE FROM personnes_objectifs WHERE compte_email = $1 AND nom = $2", [compteEmail, nom]);
         io.emit('data_updated');
         res.json({ success: true });
     } catch (err) {
@@ -718,4 +732,4 @@ app.post('/api/courses/generer', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));
+server.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`)); 
