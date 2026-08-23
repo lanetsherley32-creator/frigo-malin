@@ -3,31 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Menu Principal - Application Nutritionnelle</title>
+    <title>Menu Principal - Frigomalin</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Socket.io -->
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen flex flex-col justify-center items-center p-6">
-    <div class="max-w-md w-full bg-white p-6 rounded-3xl shadow-sm border border-slate-200 text-center space-y-5">
+    <div class="max-w-md w-full bg-white p-6 rounded-3xl shadow-sm border border-slate-200 text-center space-y-6">
         
-        <!-- Onglets de navigation principale -->
-        <div class="flex bg-slate-200/70 p-1 rounded-2xl max-w-md mx-auto"> </div>
-        
-
-        <!-- Navigation secondaire -->
-        <nav class="grid grid-cols-5 gap-1 text-center text-[11px] font-medium">
-            <a href="/global.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Menu</a>
-            <a href="/recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
-            <a href="/ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
-            <a href="/vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
-            <a href="/courses.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Courses</a>
-        </nav>
-
-        <div class="space-y-1 pt-2 border-t border-slate-100">
-            <span class="text-3xl">🥗</span>
-            <h1 class="font-bold text-lg text-slate-800">Menu Principal</h1>
+        <!-- En-tête / Titre principal -->
+        <div class="space-y-1">
+            <h1 class="font-extrabold text-2xl text-slate-800">Frigomalin 😉</h1>
             <p class="text-xs text-slate-500" id="nom-utilisateur-connecte">Chargement du compte...</p>
         </div>
 
@@ -42,15 +29,14 @@
             </select>
         </div>
 
-        <div class="space-y-2 pt-1">
-            <a href="/planification.html" class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-sm">
-                📅 Accéder à la Planification Semaine
-            </a>
-            <a href="/suivi.html" class="block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-sm">
-                🍽️ Accéder au Suivi Réel & Bilans
-            </a>
+        <!-- Bouton unique pour entrer dans le profil -->
+        <div>
+            <button onclick="entrerDansProfil()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3.5 rounded-xl transition-all shadow-sm">
+                🚀 Entrer dans ce profil
+            </button>
         </div>
 
+        <!-- Paramètres compte et déconnexion en bas -->
         <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
             <button onclick="ouvrirModalCompte()" class="text-slate-600 hover:text-slate-800 font-bold">👤 Paramètres Compte</button>
             <button onclick="deconnexion()" class="text-red-500 hover:text-red-700 font-bold">Se déconnecter</button>
@@ -261,6 +247,14 @@
             if (nom) {
                 localStorage.setItem('profilActif', nom);
             }
+        }
+
+        function entrerDansProfil() {
+            const select = document.getElementById('select-personne-globale');
+            if (select && select.value) {
+                localStorage.setItem('profilActif', select.value);
+            }
+            window.location.href = '/planification.html';
         }
 
         function ouvrirModalPersonne() {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suivi Réel & Bilans - Application Nutritionnelle</title>
+    <title>Suivi Réel & Bilans - Frigomalin</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Socket.io -->
@@ -51,36 +51,47 @@
             </nav>
         </header>
 
-    </div>
-
-    <!-- Script pour charger le compte et gérer la déconnexion -->
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            chargerInfosUtilisateur();
-        });
-
-        async function chargerInfosUtilisateur() {
-            try {
-                const res = await fetch('/api/current-user');
-                if (res.ok) {
-                    const user = await res.json();
-                    const element = document.getElementById('nom-utilisateur-connecte');
-                    if (element) element.innerText = `👤 Compte : ${user.nom} (${user.email})`;
-                } else {
-                    window.location.href = '/login.html';
-                }
-            } catch (e) {
-                console.error("Erreur chargement utilisateur", e);
-            }
-        }
-
-        async function deconnexion() {
-            await fetch('/api/logout', { method: 'POST' });
-            window.location.href = '/login.html';
-        }
-    </script>
-</body>
-</html>
+        <!-- Bilan cumulé de la semaine réelle (Placé directement en haut) -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+            <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">📈 Bilan global cumulé de la semaine réelle</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-7 gap-3 text-xs">
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Calories</span>
+                    <span id="suivi-semaine-cal-tot" class="font-bold text-slate-800">0 kcal</span>
+                    <span class="text-[9px] text-slate-400 block">Obj: <span id="obj-semaine-cal">0</span></span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Protéines</span>
+                    <span id="suivi-semaine-prot" class="font-bold text-slate-800">0g</span>
+                    <span class="text-[9px] text-slate-400 block">Obj: <span id="obj-semaine-prot">0</span></span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Glucides</span>
+                    <span id="suivi-semaine-gluc" class="font-bold text-slate-800">0g</span>
+                    <span class="text-[9px] text-slate-400 block">Obj: <span id="obj-semaine-gluc">0</span></span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Lipides</span>
+                    <span id="suivi-semaine-lip" class="font-bold text-slate-800">0g</span>
+                    <span class="text-[9px] text-slate-400 block">Obj: <span id="obj-semaine-lip">0</span></span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Fibres</span>
+                    <span id="suivi-semaine-fibres" class="font-bold text-slate-800">0g</span>
+                    <span class="text-[9px] text-slate-400 block">Obj: <span id="obj-semaine-fibres">0</span></span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Sucre</span>
+                    <span id="suivi-semaine-sucre" class="font-bold text-slate-800">0g</span>
+                    <span class="text-[9px] text-slate-400 block">Obj: <span id="obj-semaine-sucre">0</span></span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Budget Réel</span>
+                    <span id="suivi-semaine-budget-reel" class="font-bold text-emerald-600">0€</span>
+                    <span class="text-[9px] text-slate-400 block">Obj: <span id="objectif-budget-prevu">0€</span></span>
+                </div>
+            </div>
+        </div>
 
         <!-- SECTION : SUIVI RÉEL & CONSOMMATIONS -->
         <div id="section-conso" class="space-y-6">
@@ -100,8 +111,43 @@
                 </div>
             </div>
 
+            <!-- DASHBOARD NUTRITIONNEL DU JOUR (Placé juste sous les jours) -->
+            <div id="dashboard-nutri" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">🎯 Bilan Journalier vs Objectifs</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Calories</span>
+                        <span class="font-bold text-slate-800"><span id="stat-cal">0</span> / <span id="obj-cal">2000</span></span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Protéines</span>
+                        <span class="font-bold text-slate-800"><span id="stat-prot">0</span>g / <span id="obj-prot">150</span>g</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Glucides</span>
+                        <span class="font-bold text-slate-800"><span id="stat-gluc">0</span>g / <span id="obj-gluc">200</span>g</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Lipides</span>
+                        <span class="font-bold text-slate-800"><span id="stat-lip">0</span>g / <span id="obj-lip">70</span>g</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Fibres</span>
+                        <span class="font-bold text-slate-800"><span id="stat-fibres">0</span>g / <span id="obj-fibres">30</span>g</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Sucre</span>
+                        <span class="font-bold text-slate-800"><span id="stat-sucre">0</span>g / <span id="obj-sucre">50</span>g</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Eau & Budget</span>
+                        <span class="font-bold text-slate-800"><span id="stat-eau">0</span>L | <span id="stat-budget">0€</span></span>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Formulaire ajout de repas -->
+                <!-- Formulaire ajout de repas avec recherche de recettes -->
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
                     <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">➕ Enregistrer une consommation</h3>
                     <form onsubmit="ajouterConsommation(event)" class="space-y-3">
@@ -115,7 +161,8 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-500 mb-1">Recette ou aliment</label>
+                            <label class="block text-[11px] font-bold text-slate-500 mb-1">Rechercher une recette ou un aliment</label>
+                            <input type="text" id="recherche-recette-input" oninput="filtrerRecettesConso()" placeholder="Tapez pour filtrer..." class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium mb-1.5">
                             <select id="conso-recette" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium">
                                 <option value="">-- Choisir une option --</option>
                             </select>
@@ -126,16 +173,18 @@
                         </div>
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm">Ajouter au suivi</button>
                     </form>
-                    <!-- Suivi Eau -->
+
+                    <!-- Suivi Eau amélioré (-0.25L ajouté) -->
                     <div class="pt-4 border-t border-slate-100 space-y-2">
                         <div class="flex justify-between items-center">
                             <span class="font-bold text-xs text-slate-700">💧 Suivi Eau (<span id="libelle-jour-eau">Lundi</span>)</span>
                             <span class="text-xs font-bold text-blue-600"><span id="aff-conso-eau">0</span>L / <span id="aff-obj-eau">2.0</span>L</span>
                         </div>
-                        <div class="flex gap-2">
-                            <button type="button" onclick="ajouterEau(0.25)" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-1.5 rounded-lg">+0.25L</button>
-                            <button type="button" onclick="ajouterEau(0.5)" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-1.5 rounded-lg">+0.5L</button>
-                            <button type="button" onclick="reinitialiserEau()" class="bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold px-3 py-1.5 rounded-lg">Reset</button>
+                        <div class="grid grid-cols-4 gap-1.5">
+                            <button type="button" onclick="ajouterEau(-0.25)" class="bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold py-1.5 rounded-lg">-0.25L</button>
+                            <button type="button" onclick="ajouterEau(0.25)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-1.5 rounded-lg">+0.25L</button>
+                            <button type="button" onclick="ajouterEau(0.5)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-1.5 rounded-lg">+0.5L</button>
+                            <button type="button" onclick="reinitialiserEau()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-bold py-1.5 rounded-lg">Reset</button>
                         </div>
                     </div>
                 </div>
@@ -157,76 +206,6 @@
                             <p class="text-xs text-slate-400 italic">Chargement des recommandations...</p>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- Bilan cumulé de la semaine réelle -->
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-                <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">📈 Bilan global cumulé de la semaine réelle</h3>
-                <div class="grid grid-cols-2 sm:grid-cols-7 gap-3 text-xs">
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Calories Consommées</span>
-                        <span id="suivi-semaine-cal-tot" class="font-bold text-slate-800">0 kcal</span>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Protéines</span>
-                        <span id="suivi-semaine-prot" class="font-bold text-slate-800">0g</span>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Glucides</span>
-                        <span id="suivi-semaine-gluc" class="font-bold text-slate-800">0g</span>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Lipides</span>
-                        <span id="suivi-semaine-lip" class="font-bold text-slate-800">0g</span>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Fibres</span>
-                        <span id="suivi-semaine-fibres" class="font-bold text-slate-800">0g</span>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Sucre</span>
-                        <span id="suivi-semaine-sucre" class="font-bold text-slate-800">0g</span>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Budget Réel</span>
-                        <span id="suivi-semaine-budget-reel" class="font-bold text-emerald-600">0€</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- DASHBOARD NUTRITIONNEL FLOTTANT -->
-        <div id="dashboard-nutri" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-            <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">🎯 Bilan Journalier vs Objectifs</h3>
-            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                    <span class="text-slate-400 block text-[10px]">Calories</span>
-                    <span class="font-bold text-slate-800"><span id="stat-cal">0</span> / <span id="obj-cal">2000</span></span>
-                </div>
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                    <span class="text-slate-400 block text-[10px]">Protéines</span>
-                    <span class="font-bold text-slate-800"><span id="stat-prot">0</span>g / <span id="obj-prot">150</span>g</span>
-                </div>
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                    <span class="text-slate-400 block text-[10px]">Glucides</span>
-                    <span class="font-bold text-slate-800"><span id="stat-gluc">0</span>g / <span id="obj-gluc">200</span>g</span>
-                </div>
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                    <span class="text-slate-400 block text-[10px]">Lipides</span>
-                    <span class="font-bold text-slate-800"><span id="stat-lip">0</span>g / <span id="obj-lip">70</span>g</span>
-                </div>
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                    <span class="text-slate-400 block text-[10px]">Fibres</span>
-                    <span class="font-bold text-slate-800"><span id="stat-fibres">0</span>g / <span id="obj-fibres">30</span>g</span>
-                </div>
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                    <span class="text-slate-400 block text-[10px]">Sucre</span>
-                    <span class="font-bold text-slate-800"><span id="stat-sucre">0</span>g / <span id="obj-sucre">50</span>g</span>
-                </div>
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                    <span class="text-slate-400 block text-[10px]">Eau & Budget</span>
-                    <span class="font-bold text-slate-800"><span id="stat-eau">0</span>L | <span id="stat-budget">0€</span></span>
                 </div>
             </div>
         </div>
@@ -263,7 +242,7 @@
         </div>
     </div>
 
-    <!-- Modales profil/compte si nécessaire -->
+    <!-- Modales profil/compte -->
     <div id="modal-personne" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
         <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
             <h3 id="modal-personne-title" class="font-bold text-sm text-slate-800">👤 Nouvelle personne / Objectif</h3>
