@@ -30,7 +30,7 @@ const pool = new Pool({
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- CONFIGURATION DES SESSIONS ---
+// --- CONFIGURATION DES SESSIONS (Persistance de 30 jours avec renouvellement automatique) ---
 app.use(session({
     store: new pgSession({
         pool: pool,                
@@ -40,8 +40,9 @@ app.use(session({
     secret: process.env.SESSION_SECRET || 'votre_secret_tres_securise_et_aleatoire',
     resave: false,
     saveUninitialized: false,
+    rolling: true, // Renouvelle la durée de vie de la session à chaque requête active
     cookie: { 
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
+        maxAge: 1000 * 60 * 60 * 24 * 30, // 30 jours de tranquillité
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
         sameSite: 'lax'
@@ -54,7 +55,7 @@ app.use(express.static('public'));
 // --- MIDDLEWARE DE PROTECTION ---
 app.use((req, res, next) => {
     const cheminsPublics = [
-        '/', '/index.html', '/login.html', '/forgot.html', '/reset.html', 
+        '/login.html', '/forgot.html', '/reset.html', 
         '/api/login', '/api/profils', '/api/mot-de-passe-oublie', '/api/reset-password'
     ];
     

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Principal - Application Nutritionnelle</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen flex flex-col justify-center items-center p-6">
+    <div class="max-w-md w-full bg-white p-8 rounded-3xl shadow-sm border border-slate-200 text-center space-y-6">
+        <div class="space-y-2">
+            <span class="text-4xl">🥗</span>
+            <h1 class="font-bold text-xl text-slate-800">Menu Principal</h1>
+            <p class="text-xs text-slate-500" id="nom-utilisateur-connecte">Chargement du compte...</p>
+        </div>
+
+        <div class="space-y-3 pt-2">
+            <a href="/planification" class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-sm">
+                📅 Accéder à la Planification Semaine
+            </a>
+            <a href="/suivi" class="block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-sm">
+                🍽️ Accéder au Suivi Réel & Bilans
+            </a>
+        </div>
+
+        <div class="pt-4 border-t border-slate-100 flex justify-center gap-3 text-xs">
+            <button onclick="ouvrirModalCompte()" class="text-slate-600 hover:text-slate-800 font-bold">👤 Compte</button>
+        </div>
+    </div>
+
+    <!-- Modale Compte -->
+    <div id="modal-compte" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4 text-left">
+            <h3 class="font-bold text-sm text-slate-800">👤 Paramètres du Compte</h3>
+            <form onsubmit="sauvegarderCompte(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-500 mb-1">Nom d'utilisateur</label>
+                    <input type="text" id="compte-nom" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-500 mb-1">Email</label>
+                    <input type="email" id="compte-email" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-500 mb-1">Nouveau mot de passe</label>
+                    <input type="password" id="compte-mdp" placeholder="Laisser vide si inchangé" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="fermerModalCompte()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl">Mettre à jour</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script global de base -->
+    <script src="script.js"></script>
+</body>
+</html>

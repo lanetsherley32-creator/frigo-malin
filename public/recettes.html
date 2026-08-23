@@ -19,8 +19,6 @@
             <a href="courses.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Courses</a>
         </nav>
 
-    </div>
-
         <!-- 1. Barre de recherche globale de recettes -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-2">
             <label class="font-bold text-slate-700 text-sm block">🔍 Recherche d'une recette :</label>
@@ -103,7 +101,7 @@
 
                     <div class="flex gap-2 pt-2">
                         <button type="submit" class="flex-1 bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl font-bold shadow-sm">Enregistrer la recette</button>
-                        <button type="button" id="btn-annuler" onclick="reinitialiserFormulaire()" class="hidden bg-slate-200 active:bg-slate-300 text-slate-700 px-4 py-3 rounded-xl font-bold">Annuler / Fermer</button>
+                        <button type="button" onclick="demanderAnnulation()" class="bg-slate-200 active:bg-slate-300 text-slate-700 px-4 py-3 rounded-xl font-bold">Annuler / Fermer</button>
                     </div>
                 </form>
             </div>
@@ -150,9 +148,20 @@
                     ajouterLigneIngredient();
                 }
             } else {
-                container.classList.add('hidden');
-                arrow.innerText = "▼";
+                demanderAnnulation();
             }
+        }
+
+        function demanderAnnulation() {
+            const nomVal = document.getElementById('nom').value.trim();
+            const etapesVal = document.getElementById('etapes').value.trim();
+            const idVal = document.getElementById('recette-id').value;
+
+            // S'il y a du contenu saisi, on demande confirmation avant de tout effacer
+            if ((nomVal || etapesVal || idVal) && !confirm("Voulez-vous vraiment annuler ? Les modifications en cours seront perdues.")) {
+                return;
+            }
+            reinitialiserFormulaire();
         }
 
         function ouvrirFormulaireModification(r) {
@@ -167,26 +176,36 @@
             document.getElementById('etapes').value = r.etapes || '';
             
             document.getElementById('ingredients-container').innerHTML = '';
-            if (r.ingredients) {
-                let lignes = typeof r.ingredients === 'string' ? r.ingredients.split(',') : r.ingredients;
-                lignes.forEach(item => {
-                    item = typeof item === 'string' ? item.trim() : item;
-                    const match = item.match(/^(.*?)\s*\(([0-9.]+)\s*([a-zA-Zà.é]+)\)$/);
-                    if (match) {
-                        const ingObj = tousLesIngredients.find(i => i.nom.toLowerCase() === match[1].trim().toLowerCase());
-                        ajouterLigneIngredient(ingObj ? ingObj.id : "", match[2], match[3]);
-                    } else {
-                        ajouterLigneIngredient();
-                    }
+            
+            // Lecture robuste des ingrédients (qu'ils soient en JSON ou en texte brut)
+            let parsedIngs = r.ingredients;
+            if (typeof parsedIngs === 'string') {
+                try {
+                    parsedIngs = JSON.parse(parsedIngs);
+                } catch(e) {
+                    parsedIngs = parsedIngs.split(',').map(item => {
+                        const match = item.trim().match(/^(.*?)\s*\(([0-9.]+)\s*([a-zA-Zà-ùÂ-Û.]+)\)$/);
+                        if (match) {
+                            return { nom: match[1].trim(), quantite: match[2], unite: match[3] };
+                        }
+                        return { nom: item.trim(), quantite: 1, unite: 'g' };
+                    });
+                }
+            }
+
+            if (Array.isArray(parsedIngs)) {
+                parsedIngs.forEach(item => {
+                    const ingObj = tousLesIngredients.find(i => i.id == item.id || (i.nom && i.nom.toLowerCase() === (item.nom || '').toLowerCase()));
+                    ajouterLigneIngredient(ingObj ? ingObj.id : "", item.quantite || 1, item.unite || 'g');
                 });
             }
+
             if (document.getElementById('ingredients-container').children.length === 0) {
                 ajouterLigneIngredient();
             }
 
             calculerTotauxFormulaire();
             document.getElementById('form-toggle-title').innerText = "✏️ Modifier la recette : " + r.nom;
-            document.getElementById('btn-annuler').classList.remove('hidden');
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
         }
 
@@ -195,7 +214,6 @@
             document.getElementById('recette-id').value = '';
             document.getElementById('ingredients-container').innerHTML = '';
             document.getElementById('form-toggle-title').innerText = "➕ Ajouter ou modifier une recette (cliquer pour ouvrir)";
-            document.getElementById('btn-annuler').classList.add('hidden');
             document.getElementById('form-content-container').classList.add('hidden');
             document.getElementById('form-toggle-arrow').innerText = "▼";
             ajouterLigneIngredient();
@@ -260,6 +278,19 @@
             const parts = r.parts || 1;
             const coutPart = parts > 0 ? coutTotal / parts : coutTotal;
 
+            let affichageIngs = '';
+            if (r.ingredients) {
+                let ings = r.ingredients;
+                if (typeof ings === 'string') {
+                    try { ings = JSON.parse(ings); } catch(e) {}
+                }
+                if (Array.isArray(ings)) {
+                    affichageIngs = ings.map(i => `${i.nom} (${i.quantite} ${i.unite})`).join(', ');
+                } else {
+                    affichageIngs = r.ingredients;
+                }
+            }
+
             return `
                 <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-3 text-xs">
                     <div class="flex justify-between items-center">
@@ -275,7 +306,7 @@
                     <div class="bg-white p-2.5 rounded-lg border border-slate-100 space-y-1 text-slate-700">
                         <div>👤 Parts : <strong>${parts}</strong> | 💰 Coût total : <strong>${coutTotal.toFixed(2)}€</strong> (${coutPart.toFixed(2)}€ / part)</div>
                         <div class="text-emerald-700">🔥 ${r.calories || 0} kcal/part | P: ${r.proteines || 0}g | G: ${r.glucides || 0}g (sucres: ${r.sucres || 0}g) | L: ${r.lipides || 0}g | Fibres: ${r.fibres || 0}g</div>
-                        ${r.ingredients ? `<div class="text-slate-500 text-[11px] pt-1 border-t border-slate-50"><strong>Ingrédients :</strong> ${r.ingredients}</div>` : ''}
+                        ${affichageIngs ? `<div class="text-slate-500 text-[11px] pt-1 border-t border-slate-50"><strong>Ingrédients :</strong> ${affichageIngs}</div>` : ''}
                         ${r.etapes ? `<div class="text-slate-500 text-[11px]"><strong>Étapes :</strong> ${r.etapes}</div>` : ''}
                     </div>
                 </div>
@@ -393,7 +424,6 @@
                 }
             });
 
-            // Calculs par part
             const caloriesParPart = parts > 0 ? totalCal / parts : totalCal;
             const proteinesParPart = parts > 0 ? totalPro / parts : totalPro;
             const glucidesParPart = parts > 0 ? totalGlu / parts : totalGlu;
@@ -419,13 +449,18 @@
             const parts = parseInt(document.getElementById('parts').value) || 1;
             const etapes = document.getElementById('etapes').value.trim();
 
-            let ingredientsTexte = [];
+            let ingredientsTableau = [];
             document.querySelectorAll('#ingredients-container > div').forEach(row => {
                 const s = row.querySelector('.ing-select');
-                const qte = row.querySelector('.ing-qte').value;
+                const qte = parseFloat(row.querySelector('.ing-qte').value) || 0;
                 const unite = row.querySelector('.ing-unite').value;
                 if(s.selectedIndex > 0) {
-                    ingredientsTexte.push(`${s.options[s.selectedIndex].text} (${qte} ${unite})`);
+                    ingredientsTableau.push({
+                        id: s.value,
+                        nom: s.options[s.selectedIndex].text,
+                        quantite: qte,
+                        unite: unite
+                    });
                 }
             });
 
@@ -441,7 +476,7 @@
                 nom,
                 categorie,
                 parts,
-                ingredients: ingredientsTexte.join(', '),
+                ingredients: JSON.stringify(ingredientsTableau),
                 etapes,
                 cout,
                 calories,

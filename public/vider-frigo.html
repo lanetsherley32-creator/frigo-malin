@@ -267,7 +267,6 @@
                     }
                 }
 
-                // Si Supabase renvoie un objet d'objets au lieu d'un tableau
                 if (!Array.isArray(parsed) && typeof parsed === 'object' && parsed !== null) {
                     let tempArray = [];
                     Object.keys(parsed).forEach(key => {
@@ -323,9 +322,37 @@
                     });
                 }
             } catch(e) {
-                console.error("Erreur lors du traitement des ingrédients Supabase :", e);
+                console.error("Erreur lors du traitement des ingrédients :", e);
             }
             return parsedList;
+        }
+
+        // Calcule le coût moyen d'un paquet/format pour un ingrédient donné
+        function calculerCoutPaquetManquant(ingId, nomIng) {
+            let ingObj = ingredientsGlobal.find(i => i.id == ingId);
+            if (!ingObj && nomIng) {
+                ingObj = ingredientsGlobal.find(i => i.nom && i.nom.toLowerCase().trim() === nomIng.toLowerCase().trim());
+            }
+
+            if (!ingObj || !ingObj.marques || ingObj.marques.length === 0) return 0;
+
+            let prixTotalFormats = 0;
+            let nbFormatsTotal = 0;
+
+            ingObj.marques.forEach(m => {
+                if (m.formats && m.formats.length > 0) {
+                    m.formats.forEach(f => {
+                        const prixArr = Object.values(f.prix_enseignes || {});
+                        if (prixArr.length > 0) {
+                            const moyenneEnseignes = prixArr.reduce((a, b) => a + b, 0) / prixArr.length;
+                            prixTotalFormats += moyenneEnseignes;
+                            nbFormatsTotal++;
+                        }
+                    });
+                }
+            });
+
+            return nbFormatsTotal > 0 ? (prixTotalFormats / nbFormatsTotal) : 0;
         }
 
         function trouverRecettes() {
@@ -353,6 +380,7 @@
                 if (listeIngsParsed.length === 0) return;
 
                 let manquant = [];
+                let coutTotalAchats = 0;
 
                 listeIngsParsed.forEach(ingR => {
                     let stockDispoBase = 0;
@@ -379,6 +407,9 @@
                             besoin: `${ingR.quantite} ${ingR.unite}`,
                             reste: stockDispoBase > 0 ? `${(stockDispoBase * ratio).toFixed(1)} ${ingR.unite}` : '0'
                         });
+
+                        // Ajout du coût du paquet estimé pour cet ingrédient manquant
+                        coutTotalAchats += calculerCoutPaquetManquant(ingR.id, ingR.nom);
                     }
                 });
 
@@ -389,13 +420,20 @@
                         ...recette,
                         faisable,
                         nbAchats,
+                        coutTotalAchats,
                         manquant,
                         ingredientsRecetteParsed: listeIngsParsed
                     });
                 }
             });
 
-            recettesAnalysees.sort((a, b) => a.nbAchats - b.nbAchats);
+            // Tri principal : par nombre d'achats croissant, puis par coût d'achats croissant
+            recettesAnalysees.sort((a, b) => {
+                if (a.nbAchats !== b.nbAchats) {
+                    return a.nbAchats - b.nbAchats;
+                }
+                return a.coutTotalAchats - b.coutTotalAchats;
+            });
 
             if (recettesAnalysees.length === 0) {
                 container.innerHTML = `<p class="text-xs text-slate-400 italic bg-white p-4 rounded-2xl border border-slate-200 text-center">Aucune recette ne correspond (nécessite trop d'achats ou stock insuffisant).</p>`;
@@ -404,7 +442,7 @@
 
             container.innerHTML = recettesAnalysees.map(r => {
                 let badgeColor = r.faisable ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300";
-                let badgeText = r.faisable ? "✅ 0 achat nécessaire (Parfait !)" : `⚠️ ${r.nbAchats} achat(s) nécessaire(s)`;
+                let badgeText = r.faisable ? "✅ 0 achat nécessaire (Parfait !)" : `⚠️ ${r.nbAchats} achat(s) (~${r.coutTotalAchats.toFixed(2)}€)`;
 
                 let detailsManquants = r.manquant.length > 0 ? `
                     <div class="mt-2 text-[11px] text-slate-500 border-t border-slate-100 pt-2 space-y-1">

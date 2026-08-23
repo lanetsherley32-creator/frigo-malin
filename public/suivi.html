@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suivi Réel & Bilans - Application Nutritionnelle</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen pb-12">
+    <div class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        
+        <!-- En-tête de l'application -->
+        <header class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">🥗</span>
+                <div>
+                    <h1 class="font-bold text-lg text-slate-800">Menu Suivi & Nutrition</h1>
+                    <p class="text-xs text-slate-500" id="nom-utilisateur-connecte">Connecté</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2 outline-none font-bold">
+                    <option value="">-- Choisir une personne --</option>
+                </select>
+                <button onclick="ouvrirModalPersonne('modifier')" id="btn-modifier-personne" class="hidden text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl transition-all">⚙️ Profil</button>
+                <button onclick="ouvrirModalPersonne('ajouter')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-2 rounded-xl transition-all">+ Profil</button>
+                <button onclick="ouvrirModalCompte()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl transition-all">👤 Compte</button>
+            </div>
+        </header>
+
+        <!-- Onglets de navigation principale -->
+        <div class="flex bg-slate-200/70 p-1 rounded-2xl max-w-md mx-auto">
+            <a href="/planification" class="flex-1 py-2.5 rounded-xl text-slate-600 text-center transition-all text-xs font-bold">📅 Planification Semaine</a>
+            <a href="/suivi" class="flex-1 py-2.5 rounded-xl bg-white text-blue-600 shadow-sm text-center transition-all text-xs font-bold">🍽️ Suivi Réel & Bilans</a>
+        </div>
+
+        <!-- Navigation secondaire -->
+        <nav class="grid grid-cols-5 gap-1 text-center text-[11px] font-medium">
+            <a href="index.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Menu</a>
+            <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
+            <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
+            <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
+            <a href="courses.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Courses</a>
+        </nav>
+
+        <!-- SECTION : SUIVI RÉEL & CONSOMMATIONS -->
+        <div id="section-conso" class="space-y-6">
+            <!-- Sélecteur de jour -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-3">
+                <div class="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
+                    <button id="btn-conso-Lundi" onclick="changerJourConso('Lundi')" class="jour-conso-btn bg-blue-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shrink-0">Lundi</button>
+                    <button id="btn-conso-Mardi" onclick="changerJourConso('Mardi')" class="jour-conso-btn bg-slate-100 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl transition-all shrink-0">Mardi</button>
+                    <button id="btn-conso-Mercredi" onclick="changerJourConso('Mercredi')" class="jour-conso-btn bg-slate-100 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl transition-all shrink-0">Mercredi</button>
+                    <button id="btn-conso-Jeudi" onclick="changerJourConso('Jeudi')" class="jour-conso-btn bg-slate-100 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl transition-all shrink-0">Jeudi</button>
+                    <button id="btn-conso-Vendredi" onclick="changerJourConso('Vendredi')" class="jour-conso-btn bg-slate-100 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl transition-all shrink-0">Vendredi</button>
+                    <button id="btn-conso-Samedi" onclick="changerJourConso('Samedi')" class="jour-conso-btn bg-slate-100 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl transition-all shrink-0">Samedi</button>
+                    <button id="btn-conso-Dimanche" onclick="changerJourConso('Dimanche')" class="jour-conso-btn bg-slate-100 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl transition-all shrink-0">Dimanche</button>
+                </div>
+                <div class="text-xs font-bold text-slate-700 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
+                    Jour actif : <span id="libelle-jour-conso" class="text-blue-600">Lundi</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Formulaire ajout de repas -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                    <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">➕ Enregistrer une consommation</h3>
+                    <form onsubmit="ajouterConsommation(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 mb-1">Type de repas</label>
+                            <select id="conso-cat" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium">
+                                <option value="Repas 1">Repas 1 (Petit-déj / Matin)</option>
+                                <option value="Repas 2">Repas 2 (Midi / Déjeuner)</option>
+                                <option value="Repas 3">Repas 3 (Collation / Goûter)</option>
+                                <option value="Repas 4">Repas 4 (Soir / Dîner)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 mb-1">Recette ou aliment</label>
+                            <select id="conso-recette" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium">
+                                <option value="">-- Choisir une option --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 mb-1">Quantité / Portions</label>
+                            <input type="number" id="conso-qte" step="0.1" min="0.1" value="1" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium">
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm">Ajouter au suivi</button>
+                    </form>
+                    <!-- Suivi Eau -->
+                    <div class="pt-4 border-t border-slate-100 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-xs text-slate-700">💧 Suivi Eau (<span id="libelle-jour-eau">Lundi</span>)</span>
+                            <span class="text-xs font-bold text-blue-600"><span id="aff-conso-eau">0</span>L / <span id="aff-obj-eau">2.0</span>L</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="ajouterEau(0.25)" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-1.5 rounded-lg">+0.25L</button>
+                            <button type="button" onclick="ajouterEau(0.5)" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-1.5 rounded-lg">+0.5L</button>
+                            <button type="button" onclick="reinitialiserEau()" class="bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold px-3 py-1.5 rounded-lg">Reset</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Historique journalier réel -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4 lg:col-span-2 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">📋 Historique & Consommations du jour</h3>
+                        </div>
+                        <div id="liste-conso-container" class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                            <p class="text-xs text-slate-400 italic">Chargement...</p>
+                        </div>
+                    </div>
+                    <!-- Recommandations intelligentes -->
+                    <div class="pt-4 border-t border-slate-100 space-y-2">
+                        <span class="font-bold text-xs text-slate-700 block">💡 Recommandations intelligentes pour équilibrer vos apports :</span>
+                        <div id="container-recettes-recommandees" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <p class="text-xs text-slate-400 italic">Chargement des recommandations...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bilan cumulé de la semaine réelle -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+                <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">📈 Bilan global cumulé de la semaine réelle</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-7 gap-3 text-xs">
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Calories Consommées</span>
+                        <span id="suivi-semaine-cal-tot" class="font-bold text-slate-800">0 kcal</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Protéines</span>
+                        <span id="suivi-semaine-prot" class="font-bold text-slate-800">0g</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Glucides</span>
+                        <span id="suivi-semaine-gluc" class="font-bold text-slate-800">0g</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Lipides</span>
+                        <span id="suivi-semaine-lip" class="font-bold text-slate-800">0g</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Fibres</span>
+                        <span id="suivi-semaine-fibres" class="font-bold text-slate-800">0g</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Sucre</span>
+                        <span id="suivi-semaine-sucre" class="font-bold text-slate-800">0g</span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                        <span class="text-slate-400 block text-[10px]">Budget Réel</span>
+                        <span id="suivi-semaine-budget-reel" class="font-bold text-emerald-600">0€</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DASHBOARD NUTRITIONNEL FLOTTANT -->
+        <div id="dashboard-nutri" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+            <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">🎯 Bilan Journalier vs Objectifs</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Calories</span>
+                    <span class="font-bold text-slate-800"><span id="stat-cal">0</span> / <span id="obj-cal">2000</span></span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Protéines</span>
+                    <span class="font-bold text-slate-800"><span id="stat-prot">0</span>g / <span id="obj-prot">150</span>g</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Glucides</span>
+                    <span class="font-bold text-slate-800"><span id="stat-gluc">0</span>g / <span id="obj-gluc">200</span>g</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Lipides</span>
+                    <span class="font-bold text-slate-800"><span id="stat-lip">0</span>g / <span id="obj-lip">70</span>g</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Fibres</span>
+                    <span class="font-bold text-slate-800"><span id="stat-fibres">0</span>g / <span id="obj-fibres">30</span>g</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Sucre</span>
+                    <span class="font-bold text-slate-800"><span id="stat-sucre">0</span>g / <span id="obj-sucre">50</span>g</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                    <span class="text-slate-400 block text-[10px]">Eau & Budget</span>
+                    <span class="font-bold text-slate-800"><span id="stat-eau">0</span>L | <span id="stat-budget">0€</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE MODIFICATION CONSO -->
+    <div id="modal-modifier-conso" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
+            <h3 class="font-bold text-sm text-slate-800">✏️ Modifier la consommation</h3>
+            <form onsubmit="validerModificationConsommation(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="edit-conso-index">
+                <div>
+                    <label class="block font-bold text-slate-500 mb-1">Type de repas</label>
+                    <select id="edit-conso-cat" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                        <option value="Repas 1">Repas 1</option>
+                        <option value="Repas 2">Repas 2</option>
+                        <option value="Repas 3">Repas 3</option>
+                        <option value="Repas 4">Repas 4</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-500 mb-1">Recette ou aliment</label>
+                    <select id="edit-conso-recette" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium"></select>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-500 mb-1">Quantité / Portions</label>
+                    <input type="number" id="edit-conso-qte" step="0.1" min="0.1" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="fermerModalModifierConso()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl">Modifier</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modales profil/compte si nécessaire -->
+    <div id="modal-personne" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 id="modal-personne-title" class="font-bold text-sm text-slate-800">👤 Nouvelle personne / Objectif</h3>
+            <form id="form-personne" onsubmit="sauvegarderPersonne(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="personne-ancien-nom">
+                <div>
+                    <label class="block font-bold text-slate-500 mb-1">Nom / Profil</label>
+                    <input type="text" id="personne-nom" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Calories (kcal)</label>
+                        <input type="number" id="personne-cal" value="2000" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Eau (L)</label>
+                        <input type="number" id="personne-eau" step="0.1" value="2.0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Budget (€)</label>
+                        <input type="number" id="personne-budget" value="100" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Période Budget</label>
+                        <select id="personne-budget-periode" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                            <option value="semaine">Semaine</option>
+                            <option value="jour">Jour</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Protéines (g)</label>
+                        <input type="number" id="personne-prot" value="150" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Glucides (g)</label>
+                        <input type="number" id="personne-gluc" value="200" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Lipides (g)</label>
+                        <input type="number" id="personne-lip" value="70" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Fibres (g)</label>
+                        <input type="number" id="personne-fibres" value="30" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Sucre max (g)</label>
+                        <input type="number" id="personne-sucre" value="50" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                </div>
+                <div class="flex justify-between items-center pt-2">
+                    <button type="button" id="btn-supprimer-personne" onclick="supprimerPersonneActuelle()" class="hidden text-red-500 hover:text-red-700 font-bold">Supprimer</button>
+                    <div class="flex gap-2 ml-auto">
+                        <button type="button" onclick="fermerModalPersonne()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Annuler</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl">Sauvegarder</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-compte" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
+            <h3 class="font-bold text-sm text-slate-800">👤 Paramètres du Compte</h3>
+            <form onsubmit="sauvegarderCompte(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-500 mb-1">Nom d'utilisateur</label>
+                    <input type="text" id="compte-nom" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-500 mb-1">Email</label>
+                    <input type="email" id="compte-email" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-500 mb-1">Nouveau mot de passe</label>
+                    <input type="password" id="compte-mdp" placeholder="Laisser vide si inchangé" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="fermerModalCompte()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl">Mettre à jour</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts nécessaires -->
+    <script src="suivi.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
