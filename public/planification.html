@@ -43,19 +43,50 @@
             </nav>
         </header>
 
+        <!-- Edition directe des Objectifs du Profil Actif -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3 text-xs">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2">🎯 Objectifs du profil actif (Modification directe)</h3>
+            <div id="form-objectifs-direct" class="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                <div>
+                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Calories (kcal)</label>
+                    <input type="number" id="dir-cal" onchange="sauvegarderProfilDirect()" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl font-medium outline-none">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Budget (€)</label>
+                    <input type="number" id="dir-budget" onchange="sauvegarderProfilDirect()" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl font-medium outline-none">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Protéines (g)</label>
+                    <input type="number" id="dir-prot" onchange="sauvegarderProfilDirect()" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl font-medium outline-none">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Glucides (g)</label>
+                    <input type="number" id="dir-gluc" onchange="sauvegarderProfilDirect()" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl font-medium outline-none">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Lipides (g)</label>
+                    <input type="number" id="dir-lip" onchange="sauvegarderProfilDirect()" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl font-medium outline-none">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Fibres (g)</label>
+                    <input type="number" id="dir-fibres" onchange="sauvegarderProfilDirect()" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl font-medium outline-none">
+                </div>
+            </div>
+        </section>
+
         <!-- Actions Avancées Planification -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-2 justify-between items-center text-xs print:hidden">
             <button onclick="genererSemaineAleatoire()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
                 🎲 Générer la semaine aléatoirement
             </button>
             <button onclick="genererSemaineAleatoireOptimisee()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
-                ⚡ Génération Intelligente (Objectifs)
+                ⚡ Génération Intelligente (Objectifs & Catégories)
             </button>
         </section>
 
-        <!-- Propositions Repas Optimisés (En Vert) -->
+        <!-- Propositions Repas Recommandés (En Vert - Axé Protéines/Fibres) -->
         <section class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl shadow-sm space-y-2">
-            <h3 class="font-bold text-xs text-emerald-800 uppercase tracking-wider">🌱 Propositions de recettes optimisées à vos objectifs :</h3>
+            <h3 class="font-bold text-xs text-emerald-800 uppercase tracking-wider">🌱 Recommandations prioritaires (Protéines & Fibres) :</h3>
             <div id="container-suggestions-vertes" class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <p class="text-xs text-emerald-600 italic">Chargement des suggestions...</p>
             </div>
@@ -66,6 +97,11 @@
             <!-- Rempli dynamiquement -->
         </div>
     </div>
+
+    <!-- Datalist Dynamique Intelligente (Recommandations en vert en premier) -->
+    <datalist id="liste-recettes">
+        <!-- Rempli par script -->
+    </datalist>
 
     <!-- MODALE GESTION PROFIL -->
     <div id="modal-personne" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
@@ -170,7 +206,9 @@
                 }
                 select.value = savedProfil;
                 
+                remplirChampsObjectifsDirects(savedProfil);
                 chargerMenuSemaine();
+                mettreAJourDatalistIntelligent();
                 afficherSuggestionsVertes();
             } catch (err) {
                 console.error("Erreur d'initialisation de la planification", err);
@@ -181,8 +219,49 @@
             const select = document.getElementById('select-profil');
             if (select) {
                 localStorage.setItem('profilActif', select.value);
+                remplirChampsObjectifsDirects(select.value);
                 chargerMenuSemaine();
+                mettreAJourDatalistIntelligent();
                 afficherSuggestionsVertes();
+            }
+        }
+
+        function remplirChampsObjectifsDirects(nomProfil) {
+            const p = profilsCache.find(item => item.nom === nomProfil);
+            if (!p) return;
+            document.getElementById('dir-cal').value = p.calories || 2000;
+            document.getElementById('dir-budget').value = p.budget || 100;
+            document.getElementById('dir-prot').value = p.proteines || 150;
+            document.getElementById('dir-gluc').value = p.glucides || 200;
+            document.getElementById('dir-lip').value = p.lipides || 70;
+            document.getElementById('dir-fibres').value = p.fibres || 30;
+        }
+
+        async function sauvegarderProfilDirect() {
+            const profilActif = document.getElementById('select-profil').value;
+            if (!profilActif) return;
+
+            const data = {
+                nom: profilActif,
+                ancienNom: profilActif,
+                calories: document.getElementById('dir-cal').value,
+                budget: document.getElementById('dir-budget').value,
+                proteines: document.getElementById('dir-prot').value,
+                glucides: document.getElementById('dir-gluc').value,
+                lipides: document.getElementById('dir-lip').value,
+                fibres: document.getElementById('dir-fibres').value
+            };
+
+            try {
+                await fetch('/api/personnes-objectifs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const resProfils = await fetch('/api/personnes-objectifs');
+                profilsCache = await resProfils.json();
+            } catch (e) {
+                console.error("Erreur sauvegarde directe profil", e);
             }
         }
 
@@ -192,7 +271,7 @@
 
             const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
             const container = document.getElementById('planification-container');
-            const profilObj = profilsCache.find(p => p.nom === profil) || { calories: 2000, proteines: 150, glucides: 200, lipides: 70 };
+            const profilObj = profilsCache.find(p => p.nom === profil) || { calories: 2000 };
             
             try {
                 const res = await fetch(`/api/menu-prevu-semaine?profil=${encodeURIComponent(profil)}`);
@@ -201,7 +280,6 @@
                 container.innerHTML = jours.map(jour => {
                     const menuJour = menusCache.find(m => m.jour === jour) || {};
                     
-                    // Calculs des totaux du jour
                     let calJour = 0, protJour = 0, glucJour = 0, lipJour = 0, coutJour = 0;
                     ['petitdejeuner', 'repas1', 'repas2', 'dessertcollation'].forEach(champ => {
                         const recId = menuJour[champ];
@@ -217,11 +295,6 @@
                         }
                     });
 
-                    // Séparer les recettes par catégorie pour les select ciblés
-                    const recettesPtDej = recettesCache.filter(r => r.type_repas === 'Petit-déjeuner' || !r.type_repas);
-                    const recettesMidiSoir = recettesCache.filter(r => r.type_repas === 'Déjeuner' || r.type_repas === 'Dîner' || !r.type_repas);
-                    const recettesCollation = recettesCache.filter(r => r.type_repas === 'Collation' || r.type_repas === 'Dessert' || !r.type_repas);
-
                     return `
                         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
                             <div class="flex justify-between items-center border-b border-slate-100 pb-2">
@@ -236,8 +309,8 @@
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
                                 <div>
-                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Petit-déjeuner</label>
-                                    <input type="text" list="liste-recettes" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'petitdejeuner', this.value)" value="${getNomRecette(menuJour.petitdejeuner)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Petit-déj / Dessert</label>
+                                    <input type="text" list="liste-recettes" placeholder="Rechercher (ex: Petit-déj, Dessert...)" onchange="sauvegarderRepasParNom('${jour}', 'petitdejeuner', this.value)" value="${getNomRecette(menuJour.petitdejeuner)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-slate-400 font-bold mb-1">Repas Midi</label>
@@ -248,22 +321,13 @@
                                     <input type="text" list="liste-recettes" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'repas2', this.value)" value="${getNomRecette(menuJour.repas2)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Collation / Dessert</label>
-                                    <input type="text" list="liste-recettes" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'dessertcollation', this.value)" value="${getNomRecette(menuJour.dessertcollation)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Collation / Grignotage</label>
+                                    <input type="text" list="liste-recettes" placeholder="Entrer manuellement..." onchange="sauvegarderRepasParNom('${jour}', 'dessertcollation', this.value)" value="${getNomRecette(menuJour.dessertcollation)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                             </div>
                         </div>
                     `;
                 }).join('');
-
-                // Mettre à jour le datalist global
-                let datalist = document.getElementById('liste-recettes');
-                if (!datalist) {
-                    datalist = document.createElement('datalist');
-                    datalist.id = 'liste-recettes';
-                    document.body.appendChild(datalist);
-                }
-                datalist.innerHTML = recettesCache.map(r => `<option value="${r.nom}">`).join('');
 
             } catch (e) {
                 console.error("Erreur chargement menu semaine", e);
@@ -273,6 +337,21 @@
         function getNomRecette(id) {
             const r = recettesCache.find(item => item.id == id);
             return r ? r.nom : '';
+        }
+
+        // Tri intelligent basé sur les protéines et les fibres pour prioriser en vert
+        function mettreAJourDatalistIntelligent() {
+            const datalist = document.getElementById('liste-recettes');
+            if (!datalist) return;
+
+            // Tri par score combiné protéines + fibres (décroissant)
+            const triees = [...recettesCache].sort((a, b) => {
+                const scoreA = (a.proteines || 0) * 2 + (a.fibres || 0) * 1.5;
+                const scoreB = (b.proteines || 0) * 2 + (b.fibres || 0) * 1.5;
+                return scoreB - scoreA;
+            });
+
+            datalist.innerHTML = triees.map(r => `<option value="${r.nom}">[Protéines: ${r.proteines || 0}g | Fibres: ${r.fibres || 0}g] - ${r.type_repas || 'Général'}</option>`).join('');
         }
 
         async function sauvegarderRepasParNom(jour, typeRepas, nomRecette) {
@@ -304,10 +383,17 @@
 
             const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
             for (let jour of jours) {
-                const r1 = recettesCache[Math.floor(Math.random() * recettesCache.length)]?.id || null;
-                const r2 = recettesCache[Math.floor(Math.random() * recettesCache.length)]?.id || null;
-                const r3 = recettesCache[Math.floor(Math.random() * recettesCache.length)]?.id || null;
-                const r4 = recettesCache[Math.floor(Math.random() * recettesCache.length)]?.id || null;
+                // Pour la génération aléatoire, on autorise les catégories Petit-déj / Déjeuner / Dîner / Dessert. 
+                // Le grignotage (dernière catégorie) est laissé vide pour saisie manuelle.
+                const ptDej = recettesCache.filter(r => ['Petit-déjeuner', 'Dessert'].includes(r.type_repas));
+                const repasStd = recettesCache.filter(r => ['Déjeuner', 'Dîner', 'Plat'].includes(r.type_repas));
+                const poolPtDej = ptDej.length > 0 ? ptDej : recettesCache;
+                const poolStd = repasStd.length > 0 ? repasStd : recettesCache;
+
+                const r1 = poolPtDej[Math.floor(Math.random() * poolPtDej.length)]?.id || null;
+                const r2 = poolStd[Math.floor(Math.random() * poolStd.length)]?.id || null;
+                const r3 = poolStd[Math.floor(Math.random() * poolStd.length)]?.id || null;
+                const r4 = null; // Grignotage laissé vide par défaut en aléatoire
 
                 await fetch('/api/menu-prevu', {
                     method: 'POST',
@@ -316,7 +402,7 @@
                 });
             }
             chargerMenuSemaine();
-            alert("Semaine générée aléatoirement avec succès !");
+            alert("Semaine générée aléatoirement (avec filtrage des catégories de repas) !");
         }
 
         async function genererSemaineAleatoireOptimisee() {
@@ -324,16 +410,20 @@
             if (!profil || recettesCache.length === 0) return;
             const profilObj = profilsCache.find(p => p.nom === profil) || { calories: 2000 };
 
-            // Filtrer les recettes se rapprochant le mieux des objectifs caloriques par repas (~1/3 ou 1/4)
+            // Ciblage par calories et tri d'optimisation (Protéines & Fibres en priorité)
             const cibleCal = (profilObj.calories || 2000) / 4;
-            const recettesTriees = [...recettesCache].sort((a, b) => Math.abs((a.calories || 500) - cibleCal) - Math.abs((b.calories || 500) - cibleCal));
+            const recettesOptimisees = [...recettesCache].sort((a, b) => {
+                const scoreA = (a.proteines || 0) * 2 + (a.fibres || 0) * 1.5 - Math.abs((a.calories || 500) - cibleCal);
+                const scoreB = (b.proteines || 0) * 2 + (b.fibres || 0) * 1.5 - Math.abs((b.calories || 500) - cibleCal);
+                return scoreB - scoreA;
+            });
 
             const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
             for (let jour of jours) {
-                const r1 = recettesTriees[Math.floor(Math.random() * Math.min(5, recettesTriees.length))]?.id || null;
-                const r2 = recettesTriees[Math.floor(Math.random() * Math.min(5, recettesTriees.length))]?.id || null;
-                const r3 = recettesTriees[Math.floor(Math.random() * Math.min(5, recettesTriees.length))]?.id || null;
-                const r4 = recettesTriees[Math.floor(Math.random() * Math.min(5, recettesTriees.length))]?.id || null;
+                const r1 = recettesOptimisees[Math.floor(Math.random() * Math.min(5, recettesOptimisees.length))]?.id || null;
+                const r2 = recettesOptimisees[Math.floor(Math.random() * Math.min(5, recettesOptimisees.length))]?.id || null;
+                const r3 = recettesOptimisees[Math.floor(Math.random() * Math.min(5, recettesOptimisees.length))]?.id || null;
+                const r4 = null; // Grignotage laissé vide pour saisie manuelle
 
                 await fetch('/api/menu-prevu', {
                     method: 'POST',
@@ -342,19 +432,21 @@
                 });
             }
             chargerMenuSemaine();
-            alert("Génération intelligente axée sur vos objectifs effectuée !");
+            alert("Génération intelligente axée sur vos objectifs et catégories effectuée !");
         }
 
         function afficherSuggestionsVertes() {
             const container = document.getElementById('container-suggestions-vertes');
             if (!container || recettesCache.length === 0) return;
             
-            const suggestions = recettesCache.slice(0, 3);
+            // Recommandations top 3 basées sur le max de protéines et fibres
+            const suggestions = [...recettesCache].sort((a, b) => ((b.proteines || 0) + (b.fibres || 0)) - ((a.proteines || 0) + (a.fibres || 0))).slice(0, 3);
+            
             container.innerHTML = suggestions.map(r => `
                 <div class="bg-white p-2.5 rounded-xl border border-emerald-100 flex justify-between items-center text-xs">
                     <div>
                         <span class="font-bold text-slate-800">${r.nom}</span>
-                        <span class="text-emerald-600 block text-[10px]">${r.calories || 0} kcal | ${r.proteines || 0}g P</span>
+                        <span class="text-emerald-600 block text-[10px]">🔥 ${r.calories || 0} kcal | 🥩 ${r.proteines || 0}g P | 🌾 ${r.fibres || 0}g Fibres</span>
                     </div>
                     <span class="text-emerald-600 font-bold text-sm">✓</span>
                 </div>
