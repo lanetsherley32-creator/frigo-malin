@@ -82,27 +82,44 @@
                 <div class="space-y-1.5 pb-3 border-b border-slate-100">
                     <span class="font-bold text-blue-900 block text-[11px]">☕ Petit-déjeuner (Sélectionnez un ou plusieurs) :</span>
                     <div class="flex flex-wrap gap-4 items-center">
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-pt-dej-sub rounded border-slate-300" value="petitdej" checked onchange="mettreAJourDatalists()"> petitdej</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-pt-dej-sub rounded border-slate-300" value="repas chaud" checked onchange="mettreAJourDatalists()"> Repas chaud</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-pt-dej-sub rounded border-slate-300" value="repas froid" checked onchange="mettreAJourDatalists()"> Repas froid</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-pt-dej-sub rounded border-slate-300" value="dessert" checked onchange="mettreAJourDatalists()"> Dessert</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-pt-dej-sub rounded border-slate-300" value="encas" checked onchange="mettreAJourDatalists()"> Encas</label>
                     </div>
                 </div>
                 <!-- Repas Midi -->
                 <div class="space-y-1.5 pb-3 border-b border-slate-100">
                     <span class="font-bold text-blue-900 block text-[11px]">🍽️ Repas Midi (Sélectionnez un ou plusieurs) :</span>
                     <div class="flex flex-wrap gap-4 items-center">
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-midi-sub rounded border-slate-300" value="petitdej" checked onchange="mettreAJourDatalists()"> petitdej</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-midi-sub rounded border-slate-300" value="repas chaud" checked onchange="mettreAJourDatalists()"> Repas chaud</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-midi-sub rounded border-slate-300" value="repas froid" checked onchange="mettreAJourDatalists()"> Repas froid</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-midi-sub rounded border-slate-300" value="dessert" checked onchange="mettreAJourDatalists()"> Dessert</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-midi-sub rounded border-slate-300" value="encas" checked onchange="mettreAJourDatalists()"> Encas</label>
                     </div>
                 </div>
                 <!-- Repas Soir -->
                 <div class="space-y-1.5 pb-3 border-b border-slate-100">
                     <span class="font-bold text-blue-900 block text-[11px]">🌙 Repas Soir (Sélectionnez un ou plusieurs) :</span>
                     <div class="flex flex-wrap gap-4 items-center">
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-soir-sub rounded border-slate-300" value="petitdej" checked onchange="mettreAJourDatalists()"> petitdej</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-soir-sub rounded border-slate-300" value="repas chaud" checked onchange="mettreAJourDatalists()"> Repas chaud</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-soir-sub rounded border-slate-300" value="repas froid" checked onchange="mettreAJourDatalists()"> Repas froid</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-soir-sub rounded border-slate-300" value="dessert" checked onchange="mettreAJourDatalists()"> Dessert</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-soir-sub rounded border-slate-300" value="encas" checked onchange="mettreAJourDatalists()"> Encas</label>
+                    </div>
+                </div>
+                <!-- Collation -->
+                <div class="space-y-1.5 pb-3 border-b border-slate-100">
+                    <span class="font-bold text-blue-900 block text-[11px]">🍏 Collation (Sélectionnez un ou plusieurs) :</span>
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="petitdej" checked onchange="mettreAJourDatalists()"> petitdej</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="repas chaud" checked onchange="mettreAJourDatalists()"> Repas chaud</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="repas froid" checked onchange="mettreAJourDatalists()"> Repas froid</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="dessert" checked onchange="mettreAJourDatalists()"> Dessert</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="encas" checked onchange="mettreAJourDatalists()"> Encas</label>
                     </div>
                 </div>
                 <!-- 4 Choix Principaux Obligatoires --> 
@@ -312,6 +329,63 @@
             }, 400); 
         } 
 
+        function getFiltresActifsPourType(typeRepas) {
+            let selector = '';
+            if (typeRepas === 'petitdejeuner') selector = '.filtre-pt-dej-sub';
+            else if (typeRepas === 'repas1') selector = '.filtre-midi-sub';
+            else if (typeRepas === 'repas2') selector = '.filtre-soir-sub';
+            else if (typeRepas === 'dessertcollation') selector = '.filtre-collation-sub';
+
+            const checkboxes = document.querySelectorAll(selector);
+            const selectionnes = [];
+            checkboxes.forEach(cb => {
+                if (cb.checked) selectionnes.push(cb.value.toLowerCase());
+            });
+            return selectionnes;
+        }
+
+        function filtrerRecettesParType(typeRepas) {
+            const categoriesAcceptees = getFiltresActifsPourType(typeRepas);
+            return recettesCache.filter(rec => {
+                const catRec = (rec.categorie || rec.type || '').toLowerCase();
+                // Si la recette correspond à l'une des sous-catégories cochées
+                return categoriesAcceptees.some(c => catRec.includes(c));
+            });
+        }
+
+        function mettreAJourDatalists() {
+            const types = [
+                { id: 'liste-recettes-pt-dej', typeRepas: 'petitdejeuner', catActive: 'filtre-cat-pt-dej' },
+                { id: 'liste-recettes-midi', typeRepas: 'repas1', catActive: 'filtre-cat-midi' },
+                { id: 'liste-recettes-soir', typeRepas: 'repas2', catActive: 'filtre-cat-soir' },
+                { id: 'liste-recettes-collation', typeRepas: 'dessertcollation', catActive: 'filtre-cat-collation' }
+            ];
+
+            types.forEach(t => {
+                const datalist = document.getElementById(t.id);
+                const globalActive = document.getElementById(t.catActive)?.checked;
+                if (!datalist) return;
+
+                if (!globalActive) {
+                    datalist.innerHTML = '';
+                    return;
+                }
+
+                const recettesFiltrees = filtrerRecettesParType(t.typeRepas);
+                datalist.innerHTML = recettesFiltrees.map(r => `<option value="${r.nom}">`).join('');
+            });
+
+            // Remplissage global des ingrédients et recettes pour les en-cas libres
+            const datalistGlobal = document.getElementById('liste-ingredients-recettes-global');
+            if (datalistGlobal) {
+                let optionsHtml = recettesCache.map(r => `<option value="${r.nom}">`).join('');
+                if (ingredientsCache.length > 0) {
+                    optionsHtml += ingredientsCache.map(i => `<option value="${i.nom}">`).join('');
+                }
+                datalistGlobal.innerHTML = optionsHtml;
+            }
+        }
+
         async function chargerMenuSemaine() { 
             const profil = document.getElementById('select-profil')?.value; 
             if (!profil) return; 
@@ -376,9 +450,16 @@
             return r ? r.nom : ''; 
         } 
 
+        // Calcul strict du coût unitaire à la part
         function calculerCoutUnitaire(rec) { 
             if (!rec) return 0; 
-            return rec.cout_par_part !== undefined ? parseFloat(rec.cout_par_part) || 0 : (parseFloat(rec.cout || rec.prix) || 0); 
+            // Si le champ 'cout_par_part' existe, on l'utilise en priorité, sinon on divise le coût global par le nombre de parts si supérieur à 1, ou on prend le prix unitaire
+            if (rec.cout_par_part !== undefined && rec.cout_par_part !== null && rec.cout_par_part !== '') {
+                return parseFloat(rec.cout_par_part) || 0;
+            }
+            const coutGlobal = parseFloat(rec.cout || rec.prix || 0);
+            const nbParts = parseFloat(rec.portions || rec.parts || 1) || 1;
+            return nbParts > 0 ? coutGlobal / nbParts : coutGlobal; 
         } 
 
         function rendreTagsEncas(jour, chaineEncas) { 
@@ -403,7 +484,7 @@
 
                 const menuJour = menusCache.find(m => m.jour === jour) || { jour }; 
                 let elements = menuJour.encas_libre ? menuJour.encas_libre.split(',').map(e => e.trim()).filter(Boolean) : []; 
-                
+                 
                 if (!elements.includes(valeur)) { 
                     elements.push(valeur); 
                     menuJour.encas_libre = elements.join(', '); 
@@ -447,13 +528,43 @@
             } 
         } 
 
+        async function sauvegarderRepasParNom(jour, champ, nomRecette) {
+            const profil = document.getElementById('select-profil').value;
+            if (!profil) return;
+
+            let recId = '';
+            if (nomRecette.trim() !== '') {
+                const rec = recettesCache.find(r => r.nom.toLowerCase() === nomRecette.toLowerCase());
+                if (rec) recId = rec.id;
+            }
+
+            let menuJour = menusCache.find(m => m.jour === jour);
+            if (!menuJour) {
+                menuJour = { jour, profil };
+                menusCache.push(menuJour);
+            }
+            menuJour[champ] = recId;
+            menuJour.profil = profil;
+
+            try {
+                await fetch('/api/menu-prevu-semaine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(menuJour)
+                });
+                recalculTotauxJour(jour);
+            } catch (e) {
+                console.error("Erreur sauvegarde repas", e);
+            }
+        }
+
         function recalculTotauxJour(jour) { 
             const profil = document.getElementById('select-profil')?.value; 
-            const profilObj = profilsCache.find(p => p.nom === profil) || { calories: 2000 }; 
+            const profilObj = profilsCache.find(p => p.nom === profil) || { calories: 2000, budget: 100 }; 
             const menuJour = menusCache.find(m => m.jour === jour) || {}; 
 
             let calJour = 0, protJour = 0, glucJour = 0, lipJour = 0, coutJour = 0; 
-            
+             
             ['petitdejeuner', 'repas1', 'repas2', 'dessertcollation'].forEach(champ => { 
                 const recId = menuJour[champ]; 
                 if (recId) { 
@@ -496,63 +607,119 @@
                 containerTotaux.innerHTML = ` 
                     <span class="bg-slate-50 px-2 py-1 rounded-lg border">🔥 ${Math.round(calJour)}/${profilObj.calories} kcal</span> 
                     <span class="bg-slate-50 px-2 py-1 rounded-lg border">🥩 ${Math.round(protJour)}g</span> 
-                    <span class="bg-slate-50 px-2 py-1 rounded-lg border">🍞 ${Math.round(glucJour)}g</span> 
+                    <span class="bg-slate-50 px-2 py-1 rounded-lg border">🥖 ${Math.round(glucJour)}g</span> 
                     <span class="bg-slate-50 px-2 py-1 rounded-lg border">🥑 ${Math.round(lipJour)}g</span> 
-                    <span class="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg border border-emerald-100">💶 ${coutJour.toFixed(2)}€ (part)</span> 
+                    <span class="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg border border-emerald-200 font-bold">💶 ${coutJour.toFixed(2)} €</span> 
                 `; 
             } 
         } 
 
-        function mettreAJourDatalists() { 
-            const okPtDej = document.getElementById('filtre-cat-pt-dej')?.checked; 
-            const okMidi = document.getElementById('filtre-cat-midi')?.checked; 
-            const okSoir = document.getElementById('filtre-cat-soir')?.checked; 
-            const okCollation = document.getElementById('filtre-cat-collation')?.checked; 
+        async function genererSemaineAleatoire() {
+            const profil = document.getElementById('select-profil').value;
+            if (!profil) return;
 
-            const getSelectedSubCategories = (selectorClass) => {
-                return Array.from(document.querySelectorAll(`.${selectorClass}:checked`)).map(el => el.value.toLowerCase());
-            };
+            const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+            const ptDejActif = document.getElementById('filtre-cat-pt-dej').checked;
+            const midiActif = document.getElementById('filtre-cat-midi').checked;
+            const soirActif = document.getElementById('filtre-cat-soir').checked;
+            const collationActif = document.getElementById('filtre-cat-collation').checked;
 
-            const subPtDej = getSelectedSubCategories('filtre-pt-dej-sub');
-            const subMidi = getSelectedSubCategories('filtre-midi-sub');
-            const subSoir = getSelectedSubCategories('filtre-soir-sub');
+            for (const jour of jours) {
+                let menuJour = menusCache.find(m => m.jour === jour);
+                if (!menuJour) {
+                    menuJour = { jour, profil };
+                    menusCache.push(menuJour);
+                }
 
-            const filtrerRecettes = (baseKeywords, subCategories) => {
-                return recettesCache.filter(r => {
-                    const cat = (r.type_repas || '').toLowerCase();
-                    const matchBase = baseKeywords.some(bk => cat.includes(bk));
-                    const matchSub = subCategories.length === 0 || subCategories.some(sc => cat.includes(sc));
-                    return matchBase && matchSub;
+                if (ptDejActif) {
+                    const candidats = filtrerRecettesParType('petitdejeuner');
+                    if (candidats.length > 0) {
+                        const r = candidats[Math.floor(Math.random() * candidats.length)];
+                        menuJour.petitdejeuner = r.id;
+                    }
+                } else {
+                    menuJour.petitdejeuner = null;
+                }
+
+                if (midiActif) {
+                    const candidats = filtrerRecettesParType('repas1');
+                    if (candidats.length > 0) {
+                        const r = candidats[Math.floor(Math.random() * candidats.length)];
+                        menuJour.repas1 = r.id;
+                    }
+                } else {
+                    menuJour.repas1 = null;
+                }
+
+                if (soirActif) {
+                    const candidats = filtrerRecettesParType('repas2');
+                    if (candidats.length > 0) {
+                        const r = candidats[Math.floor(Math.random() * candidats.length)];
+                        menuJour.repas2 = r.id;
+                    }
+                } else {
+                    menuJour.repas2 = null;
+                }
+
+                if (collationActif) {
+                    const candidats = filtrerRecettesParType('dessertcollation');
+                    if (candidats.length > 0) {
+                        const r = candidats[Math.floor(Math.random() * candidats.length)];
+                        menuJour.dessertcollation = r.id;
+                    }
+                } else {
+                    menuJour.dessertcollation = null;
+                }
+
+                menuJour.profil = profil;
+                await fetch('/api/menu-prevu-semaine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(menuJour)
                 });
-            };
+            }
+            chargerMenuSemaine();
+        }
 
-            const poolPtDej = filtrerRecettes(['petit', 'dej'], subPtDej); 
-            const poolMidi = filtrerRecettes(['midi', 'déjeuner', 'plat'], subMidi); 
-            const poolSoir = filtrerRecettes(['soir', 'dîner'], subSoir); 
-            const poolCollation = recettesCache.filter(r => {
-                const cat = (r.type_repas || '').toLowerCase();
-                return cat.includes('collation') || cat.includes('grignotage') || cat.includes('dessert');
-            }); 
+        async function genererSemaineAleatoireOptimisee() {
+            // Utilise la même logique respectant les filtres avancés
+            await genererSemaineAleatoire();
+        }
 
-            const genererOptionsHtml = (pool) => { 
-                return pool.map(r => { 
-                    const coutUnitaire = calculerCoutUnitaire(r); 
-                    return `<option value="${r.nom}">[P: ${r.proteines || 0}g | ${coutUnitaire.toFixed(2)}€/part] - ${r.type_repas || 'Général'}</option>`; 
-                }).join(''); 
-            }; 
+        function afficherSuggestionsVertes() {
+            const container = document.getElementById('container-suggestions-vertes');
+            if (!container) return;
+            if (recettesCache.length === 0) {
+                container.innerHTML = '<p class="text-xs text-emerald-600 italic">Aucune suggestion disponible.</p>';
+                return;
+            }
+            // Sélectionner 3 recettes au hasard
+            const echantillon = [...recettesCache].sort(() => 0.5 - Math.random()).slice(0, 3);
+            container.innerHTML = echantillon.map(r => `
+                <div class="bg-white p-2 rounded-xl border border-emerald-200 text-xs flex justify-between items-center">
+                    <div>
+                        <span class="font-bold text-slate-800">${r.nom}</span>
+                        <div class="text-[10px] text-slate-500">${r.calories || 0} kcal • ${calculerCoutUnitaire(r).toFixed(2)} €/part</div>
+                    </div>
+                </div>
+            `).join('');
+        }
 
-            document.getElementById('liste-recettes-pt-dej').innerHTML = okPtDej ? genererOptionsHtml(poolPtDej) : ''; 
-            document.getElementById('liste-recettes-midi').innerHTML = okMidi ? genererOptionsHtml(poolMidi) : ''; 
-            document.getElementById('liste-recettes-soir').innerHTML = okSoir ? genererOptionsHtml(poolSoir) : ''; 
-            document.getElementById('liste-recettes-collation').innerHTML = okCollation ? genererOptionsHtml(poolCollation) : ''; 
+        function ouvrirModalPersonne(mode) {
+            const modal = document.getElementById('modal-personne');
+            if (modal) modal.classList.remove('hidden');
+        }
 
-            let optionsGlobales = recettesCache.map(r => `<option value="${r.nom}">Recette : ${r.nom}</option>`).join(''); 
-            if (ingredientsCache.length > 0) { 
-                optionsGlobales += ingredientsCache.map(i => `<option value="${i.nom}">Ingrédient : ${i.nom}</option>`).join(''); 
-            } 
-            const dlEnc = document.getElementById('liste-ingredients-recettes-global'); 
-            if (dlEnc) dlEnc.innerHTML = optionsGlobales; 
-        } 
+        function fermerModalPersonne() {
+            const modal = document.getElementById('modal-personne');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function sauvegarderPersonne(event) {
+            event.preventDefault();
+            // Logique de sauvegarde du profil
+            fermerModalPersonne();
+        }
     </script> 
 </body> 
 </html>

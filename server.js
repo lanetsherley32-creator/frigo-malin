@@ -616,8 +616,8 @@ app.post('/api/suivi', async (req, res) => {
     }
 });
 
-app.delete('/api/suivi', async (req, res) => {
-    const id = req.query.id || req.params.id;
+app.delete('/api/suivi/:id', async (req, res) => {
+    const id = req.params.id || req.query.id;
     if (!id) return res.status(400).json({ error: "ID manquant" });
     try {
         await pool.query("DELETE FROM suivi_conso WHERE id = $1", [id]);
@@ -627,7 +627,33 @@ app.delete('/api/suivi', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+app.put('/api/suivi/:id', async (req, res) => {
+    const { id } = req.params;
+    const { profil, jour, categorie, nom_element, element_id, type_element, quantite, unite } = req.body;
+    if (!profil || !jour) return res.status(400).json({ error: "Données incomplètes" });
 
+    try {
+        await pool.query(
+            `UPDATE suivi_conso SET profil = $1, jour = $2, categorie = $3, nom_element = $4, element_id = $5, type_element = $6, quantite = $7, unite = $8 WHERE id = $9`,
+            [
+                profil, 
+                jour, 
+                categorie || 'repas1', 
+                nom_element || '', 
+                element_id || null, 
+                type_element || 'recette', 
+                quantite !== undefined ? quantite : 1, 
+                unite || 'portion',
+                id
+            ]
+        );
+        io.emit('data_updated');
+        res.json({ success: true, message: "Consommation mise à jour avec succès !" });
+    } catch (err) {
+        console.error("Erreur API PUT /api/suivi :", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
 // --- API BILAN SEMAINE RÉEL ---
 app.get('/api/suivi-semaine', async (req, res) => {
     const { profil } = req.query;
