@@ -1,5 +1,5 @@
 const express = require('express');
-const http = require('http'); // Gardé propre
+const http = http = require('http'); // Gardé propre
 const { Pool } = require('pg');
 const bodyParser = require('body-parser');
 const socketIo = require('socket.io');
@@ -404,8 +404,8 @@ app.get('/api/recherche-globale', async (req, res) => {
     try {
         // Récupérer les objectifs et la consommation actuelle du jour pour le tri intelligent
         let cible = { calories: 2000, proteines: 120, glucides: 200, lipides: 70, fibres: 30, sucre: 50, budget: 100 };
-        let consomme = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 }; 
-        
+        let consomme = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 };
+
         if (profil) {
             const objRes = await pool.query("SELECT * FROM personnes_objectifs WHERE nom = $1", [profil]);
             if (objRes.rows.length > 0) {
@@ -420,7 +420,7 @@ app.get('/api/recherche-globale', async (req, res) => {
                     budget: parseFloat(obj.budget) || 100
                 };
             }
-            
+
             if (jour) {
                 const suiviRes = await pool.query(`
                     SELECT r.parts,
@@ -449,15 +449,8 @@ app.get('/api/recherche-globale', async (req, res) => {
                 });
             }
         }
-        
-        // Suite de la logique à connecter avec la partie 2...
-        res.json({ success: true, cible, consomme });
-    } catch (err) {
-        console.error("Erreur recherche globale :", err);
-        res.status(500).json({ error: err.message });
-    }
-});
-// Parsing des catégories autorisées (ex: "Petit-déjeuner,Desserts")
+
+        // Parsing des catégories autorisées (ex: "Petit-déjeuner,Desserts")
         let categoriesFiltre = [];
         if (categories) {
             categoriesFiltre = Array.isArray(categories) ? categories : categories.split(',').map(c => c.trim().toLowerCase());
