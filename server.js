@@ -74,7 +74,7 @@ app.use((req, res, next) => {
 // --- FICHIERS STATIQUES ---
 app.use(express.static('public'));
 
-// Redirection racine corrigée (pointe vers global.html si connectée, sinon login.html)
+// Redirection racine corrigée
 app.get('/', (req, res) => {
     if (req.session.user) {
         res.sendFile(__dirname + '/public/global.html');
@@ -387,29 +387,31 @@ app.get('/api/recherche-globale', async (req, res) => {
 
             if (jour) {
                 const suiviRes = await pool.query(`
-                    SELECT r.parts,
+                    SELECT s.quantite,
+                           COALESCE(r.parts, 1) as parts,
                            COALESCE(r.calories, i.calories) as calories,
                            COALESCE(r.proteines, i.proteines) as proteines,
                            COALESCE(r.glucides, i.glucides) as glucides,
                            COALESCE(r.lipides, i.lipides) as lipides,
                            COALESCE(r.fibres, i.fibres) as fibres,
                            COALESCE(r.sucre, i.sucre) as sucre,
-                           COALESCE(r.cout, 0) as cout
+                           COALESCE(r.cout, i.prix, 0) as cout
                     FROM suivi_conso s
                     LEFT JOIN recettes r ON s.type_element = 'recette' AND s.element_id = r.id
-                    LEFT JOIN ingredients i ON s.type_element = 'aliment' AND s.element_id = i.id
+                    LEFT JOIN ingredients i ON s.type_element = 'ingredient' AND s.element_id = i.id
                     WHERE s.profil = $1 AND s.jour = $2
                 `, [profil, jour]);
 
                 suiviRes.rows.forEach(row => {
+                    const qte = parseFloat(row.quantite) || 1;
                     const ratioPart = 1 / (parseFloat(row.parts) || 1);
-                    consomme.calories += (parseFloat(row.calories) || 0) * ratioPart;
-                    consomme.proteines += (parseFloat(row.proteines) || 0) * ratioPart;
-                    consomme.glucides += (parseFloat(row.glucides) || 0) * ratioPart;
-                    consomme.lipides += (parseFloat(row.lipides) || 0) * ratioPart;
-                    consomme.fibres += (parseFloat(row.fibres) || 0) * ratioPart;
-                    consomme.sucre += (parseFloat(row.sucre) || 0) * ratioPart;
-                    consomme.cout += (parseFloat(row.cout) || 0) * ratioPart;
+                    consomme.calories += (parseFloat(row.calories) || 0) * ratioPart * qte;
+                    consomme.proteines += (parseFloat(row.proteines) || 0) * ratioPart * qte;
+                    consomme.glucides += (parseFloat(row.glucides) || 0) * ratioPart * qte;
+                    consomme.lipides += (parseFloat(row.lipides) || 0) * ratioPart * qte;
+                    consomme.fibres += (parseFloat(row.fibres) || 0) * ratioPart * qte;
+                    consomme.sucre += (parseFloat(row.sucre) || 0) * ratioPart * qte;
+                    consomme.cout += (parseFloat(row.cout) || 0) * ratioPart * qte;
                 });
             }
         }
@@ -426,7 +428,7 @@ app.get('/api/recherche-globale', async (req, res) => {
         const ingredientsRes = await pool.query("SELECT * FROM ingredients");
         let ingredients = ingredientsRes.rows.map(i => ({
             ...i,
-            type: 'aliment',
+            type: 'ingredient',
             parts: 1,
             cout: i.prix || 0,
             categorie: i.rayon || 'Épicerie',
@@ -446,7 +448,6 @@ app.get('/api/recherche-globale', async (req, res) => {
             const lip = (parseFloat(item.lipides) || 0) * ratioPart;
             const fib = (parseFloat(item.fibres) || 0) * ratioPart;
             const suc = (parseFloat(item.sucre) || 0) * ratioPart;
-            const cout = (parseFloat(item.cout) || 0) * ratioPart;
 
             let penalite = 0;
             if ((consomme.calories + cal) > cible.calories) penalite += ((consomme.calories + cal) - cible.calories) * 2;
@@ -547,14 +548,36 @@ app.get('/api/suivi', async (req, res) => {
 });
 
 app.post('/api/suivi', async (req, res) => {
-    const { profil, jour, type_element, element_id, quantite, repas_type } = req.body;
-    if (!profil || !jour || !element_id) return res.status(400).json({ error: "Données incomplètes" });
+    const { profil, jour, categorie, nom_element, element_id, type_element, quantite, unite } = req.body;
+    if (!profil || !jour) return res.status(400).json({ error: "Données incomplètes" });
 
     try {
         await pool.query(
-            `INSERT INTO suivi_conso (profil, jour, type_element, element_id, quantite, repas_type) VALUES ($1, $2, $3, $4, $5, $6)`,
-            [profil, jour, type_element || 'recette', element_id, quantite || 1, repas_type || 'repas1']
+            `INSERT INTO suivi_conso (profil, jour, repas_type, nom_element, element_id, type_element, quantite, unite) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+                profil, 
+                jour, 
+                categorie || 'repas1', 
+                nom_element || '', 
+                element_id || null, 
+                type_element || 'recette', 
+                quantite !== undefined ? quantite : 1, 
+                unite || 'portion'
+            ]
         );
+        io.emit('data_updated');
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Erreur API /api/suivi :", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/suivi', async (req, res) => {
+    const id = req.query.id || req.params.id;
+    if (!id) return res.status(400).json({ error: "ID manquant" });
+    try {
+        await pool.query("DELETE FROM suivi_conso WHERE id = $1", [id]);
         io.emit('data_updated');
         res.json({ success: true });
     } catch (err) {
@@ -562,11 +585,42 @@ app.post('/api/suivi', async (req, res) => {
     }
 });
 
-app.delete('/api/suivi/:id', async (req, res) => {
+// --- API BILAN SEMAINE RÉEL ---
+app.get('/api/suivi-semaine', async (req, res) => {
+    const { profil } = req.query;
+    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+
     try {
-        await pool.query("DELETE FROM suivi_conso WHERE id = $1", [req.params.id]);
-        io.emit('data_updated');
-        res.json({ success: true });
+        const suiviRes = await pool.query(`
+            SELECT s.quantite,
+                   COALESCE(r.parts, 1) as parts,
+                   COALESCE(r.calories, i.calories) as calories,
+                   COALESCE(r.proteines, i.proteines) as proteines,
+                   COALESCE(r.glucides, i.glucides) as glucides,
+                   COALESCE(r.lipides, i.lipides) as lipides,
+                   COALESCE(r.fibres, i.fibres) as fibres,
+                   COALESCE(r.sucre, i.sucre) as sucre,
+                   COALESCE(r.cout, i.prix, 0) as cout
+            FROM suivi_conso s
+            LEFT JOIN recettes r ON s.type_element = 'recette' AND s.element_id = r.id
+            LEFT JOIN ingredients i ON s.type_element = 'ingredient' AND s.element_id = i.id
+            WHERE s.profil = $1
+        `, [profil]);
+
+        let totaux = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, budget: 0 };
+        suiviRes.rows.forEach(row => {
+            const qte = parseFloat(row.quantite) || 1;
+            const ratioPart = 1 / (parseFloat(row.parts) || 1);
+            totaux.calories += (parseFloat(row.calories) || 0) * ratioPart * qte;
+            totaux.proteines += (parseFloat(row.proteines) || 0) * ratioPart * qte;
+            totaux.glucides += (parseFloat(row.glucides) || 0) * ratioPart * qte;
+            totaux.lipides += (parseFloat(row.lipides) || 0) * ratioPart * qte;
+            totaux.fibres += (parseFloat(row.fibres) || 0) * ratioPart * qte;
+            totaux.sucre += (parseFloat(row.sucre) || 0) * ratioPart * qte;
+            totaux.budget += (parseFloat(row.cout) || 0) * ratioPart * qte;
+        });
+
+        res.json(totaux);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
