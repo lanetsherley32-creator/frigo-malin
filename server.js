@@ -711,13 +711,25 @@ async function traiterGenerationMenu(req, res) {
     }
 }
 
-// --- API GET & POST /api/menus-semaine ---
+// --- API GET /api/menus-semaine (Corrigé pour renvoyer un objet par jour) ---
 app.get('/api/menus-semaine', async (req, res) => {
     const profil = req.query.profil;
     if (!profil) return res.status(400).json({ error: "Profil manquant" });
     try {
         const result = await pool.query("SELECT * FROM menu_prevu WHERE profil = $1", [profil]);
-        res.json(result.rows || []);
+        
+        // Transformer le tableau de la base de données en un objet { Lundi: { "Petit Déjeuner": "...", ... }, ... }
+        const semaineObj = {};
+        result.rows.forEach(row => {
+            semaineObj[row.jour] = {
+                'Petit Déjeuner': row.petitdejeuner || '',
+                'Repas 1': row.repas1 || '',
+                'Repas 2': row.repas2 || '',
+                'Dessert/Collation': row.dessertcollation || ''
+            };
+        });
+
+        res.json({ semaine: semaineObj });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
