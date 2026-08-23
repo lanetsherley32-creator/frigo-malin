@@ -152,7 +152,197 @@
         </div>
     </div>
 
-    <!-- Script Global -->
-    <script src="script.js"></script>
+    <!-- Script Intégré -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            chargerInfosUtilisateur();
+            chargerPersonnesObjectifs();
+            
+            if (typeof io !== 'undefined') {
+                const socket = io();
+                socket.on('data_updated', () => {
+                    chargerPersonnesObjectifs();
+                });
+            }
+        });
+
+        async function chargerInfosUtilisateur() {
+            try {
+                const res = await fetch('/api/current-user');
+                if (res.ok) {
+                    const user = await res.json();
+                    const element = document.getElementById('nom-utilisateur-connecte');
+                    if (element) element.innerText = `Connecté en tant que : ${user.nom} (${user.email})`;
+                    
+                    const inputNom = document.getElementById('compte-nom');
+                    const inputEmail = document.getElementById('compte-email');
+                    if (inputNom) inputNom.value = user.nom;
+                    if (inputEmail) inputEmail.value = user.email;
+                } else {
+                    window.location.href = '/login.html';
+                }
+            } catch (e) {
+                console.error("Erreur chargement utilisateur", e);
+            }
+        }
+
+        function ouvrirModalCompte() {
+            document.getElementById('modal-compte')?.classList.remove('hidden');
+        }
+
+        function fermerModalCompte() {
+            document.getElementById('modal-compte')?.classList.add('hidden');
+        }
+
+        async function sauvegarderCompte(event) {
+            event.preventDefault();
+            const nom = document.getElementById('compte-nom').value;
+            const email = document.getElementById('compte-email').value;
+            const mdp = document.getElementById('compte-mdp').value;
+
+            try {
+                const res = await fetch('/api/profils', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nom, email, mdp })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert("Compte mis à jour avec succès !");
+                    fermerModalCompte();
+                    chargerInfosUtilisateur();
+                } else {
+                    alert(data.error || "Erreur lors de la mise à jour");
+                }
+            } catch (e) {
+                alert("Erreur réseau");
+            }
+        }
+
+        async function deconnexion() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login.html';
+        }
+
+        let listePersonnesCache = [];
+
+        async function chargerPersonnesObjectifs() {
+            try {
+                const res = await fetch('/api/personnes-objectifs');
+                if (res.ok) {
+                    listePersonnesCache = await res.json();
+                    const select = document.getElementById('select-personne-globale');
+                    if (!select) return;
+
+                    const personneActiveActuelle = localStorage.getItem('profilActif') || (listePersonnesCache[0] ? listePersonnesCache[0].nom : '');
+
+                    select.innerHTML = '';
+                    if (listePersonnesCache.length === 0) {
+                        select.innerHTML = '<option value="">Aucune personne enregistrée</option>';
+                        return;
+                    }
+
+                    listePersonnesCache.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.nom;
+                        opt.textContent = `${p.nom} (${p.calories} kcal - ${p.budget}€)`;
+                        if (p.nom === personneActiveActuelle) opt.selected = true;
+                        select.appendChild(opt);
+                    });
+
+                    if (!localStorage.getItem('profilActif') && listePersonnesCache.length > 0) {
+                        localStorage.setItem('profilActif', listePersonnesCache[0].nom);
+                    }
+                }
+            } catch (e) {
+                console.error("Erreur chargement personnes", e);
+            }
+        }
+
+        function changerPersonneActive(nom) {
+            if (nom) {
+                localStorage.setItem('profilActif', nom);
+            }
+        }
+
+        function ouvrirModalPersonne() {
+            const modal = document.getElementById('modal-personne');
+            const selectNomActuel = localStorage.getItem('profilActif');
+            const personneTrouvee = listePersonnesCache.find(p => p.nom === selectNomActuel);
+
+            document.getElementById('ancien-nom-personne').value = personneTrouvee ? personneTrouvee.nom : '';
+            document.getElementById('perso-nom').value = personneTrouvee ? personneTrouvee.nom : '';
+            document.getElementById('perso-calories').value = personneTrouvee ? personneTrouvee.calories : 2000;
+            document.getElementById('perso-eau').value = personneTrouvee ? personneTrouvee.eau : 2.0;
+            document.getElementById('perso-budget').value = personneTrouvee ? personneTrouvee.budget : 100;
+            document.getElementById('perso-budget-periode').value = personneTrouvee ? personneTrouvee.budget_periode : 'semaine';
+            document.getElementById('perso-proteines').value = personneTrouvee ? personneTrouvee.proteines : 120;
+            document.getElementById('perso-glucides').value = personneTrouvee ? personneTrouvee.glucides : 200;
+            document.getElementById('perso-lipides').value = personneTrouvee ? personneTrouvee.lipides : 70;
+            document.getElementById('perso-fibres').value = personneTrouvee ? personneTrouvee.fibres : 30;
+            document.getElementById('perso-sucre').value = personneTrouvee ? personneTrouvee.sucre : 50;
+
+            modal?.classList.remove('hidden');
+        }
+
+        function fermerModalPersonne() {
+            document.getElementById('modal-personne')?.classList.add('hidden');
+        }
+
+        async function sauvegarderPersonne(event) {
+            event.preventDefault();
+            const ancienNom = document.getElementById('ancien-nom-personne').value;
+            const nom = document.getElementById('perso-nom').value;
+            const calories = document.getElementById('perso-calories').value;
+            const eau = document.getElementById('perso-eau').value;
+            const budget = document.getElementById('perso-budget').value;
+            const budget_periode = document.getElementById('perso-budget-periode').value;
+            const proteines = document.getElementById('perso-proteines').value;
+            const glucides = document.getElementById('perso-glucides').value;
+            const lipides = document.getElementById('perso-lipides').value;
+            const fibres = document.getElementById('perso-fibres').value;
+            const sucre = document.getElementById('perso-sucre').value;
+
+            try {
+                const res = await fetch('/api/personnes-objectifs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ancienNom, nom, calories, eau, budget, budget_periode, proteines, glucides, lipides, fibres, sucre })
+                });
+
+                if (res.ok) {
+                    localStorage.setItem('profilActif', nom);
+                    fermerModalPersonne();
+                    chargerPersonnesObjectifs();
+                    alert("Profil et objectifs enregistrés avec succès !");
+                } else {
+                    const err = await res.json();
+                    alert(err.error || "Erreur lors de l'enregistrement");
+                }
+            } catch (e) {
+                alert("Erreur réseau");
+            }
+        }
+
+        async function supprimerPersonneActuelle() {
+            const nom = document.getElementById('perso-nom').value;
+            if (!nom) return;
+            if (!confirm(`Voulez-vous vraiment supprimer le profil de ${nom} ?`)) return;
+
+            try {
+                const res = await fetch(`/api/personnes-objectifs?nom=${encodeURIComponent(nom)}`, { method: 'DELETE' });
+                if (res.ok) {
+                    localStorage.removeItem('profilActif');
+                    fermerModalPersonne();
+                    chargerPersonnesObjectifs();
+                    alert("Profil supprimé.");
+                } else {
+                    alert("Erreur lors de la suppression");
+                }
+            } catch (e) {
+                alert("Erreur réseau");
+            }
+        }
+    </script>
 </body>
 </html>

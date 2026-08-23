@@ -213,7 +213,7 @@ app.post('/api/mot-de-passe-oublie', async (req, res) => {
         
         try {
             await transporter.sendMail({
-                from: '"Menu de la Semaine" <noreply@menudesemaine.com>',
+                from: '"Frigomalin" <noreply@frigomalin.com>',
                 to: email,
                 subject: 'Réinitialisation de votre mot de passe',
                 text: `Bonjour, cliquez sur ce lien pour réinitialiser votre mot de passe : ${resetLink}`
