@@ -475,29 +475,26 @@
                     body: JSON.stringify(payload)
                 });
                 if (res.ok) {
-                    fermerModalPersonne();
                     localStorage.setItem('profil_actif', nouveauNom);
+                    fermerModalPersonne();
                     init();
                 } else {
-                    const err = await res.json();
-                    alert(err.error || "Erreur lors de la sauvegarde");
+                    alert("Erreur lors de la sauvegarde.");
                 }
-            } catch (err) {
+            } catch(err) {
                 console.error(err);
             }
         }
 
         async function supprimerPersonneActuelle() {
             const nom = getProfilActuel();
-            if (!nom || !confirm(`Voulez-vous vraiment supprimer le profil de ${nom} ?`)) return;
+            if(!nom || !confirm(`Voulez-vous vraiment supprimer le profil ${nom} ?`)) return;
             try {
-                const res = await fetch(`/api/personnes-objectifs?nom=${encodeURIComponent(nom)}`, { method: 'DELETE' });
-                if (res.ok) {
-                    localStorage.removeItem('profil_actif');
-                    fermerModalPersonne();
-                    init();
-                }
-            } catch (err) {
+                await fetch(`/api/personnes-objectifs/${encodeURIComponent(nom)}`, { method: 'DELETE' });
+                localStorage.removeItem('profil_actif');
+                fermerModalPersonne();
+                init();
+            } catch(err) {
                 console.error(err);
             }
         }
@@ -519,435 +516,289 @@
             const payload = {
                 nom: document.getElementById('compte-nom').value,
                 email: document.getElementById('compte-email').value,
-                mdp: document.getElementById('compte-mdp').value
+                password: document.getElementById('compte-mdp').value
             };
             try {
-                const res = await fetch('/api/profils', {
+                const res = await fetch('/api/current-user', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                if (res.ok) {
-                    alert("Compte mis à jour avec succès !");
+                if(res.ok) {
                     fermerModalCompte();
                     init();
                 } else {
-                    const err = await res.json();
-                    alert(err.error || "Erreur");
+                    alert("Erreur mise à jour compte.");
                 }
-            } catch (err) {
+            } catch(err) {
                 console.error(err);
             }
         }
 
         async function chargerTouteLaSemaine() {
             const profil = getProfilActuel();
-            if (!profil) {
-                document.getElementById('semaine-container').innerHTML = `<div class="bg-white p-6 rounded-2xl text-center text-xs text-slate-400">Veuillez sélectionner ou créer une personne / objectif ci-dessus.</div>`;
-                return;
-            }
-
+            if(!profil) return;
             try {
-                const res = await fetch(`/api/menu-prevu-semaine?profil=${encodeURIComponent(profil)}`);
-                const rows = await res.json();
-                menusSemaineCache = {};
-                rows.forEach(r => { menusSemaineCache[r.jour] = r; });
-
-                let html = '';
-                for (const jour of joursSemaine) {
-                    const m = menusSemaineCache[jour] || {};
-                    html += `
-                        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-                            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-                                <h3 class="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">📅 ${jour}</h3>
-                                <div id="resume-jour-${jour}" class="text-[11px] text-slate-500 font-medium">Chargement...</div>
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Petit Déjeuner</label>
-                                    <select id="select_${jour}_petitDejeuner" onchange="changerMenuPrevu('${jour}')" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full text-xs font-medium">
-                                        <option value="">-- Aucun --</option>
-                                        ${recettesDisponibles.map(r => `<option value="${r.id}" ${m.petitdejeuner == r.id || m.petitDejeuner == r.id ? 'selected' : ''}>${r.nom}</option>`).join('')}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Repas 1</label>
-                                    <select id="select_${jour}_repas1" onchange="changerMenuPrevu('${jour}')" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full text-xs font-medium">
-                                        <option value="">-- Aucun --</option>
-                                        ${recettesDisponibles.map(r => `<option value="${r.id}" ${m.repas1 == r.id ? 'selected' : ''}>${r.nom}</option>`).join('')}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Repas 2</label>
-                                    <select id="select_${jour}_repas2" onchange="changerMenuPrevu('${jour}')" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full text-xs font-medium">
-                                        <option value="">-- Aucun --</option>
-                                        ${recettesDisponibles.map(r => `<option value="${r.id}" ${m.repas2 == r.id ? 'selected' : ''}>${r.nom}</option>`).join('')}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-slate-500 mb-1">Dessert / Collation</label>
-                                    <select id="select_${jour}_dessertCollation" onchange="changerMenuPrevu('${jour}')" class="border border-slate-200 p-2 rounded-xl bg-slate-50 w-full text-xs font-medium">
-                                        <option value="">-- Aucun --</option>
-                                        ${recettesDisponibles.map(r => `<option value="${r.id}" ${m.dessertcollation == r.id || m.dessertCollation == r.id ? 'selected' : ''}>${r.nom}</option>`).join('')}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-                document.getElementById('semaine-container').innerHTML = html;
-                for (const jour of joursSemaine) {
-                    await calculerResumeJourPrevu(jour);
-                }
-                await calculerRecapSemainePrevue();
-            } catch (err) {
-                console.error(err);
-            }
-        }
-
-        async function calculerResumeJourPrevu(jour) {
-            const profil = getProfilActuel();
-            if (!profil) return;
-            try {
-                const res = await fetch(`/api/menu-prevu-resume-jour?profil=${encodeURIComponent(profil)}&jour=${encodeURIComponent(jour)}`);
+                const res = await fetch(`/api/menus?personne=${encodeURIComponent(profil)}`);
                 const data = await res.json();
-                const el = document.getElementById(`resume-jour-${jour}`);
-                if (el) {
-                    el.innerHTML = `🔥 <strong>${Math.round(data.calories)}</strong> kcal | 🥩 <strong>${Math.round(data.proteines)}</strong>g | 💰 <strong>${data.cout.toFixed(2)}€</strong>`;
-                }
-            } catch (e) {
-                console.error(e);
-            }
+                menusSemaineCache = {};
+                data.forEach(m => {
+                    if(!menusSemaineCache[m.jour]) menusSemaineCache[m.jour] = {};
+                    menusSemaineCache[m.jour][m.categorie] = m;
+                });
+                afficherSemaineContainer();
+                mettreAJourBilanNutriGlobal();
+            } catch(e) { console.error(e); }
         }
 
-        async function changerMenuPrevu(jour) {
-            const profil = getProfilActuel();
-            if (!profil) return;
-            const payload = {
-                profil: profil,
-                jour: jour,
-                petitDejeuner: document.getElementById(`select_${jour}_petitDejeuner`).value || null,
-                repas1: document.getElementById(`select_${jour}_repas1`).value || null,
-                repas2: document.getElementById(`select_${jour}_repas2`).value || null,
-                dessertCollation: document.getElementById(`select_${jour}_dessertCollation`).value || null
+        function afficherSemaineContainer() {
+            const container = document.getElementById('semaine-container');
+            const categories = ['Petit Déjeuner', 'Repas 1', 'Repas 2', 'Dessert/Collation', 'Grignotage'];
+            
+            container.innerHTML = joursSemaine.map(jour => {
+                let html = `<div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                    <h3 class="font-bold text-slate-700 text-xs flex justify-between">
+                        <span>📅 ${jour}</span>
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-5 gap-2">`;
+                
+                categories.forEach(cat => {
+                    const item = menusSemaineCache[jour]?.[cat] || {};
+                    html += `<div class="bg-slate-50 p-2 rounded-lg border border-slate-100 space-y-1">
+                        <span class="block text-[10px] font-bold text-slate-400">${cat}</span>
+                        <select onchange="changerPlatPrevu('${jour}', '${cat}', this.value)" class="w-full text-xs bg-white border border-slate-200 p-1 rounded-md">
+                            <option value="">-- Vide --</option>` +
+                            recettesDisponibles.map(r => `<option value="recette_${r.id}" ${item.recette_id == r.id ? 'selected' : ''}>${r.nom}</option>`).join('') +
+                        `</select>
+                    </div>`;
+                });
+                html += `</div></div>`;
+                return html;
+            }).join('');
+        }
+
+        function changerPlatPrevu(jour, categorie, val) {
+            if(!menusSemaineCache[jour]) menusSemaineCache[jour] = {};
+            const [type, id] = val ? val.split('_') : [null, null];
+            menusSemaineCache[jour][categorie] = {
+                recette_id: type === 'recette' ? id : null,
+                ingredient_id: type === 'aliment' ? id : null
             };
+            mettreAJourBilanNutriGlobal();
+        }
+
+        async function sauvegarderTouteLaSemaine() {
+            const profil = getProfilActuel();
+            if(!profil) return alert("Veuillez choisir un profil.");
+            
+            let listeAEnregistrer = [];
+            for(let jour of joursSemaine) {
+                if(menusSemaineCache[jour]) {
+                    for(let cat in menusSemaineCache[jour]) {
+                        const m = menusSemaineCache[jour][cat];
+                        if(m.recette_id || m.ingredient_id) {
+                            listeAEnregistrer.push({
+                                personne: profil,
+                                jour: jour,
+                                categorie: cat,
+                                recette_id: m.recette_id || null,
+                                ingredient_id: m.ingredient_id || null,
+                                qte: 1
+                            });
+                        }
+                    }
+                }
+            }
+
             try {
-                await fetch('/api/menu-prevu', {
+                await fetch('/api/menus/semaine', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ personne: profil, menus: listeAEnregistrer })
                 });
-                await calculerResumeJourPrevu(jour);
-                await calculerRecapSemainePrevue();
-            } catch (e) {
+                alert("Semaine sauvegardée avec succès !");
+                chargerTouteLaSemaine();
+            } catch(e) {
                 console.error(e);
-            }
-        }
-
-        async function calculerRecapSemainePrevue() {
-            const profil = getProfilActuel();
-            if (!profil) return;
-            let totalCal = 0, totalProt = 0, totalGluc = 0, totalLip = 0, totalFibres = 0, totalSucre = 0, totalCout = 0;
-
-            for (const jour of joursSemaine) {
-                try {
-                    const res = await fetch(`/api/menu-prevu-resume-jour?profil=${encodeURIComponent(profil)}&jour=${encodeURIComponent(jour)}`);
-                    const data = await res.json();
-                    totalCal += data.calories || 0;
-                    totalProt += data.proteines || 0;
-                    totalGluc += data.glucides || 0;
-                    totalLip += data.lipides || 0;
-                    totalFibres += data.fibres || 0;
-                    totalSucre += data.sucre || 0;
-                    totalCout += data.cout || 0;
-                } catch(e){}
-            }
-
-            const pObj = profilsDisponibles.find(p => p.nom === profil) || {};
-            const objCalJour = parseFloat(pObj.calories) || 2000;
-            const objProtJour = parseFloat(pObj.proteines) || 120;
-            const objGlucJour = parseFloat(pObj.glucides) || 200;
-            const objLipJour = parseFloat(pObj.lipides) || 70;
-            const objFibresJour = parseFloat(pObj.fibres) || 30;
-            const objSucreJour = parseFloat(pObj.sucre) || 50;
-
-            document.getElementById('prevu-semaine-cal-tot').innerText = `${Math.round(totalCal)} kcal`;
-            document.getElementById('prevu-semaine-cal-val').innerText = Math.round(totalCal);
-            document.getElementById('obj-semaine-cal').innerText = Math.round(objCalJour * 7);
-
-            document.getElementById('prevu-semaine-prot-tot').innerText = Math.round(totalProt);
-            document.getElementById('obj-semaine-prot').innerText = Math.round(objProtJour * 7);
-
-            document.getElementById('prevu-semaine-gluc-tot').innerText = Math.round(totalGluc);
-            document.getElementById('obj-semaine-gluc').innerText = Math.round(objGlucJour * 7);
-
-            document.getElementById('prevu-semaine-lip-tot').innerText = Math.round(totalLip);
-            document.getElementById('obj-semaine-lip').innerText = Math.round(objLipJour * 7);
-
-            document.getElementById('prevu-semaine-fibres-tot').innerText = Math.round(totalFibres);
-            document.getElementById('obj-semaine-fibres').innerText = Math.round(objFibresJour * 7);
-
-            document.getElementById('prevu-semaine-sucre-tot').innerText = Math.round(totalSucre);
-            document.getElementById('obj-semaine-sucre').innerText = Math.round(objSucreJour * 7);
-
-            document.getElementById('recap-apport-prevu-semaine').classList.remove('hidden');
-
-            const budgetObj = parseFloat(pObj.budget) || 0;
-            if (budgetObj > 0) {
-                document.getElementById('montant-budget-prevu').innerText = `${totalCout.toFixed(2)}€`;
-                document.getElementById('objectif-budget-prevu').innerText = `${budgetObj}€`;
-                document.getElementById('recap-budget-prevu').classList.remove('hidden');
-            } else {
-                document.getElementById('recap-budget-prevu').classList.add('hidden');
+                alert("Erreur lors de la sauvegarde.");
             }
         }
 
         async function genererSemaineAleatoireOptimisee() {
             const profil = getProfilActuel();
-            if (!profil) return alert("Veuillez sélectionner un profil.");
+            if(!profil) return alert("Veuillez choisir un profil.");
+            if(!confirm("Générer une semaine aléatoire optimisée pour ce profil ?")) return;
             try {
-                const res = await fetch('/api/menu-aleatoire-optimise', {
+                const res = await fetch('/api/menus/generer-aleatoire', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ profil })
+                    body: JSON.stringify({ personne: profil })
                 });
-                if (res.ok) {
+                if(res.ok) {
                     await chargerTouteLaSemaine();
-                } else {
-                    const err = await res.json();
-                    alert(err.error || "Erreur lors de la génération");
                 }
-            } catch (e) {
-                console.error(e);
-            }
+            } catch(e) { console.error(e); }
         }
 
-        async function sauvegarderTouteLaSemaine() {
+        async function chargerSuiviConsommeSemaineComplete() {
             const profil = getProfilActuel();
-            if (!profil) return;
+            if(!profil) return;
             try {
-                await fetch('/api/courses/generer', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ profil })
+                const res = await fetch(`/api/suivi?personne=${encodeURIComponent(profil)}`);
+                const data = await res.json();
+                suiviSemaineCache = {};
+                data.forEach(s => {
+                    if(!suiviSemaineCache[s.jour]) suiviSemaineCache[s.jour] = [];
+                    suiviSemaineCache[s.jour].push(s);
                 });
-                alert("Semaine sauvegardée et liste de courses mise à jour avec succès !");
-            } catch(e) {
-                console.error(e);
-            }
-        }
-
-        async function chargerSuiviConsomme() {
-            const profil = getProfilActuel();
-            if (!profil) return;
-            try {
-                const [resConso, resEau] = await Promise.all([
-                    fetch(`/api/suivi-conso?profil=${encodeURIComponent(profil)}&jour=${encodeURIComponent(jourConsoActuel)}`),
-                    fetch(`/api/suivi-eau?profil=${encodeURIComponent(profil)}&jour=${encodeURIComponent(jourConsoActuel)}`)
-                ]);
-                suiviActuel = await resConso.json();
-                const eauData = await resEau.json();
-                eauActuelleJour = parseFloat(eauData.quantite) || 0;
-
-                const pObj = profilsDisponibles.find(p => p.nom === profil) || {};
-                const objEau = parseFloat(pObj.eau) || 2.0;
-
-                document.getElementById('aff-conso-eau').innerText = eauActuelleJour.toFixed(2);
-                document.getElementById('aff-obj-eau').innerText = objEau.toFixed(1);
-
-                let html = '';
-                suiviActuel.forEach(item => {
-                    html += `
-                        <div class="bg-slate-50 border border-slate-200 p-2.5 rounded-xl flex justify-between items-center text-xs">
-                            <div>
-                                <span class="font-bold text-slate-800">${item.nom_element}</span>
-                                <span class="text-slate-500 text-[10px] ml-1">(${item.categorie} - ${item.quantite} part(s))</span>
-                                <div class="text-[10px] text-slate-400">🔥 ${Math.round((item.calories||0)*item.quantite)} kcal | 🥩 ${Math.round((item.proteines||0)*item.quantite)}g</div>
-                            </div>
-                            <button onclick="supprimerSuivi(${item.id})" class="text-red-500 font-bold px-2 py-1">✕</button>
-                        </div>
-                    `;
-                });
-                document.getElementById('liste-conso-container').innerHTML = html || `<p class="text-slate-400 text-xs italic">Aucune consommation enregistrée pour ce jour.</p>`;
+                chargerSuiviConsomme();
                 mettreAJourBilanNutriGlobal();
-            } catch (e) {
-                console.error(e);
-            }
+            } catch(e) { console.error(e); }
+        }
+
+        function chargerSuiviConsomme() {
+            const liste = suiviSemaineCache[jourConsoActuel] || [];
+            const container = document.getElementById('liste-conso-container');
+            container.innerHTML = liste.length === 0 ? '<p class="text-slate-400 text-xs italic">Aucune consommation enregistrée pour ce jour.</p>' :
+                liste.map(s => `<div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                    <div><strong>${s.categorie}</strong> : ${s.nom_recette || s.nom_aliment || 'Élément'} (${s.qte} part(s)) - <strong>${s.calories || 0} kcal</strong></div>
+                    <button onclick="supprimerConsommation(${s.id})" class="text-red-500 font-bold px-2 py-1 hover:bg-red-50 rounded-lg">✕</button>
+                </div>`).join('');
+            
+            // Gestion de l'eau
+            const eauObj = suiviSemaineCache[`eau_${jourConsoActuel}`] || 0;
+            eauActuelleJour = eauObj;
+            document.getElementById('aff-conso-eau').innerText = eauActuelleJour.toFixed(2);
         }
 
         async function ajouterConsommation(e) {
             e.preventDefault();
             const profil = getProfilActuel();
-            if (!profil) return;
-            const selectVal = document.getElementById('conso-recette').value;
-            if (!selectVal) return;
-
-            const [type, id] = selectVal.split('_');
+            if(!profil) return alert("Sélectionnez un profil.");
+            const val = document.getElementById('conso-recette').value;
+            if(!val) return alert("Sélectionnez une recette ou un aliment.");
+            const [type, id] = val.split('_');
+            const qte = document.getElementById('conso-qte').value;
+            
             const payload = {
-                profil: profil,
+                personne: profil,
                 jour: jourConsoActuel,
                 categorie: document.getElementById('conso-cat').value,
-                type_element: type,
-                element_id: id,
-                quantite: document.getElementById('conso-qte').value || 1
+                recette_id: type === 'recette' ? id : null,
+                ingredient_id: type === 'aliment' ? id : null,
+                qte: parseFloat(qte) || 1
             };
 
             try {
-                const res = await fetch('/api/suivi-conso', {
+                await fetch('/api/suivi', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                if (res.ok) {
-                    document.getElementById('conso-qte').value = "1";
-                    await chargerSuiviConsomme();
-                    await chargerSuiviConsommeSemaineComplete();
-                }
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        async function supprimerSuivi(id) {
-            try {
-                await fetch(`/api/suivi-conso/${id}`, { method: 'DELETE' });
-                await chargerSuiviConsomme();
+                document.getElementById('conso-qte').value = 1;
                 await chargerSuiviConsommeSemaineComplete();
-            } catch (e) {
-                console.error(e);
-            }
+            } catch(err) { console.error(err); }
         }
 
-        async function ajouterEau(qte) {
-            const profil = getProfilActuel();
-            if (!profil) return;
-            eauActuelleJour += qte;
+        async function supprimerConsommation(id) {
             try {
-                await fetch('/api/suivi-eau', {
+                await fetch(`/api/suivi/${id}`, { method: 'DELETE' });
+                await chargerSuiviConsommeSemaineComplete();
+            } catch(err) { console.error(err); }
+        }
+
+        async function ajouterEau(montant) {
+            const profil = getProfilActuel();
+            if(!profil) return;
+            eauActuelleJour += montant;
+            document.getElementById('aff-conso-eau').innerText = eauActuelleJour.toFixed(2);
+            try {
+                await fetch('/api/suivi/eau', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ profil, jour: jourConsoActuel, quantite: eauActuelleJour })
+                    body: JSON.stringify({ personne: profil, jour: jourConsoActuel, eau: eauActuelleJour })
                 });
-                await chargerSuiviConsomme();
-                await chargerSuiviConsommeSemaineComplete();
-            } catch(e){}
+                suiviSemaineCache[`eau_${jourConsoActuel}`] = eauActuelleJour;
+                mettreAJourBilanNutriGlobal();
+            } catch(e) { console.error(e); }
         }
 
         async function reinitialiserEau() {
-            const profil = getProfilActuel();
-            if (!profil) return;
-            eauActuelleJour = 0;
-            try {
-                await fetch('/api/suivi-eau', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ profil, jour: jourConsoActuel, quantite: 0 })
-                });
-                await chargerSuiviConsomme();
-                await chargerSuiviConsommeSemaineComplete();
-            } catch(e){}
+            await ajouterEau(-eauActuelleJour);
         }
 
-        async function chargerSuiviConsommeSemaineComplete() {
-            const profil = getProfilActuel();
-            if (!profil) return;
-            try {
-                const res = await fetch(`/api/suivi-conso-semaine?profil=${encodeURIComponent(profil)}`);
-                const data = await res.json();
-                suiviSemaineCache = data;
+        function mettreAJourBilanNutriGlobal() {
+            const profilNom = getProfilActuel();
+            const p = profilsDisponibles.find(x => x.nom === profilNom) || {};
+            
+            // Maj objectifs affichés
+            document.getElementById('obj-cal').innerText = p.calories || 0;
+            document.getElementById('obj-prot').innerText = p.proteines || 0;
+            document.getElementById('obj-gluc').innerText = p.glucides || 0;
+            document.getElementById('obj-lip').innerText = p.lipides || 0;
+            document.getElementById('obj-fibres').innerText = p.fibres || 0;
+            document.getElementById('obj-sucre').innerText = p.sucre || 0;
+            document.getElementById('obj-eau').innerText = p.eau || 0;
+            document.getElementById('aff-obj-eau').innerText = p.eau || 0;
+            document.getElementById('obj-budget').innerText = (p.budget || 0) + '€';
+            document.getElementById('label-titre-budget').innerText = p.budget_periode === 'jour' ? 'Budget (Jour)' : 'Budget (Sem.)';
 
-                let totCal = 0, totProt = 0, totGluc = 0, totLip = 0, totFibres = 0, totSucre = 0, totEau = 0;
-                (data.repas || []).forEach(r => {
-                    const q = parseFloat(r.quantite) || 1;
-                    totCal += (parseFloat(r.calories) || 0) * q;
-                    totProt += (parseFloat(r.proteines) || 0) * q;
-                    totGluc += (parseFloat(r.glucides) || 0) * q;
-                    totLip += (parseFloat(r.lipides) || 0) * q;
-                    totFibres += (parseFloat(r.fibres) || 0) * q;
-                    totSucre += (parseFloat(r.sucre) || 0) * q;
-                });
-                (data.eau || []).forEach(e => {
-                    totEau += parseFloat(e.quantite) || 0;
-                });
-
-                document.getElementById('suivi-semaine-cal-tot').innerText = `${Math.round(totCal)} kcal`;
-                document.getElementById('suivi-semaine-prot').innerText = Math.round(totProt);
-                document.getElementById('suivi-semaine-gluc').innerText = Math.round(totGluc);
-                document.getElementById('suivi-semaine-lip').innerText = Math.round(totLip);
-                document.getElementById('suivi-semaine-fibres').innerText = Math.round(totFibres);
-                document.getElementById('suivi-semaine-sucre').innerText = Math.round(totSucre);
-                document.getElementById('suivi-semaine-eau').innerText = totEau.toFixed(1);
-            } catch(e) {
-                console.error(e);
-            }
-        }
-
-        async function mettreAJourBilanNutriGlobal() {
-            const profil = getProfilActuel();
-            if (!profil) return;
-            const pObj = profilsDisponibles.find(p => p.nom === profil) || {};
-
-            let calCourant = 0, protCourant = 0, glucCourant = 0, lipCourant = 0, fibresCourant = 0, sucreCourant = 0;
-            suiviActuel.forEach(item => {
-                const q = parseFloat(item.quantite) || 1;
-                calCourant += (parseFloat(item.calories) || 0) * q;
-                protCourant += (parseFloat(item.proteines) || 0) * q;
-                glucCourant += (parseFloat(item.glucides) || 0) * q;
-                lipCourant += (parseFloat(item.lipides) || 0) * q;
-                fibresCourant += (parseFloat(item.fibres) || 0) * q;
-                sucreCourant += (parseFloat(item.sucre) || 0) * q;
+            // Calculs totaux consommés du jour actuel
+            const listeJour = suiviSemaineCache[jourConsoActuel] || [];
+            let cCal = 0, cProt = 0, cGluc = 0, cLip = 0, cFibres = 0, cSucre = 0;
+            listeJour.forEach(s => {
+                cCal += (s.calories || 0) * (s.qte || 1);
+                cProt += (s.proteines || 0) * (s.qte || 1);
+                cGluc += (s.glucides || 0) * (s.qte || 1);
+                cLip += (s.lipides || 0) * (s.qte || 1);
+                cFibres += (s.fibres || 0) * (s.qte || 1);
+                cSucre += (s.sucre || 0) * (s.qte || 1);
             });
 
-            document.getElementById('stat-cal').innerText = Math.round(calCourant);
-            document.getElementById('obj-cal').innerText = pObj.calories || 0;
+            document.getElementById('stat-cal').innerText = Math.round(cCal);
+            document.getElementById('stat-prot').innerText = Math.round(cProt);
+            document.getElementById('stat-gluc').innerText = Math.round(cGluc);
+            document.getElementById('stat-lip').innerText = Math.round(cLip);
+            document.getElementById('stat-fibres').innerText = Math.round(cFibres);
+            document.getElementById('stat-sucre').innerText = Math.round(cSucre);
+            document.getElementById('stat-eau').innerText = eauActuelleJour.toFixed(2);
+            document.getElementById('stat-budget').innerText = '0€'; // S'ajuste selon backend si implémenté
 
-            document.getElementById('stat-prot').innerText = Math.round(protCourant);
-            document.getElementById('obj-prot').innerText = pObj.proteines || 0;
+            // Calculs cumulés semaine réelle
+            let sCal = 0, sProt = 0, sGluc = 0, sLip = 0, sFibres = 0, sSucre = 0, sEau = 0;
+            joursSemaine.forEach(j => {
+                const arr = suiviSemaineCache[j] || [];
+                arr.forEach(s => {
+                    sCal += (s.calories || 0) * (s.qte || 1);
+                    sProt += (s.proteines || 0) * (s.qte || 1);
+                    sGluc += (s.glucides || 0) * (s.qte || 1);
+                    sLip += (s.lipides || 0) * (s.qte || 1);
+                    sFibres += (s.fibres || 0) * (s.qte || 1);
+                    sSucre += (s.sucre || 0) * (s.qte || 1);
+                });
+                sEau += (suiviSemaineCache[`eau_${j}`] || 0);
+            });
 
-            document.getElementById('stat-gluc').innerText = Math.round(glucCourant);
-            document.getElementById('obj-gluc').innerText = pObj.glucides || 0;
-
-            document.getElementById('stat-lip').innerText = Math.round(lipCourant);
-            document.getElementById('obj-lip').innerText = pObj.lipides || 0;
-
-            document.getElementById('stat-fibres').innerText = Math.round(fibresCourant);
-            document.getElementById('obj-fibres').innerText = pObj.fibres || 0;
-
-            document.getElementById('stat-sucre').innerText = Math.round(sucreCourant);
-            document.getElementById('obj-sucre').innerText = pObj.sucre || 0;
-
-            document.getElementById('stat-eau').innerText = eauActuelleJour.toFixed(1);
-            document.getElementById('obj-eau').innerText = pObj.eau || 0;
-
-            // Budget du jour
-            let budgetTotal = parseFloat(pObj.budget) || 0;
-            let budgetPeriode = pObj.budget_periode || 'semaine';
-            let budgetJour = budgetPeriode === 'semaine' ? budgetTotal / 7 : budgetTotal;
-
-            document.getElementById('label-titre-budget').innerText = budgetPeriode === 'semaine' ? 'Budget (part/j)' : 'Budget / Jour';
-            document.getElementById('obj-budget').innerText = `${budgetJour.toFixed(0)}€`;
-
-            // Calcul du coût réel de la journée via les menus prévus ou consommations
-            let coutJourPrevu = 0;
-            try {
-                const res = await fetch(`/api/menu-prevu-resume-jour?profil=${encodeURIComponent(profil)}&jour=${encodeURIComponent(jourConsoActuel)}`);
-                const data = await res.json();
-                coutJourPrevu = data.cout || 0;
-            } catch(e){}
-
-            document.getElementById('stat-budget').innerText = `${coutJourPrevu.toFixed(1)}€`;
+            document.getElementById('suivi-semaine-cal-tot').innerText = Math.round(sCal) + ' kcal';
+            document.getElementById('suivi-semaine-prot').innerText = Math.round(sProt);
+            document.getElementById('suivi-semaine-gluc').innerText = Math.round(sGluc);
+            document.getElementById('suivi-semaine-lip').innerText = Math.round(sLip);
+            document.getElementById('suivi-semaine-fibres').innerText = Math.round(sFibres);
+            document.getElementById('suivi-semaine-sucre').innerText = Math.round(sSucre);
+            document.getElementById('suivi-semaine-eau').innerText = sEau.toFixed(2);
         }
 
         function telechargerPdfSemaine() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             doc.text("Menu de la Semaine", 14, 20);
+            let y = 30;
+            joursSemaine.forEach(jour => {
+                doc.text(jour, 14, y);
+                y += 10;
+            });
             doc.save("menu-semaine.pdf");
         }
-
-        socket.on('data_updated', () => {
-            init();
-        });
     </script>
 </body>
 </html>

@@ -48,7 +48,7 @@ app.use(session({
     }
 }));
 
-// --- FICHIERS STATIQUES (Placé AVANT la protection pour éviter de bloquer assets, css, js) ---
+// --- FICHIERS STATIQUES ---
 app.use(express.static('public'));
 
 // --- MIDDLEWARE DE PROTECTION ---
@@ -397,7 +397,7 @@ app.get('/api/menu-prevu-resume-jour', async (req, res) => {
     
     try {
         const menuRes = await pool.query(
-            "SELECT petitDejeuner, repas1, repas2, dessertCollation FROM menu_prevu WHERE profil = $1 AND jour = $2", 
+            "SELECT petitdejeuner, repas1, repas2, dessertcollation FROM menu_prevu WHERE profil = $1 AND jour = $2", 
             [profil, jour]
         );
         const menu = menuRes.rows[0];
@@ -406,7 +406,7 @@ app.get('/api/menu-prevu-resume-jour', async (req, res) => {
             return res.json({ calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 });
         }
         
-        const idsRecettes = [menu.petitdejeuner || menu.petitDejeuner, menu.repas1, menu.repas2, menu.dessertcollation || menu.dessertCollation].filter(Boolean);
+        const idsRecettes = [menu.petitdejeuner, menu.repas1, menu.repas2, menu.dessertcollation].filter(Boolean);
         
         if (idsRecettes.length === 0) {
             return res.json({ calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 });
@@ -438,13 +438,13 @@ app.post('/api/menu-prevu', async (req, res) => {
     if (!profil) return res.status(400).json({ error: "Profil manquant" });
 
     const q = `
-        INSERT INTO menu_prevu (profil, jour, petitDejeuner, repas1, repas2, dessertCollation) 
+        INSERT INTO menu_prevu (profil, jour, petitdejeuner, repas1, repas2, dessertcollation) 
         VALUES ($1, $2, $3, $4, $5, $6) 
         ON CONFLICT (profil, jour) DO UPDATE SET 
-            petitDejeuner = EXCLUDED.petitDejeuner, 
+            petitdejeuner = EXCLUDED.petitdejeuner, 
             repas1 = EXCLUDED.repas1, 
             repas2 = EXCLUDED.repas2, 
-            dessertCollation = EXCLUDED.dessertCollation
+            dessertcollation = EXCLUDED.dessertcollation
     `;
     try {
         await pool.query(q, [profil, jour, petitDejeuner || null, repas1 || null, repas2 || null, dessertCollation || null]);
@@ -485,7 +485,6 @@ app.post('/api/menu-aleatoire-optimise', async (req, res) => {
         let meilleureSemaine = null;
         let meilleurScoreGlobal = Infinity;
 
-        // Essais multiples pour trouver la combinaison respectant le budget global et les macros
         for (let essai = 0; essai < 20; essai++) {
             let semaineCourante = {};
             let coutTotalSemaine = 0;
@@ -529,13 +528,13 @@ app.post('/api/menu-aleatoire-optimise', async (req, res) => {
         for (const jour of jours) {
             const sel = meilleureSemaine[jour];
             const q = `
-                INSERT INTO menu_prevu (profil, jour, petitDejeuner, repas1, repas2, dessertCollation) 
+                INSERT INTO menu_prevu (profil, jour, petitdejeuner, repas1, repas2, dessertcollation) 
                 VALUES ($1, $2, $3, $4, $5, $6) 
                 ON CONFLICT (profil, jour) DO UPDATE SET 
-                    petitDejeuner = EXCLUDED.petitDejeuner, 
+                    petitdejeuner = EXCLUDED.petitdejeuner, 
                     repas1 = EXCLUDED.repas1, 
                     repas2 = EXCLUDED.repas2, 
-                    dessertCollation = EXCLUDED.dessertCollation
+                    dessertcollation = EXCLUDED.dessertcollation
             `;
             await pool.query(q, [profil, jour, sel.petitDejeuner, sel.repas1, sel.repas2, sel.dessertCollation]);
         }
@@ -675,7 +674,7 @@ app.post('/api/courses/generer', async (req, res) => {
         const menusRes = await pool.query("SELECT * FROM menu_prevu WHERE profil = $1", [profil]);
         let idsRecettes = new Set();
         (menusRes.rows || []).forEach(m => {
-            ['petitdejeuner', 'repas1', 'repas2', 'dessertcollation', 'petitDejeuner', 'dessertCollation'].forEach(c => { if (m[c]) idsRecettes.add(m[c]); });
+            ['petitdejeuner', 'repas1', 'repas2', 'dessertcollation'].forEach(c => { if (m[c]) idsRecettes.add(m[c]); });
         });
         
         if (idsRecettes.size === 0) return res.json({ success: true });
@@ -689,7 +688,7 @@ app.post('/api/courses/generer', async (req, res) => {
         (recettesRes.rows || []).forEach(r => {
             try {
                 let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
-                if (Array.isArray(ings)) ings.forEach(i => {
+                if (Array.isArray(ings)) ings.exports ? [] : ings.forEach(i => {
                     let id = i.id || i.ingredient_id;
                     if (id) {
                         if (!besoins[id]) besoins[id] = { qte: 0, unite: i.unite || 'g' };
