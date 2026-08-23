@@ -1,5 +1,5 @@
 const express = require('express');
-const http = require('http');
+const http = require('http'); // Gardé propre
 const { Pool } = require('pg');
 const bodyParser = require('body-parser');
 const socketIo = require('socket.io');
@@ -396,6 +396,154 @@ app.put('/api/ingredients/:id', async (req, res) => {
     }
 });
 
+// --- 1. & 3. API RECHERCHE GLOBALE (AUTOCOMPLÉTION & TRI RECOMMANDATION VERT) ---
+app.get('/api/recherche-globale', async (req, res) => {
+    const { q, profil, jour, categories } = req.query;
+    const termeRecherche = (q || '').toLowerCase().trim();
+
+    try {
+        // Récupérer les objectifs et la consommation actuelle du jour pour le tri intelligent
+        let cible = { calories: 2000, proteines: 120, glucides: 200, lipides: 70, fibres: 30, sucre: 50, budget: 100 };
+        let consomme = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 }; 
+        
+        if (profil) {
+            const objRes = await pool.query("SELECT * FROM personnes_objectifs WHERE nom = $1", [profil]);
+            if (objRes.rows.length > 0) {
+                const obj = objRes.rows[0];
+                cible = {
+                    calories: parseFloat(obj.calories) || 2000,
+                    proteines: parseFloat(obj.proteines) || 120,
+                    glucides: parseFloat(obj.glucides) || 200,
+                    lipides: parseFloat(obj.lipides) || 70,
+                    fibres: parseFloat(obj.fibres) || 30,
+                    sucre: parseFloat(obj.sucre) || 50,
+                    budget: parseFloat(obj.budget) || 100
+                };
+            }
+            
+            if (jour) {
+                const suiviRes = await pool.query(`
+                    SELECT r.parts,
+                           COALESCE(r.calories, i.calories) as calories,
+                           COALESCE(r.proteines, i.proteines) as proteines,
+                           COALESCE(r.glucides, i.glucides) as glucides,
+                           COALESCE(r.lipides, i.lipides) as lipides,
+                           COALESCE(r.fibres, i.fibres) as fibres,
+                           COALESCE(r.sucre, i.sucre) as sucre,
+                           COALESCE(r.cout, 0) as cout
+                    FROM suivi_conso s
+                    LEFT JOIN recettes r ON s.type_element = 'recette' AND s.element_id = r.id
+                    LEFT JOIN ingredients i ON s.type_element = 'aliment' AND s.element_id = i.id
+                    WHERE s.profil = $1 AND s.jour = $2
+                `, [profil, jour]);
+
+                suiviRes.rows.forEach(row => {
+                    const ratioPart = 1 / (parseFloat(row.parts) || 1);
+                    consomme.calories += (parseFloat(row.calories) || 0) * ratioPart;
+                    consomme.proteines += (parseFloat(row.proteines) || 0) * ratioPart;
+                    consomme.glucides += (parseFloat(row.glucides) || 0) * ratioPart;
+                    consomme.lipides += (parseFloat(row.lipides) || 0) * ratioPart;
+                    consomme.fibres += (parseFloat(row.fibres) || 0) * ratioPart;
+                    consomme.sucre += (parseFloat(row.sucre) || 0) * ratioPart;
+                    consomme.cout += (parseFloat(row.cout) || 0) * ratioPart;
+                });
+            }
+        }
+        
+        // Suite de la logique à connecter avec la partie 2...
+        res.json({ success: true, cible, consomme });
+    } catch (err) {
+        console.error("Erreur recherche globale :", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+// Parsing des catégories autorisées (ex: "Petit-déjeuner,Desserts")
+        let categoriesFiltre = [];
+        if (categories) {
+            categoriesFiltre = Array.isArray(categories) ? categories : categories.split(',').map(c => c.trim().toLowerCase());
+        }
+
+        // 1. Récupération et filtrage des Recettes
+        const recettesRes = await pool.query("SELECT * FROM recettes");
+        let recettes = recettesRes.rows.map(r => ({
+            ...r,
+            type: 'recette',
+            marques: []
+        })).filter(r => {
+            const matchNom = r.nom.toLowerCase().includes(termeRecherche);
+            const matchCat = categoriesFiltre.length === 0 || (r.categorie && categoriesFiltre.includes(r.categorie.toLowerCase()));
+            return matchNom && matchCat;
+        });
+
+        // 2. Récupération et filtrage des Ingrédients
+        const ingredientsRes = await pool.query("SELECT * FROM ingredients");
+        let ingredients = ingredientsRes.rows.map(i => ({
+            ...i,
+            type: 'aliment',
+            parts: 1,
+            cout: i.prix || 0,
+            categorie: i.rayon || 'Épicerie',
+            marques: i.marques ? JSON.parse(i.marques) : []
+        })).filter(i => {
+            const matchNom = i.nom.toLowerCase().includes(termeRecherche);
+            const matchCat = categoriesFiltre.length === 0 || (i.rayon && categoriesFiltre.includes(i.rayon.toLowerCase()));
+            return matchNom && matchCat;
+        });
+
+        // Fusion des résultats pour l'autocomplétion / saisie manuelle
+        let tousLesChoix = [...recettes, ...ingredients];
+
+        // 3. Application de l'intelligence de recommandation (Tri & Vert en 1ère proposition)
+        tousLesChoix = tousLesChoix.map(item => {
+            const parts = parseFloat(item.parts) || 1;
+            const ratioPart = 1 / parts;
+            const cal = (parseFloat(item.calories) || 0) * ratioPart;
+            const pro = (parseFloat(item.proteines) || 0) * ratioPart;
+            const glu = (parseFloat(item.glucides) || 0) * ratioPart;
+            const lip = (parseFloat(item.lipides) || 0) * ratioPart;
+            const fib = (parseFloat(item.fibres) || 0) * ratioPart;
+            const suc = (parseFloat(item.sucre) || 0) * ratioPart;
+            const cout = (parseFloat(item.cout) || 0) * ratioPart;
+
+            let penalite = 0;
+
+            // En-dessus de l'objectif (à limiter / ne pas dépasser) : Calories, Lipides, Glucides, Sucre, Budget
+            if ((consomme.calories + cal) > cible.calories) penalite += ((consomme.calories + cal) - cible.calories) * 2;
+            if ((consomme.lipides + lip) > cible.lipides) penalite += ((consomme.lipides + lip) - cible.lipides) * 2;
+            if ((consomme.glucides + glu) > cible.glucides) penalite += ((consomme.glucides + glu) - cible.glucides) * 1.5;
+            if ((consomme.sucre + suc) > cible.sucre) penalite += ((consomme.sucre + suc) - cible.sucre) * 3;
+            if ((consomme.cout + cout) > (cible.budget / 7)) penalite += ((consomme.cout + cout) - (cible.budget / 7)) * 5;
+
+            // Au-dessus de l'objectif (à encourager / augmenter) : Protéines, Fibres (on réduit la pénalité/score pour les remonter)
+            if ((consomme.proteines + pro) < cible.proteines) penalite -= pro * 2.5;
+            if ((consomme.fibres + fib) < cible.fibres) penalite -= fib * 2.5;
+
+            // Détermine si l'élément aide à combler les manques (PROT / FIBRES) sans exploser les limites -> Recommandé en vert
+            const aideProtéinesOuFibres = ((consomme.proteines < cible.proteines && pro >= 10) || (consomme.fibres < cible.fibres && fib >= 3));
+            const respecteLimites = (consomme.calories + cal <= cible.calories * 1.1) && (consomme.sucre + suc <= cible.sucre);
+            const recommandeEnVert = aideProtéinesOuFibres && respecteLimites;
+
+            return {
+                ...item,
+                scoreRecommandation: penalite,
+                recommandeEnVert: recommandeEnVert
+            };
+        });
+
+        // Tri : Les plus bas scores de pénalité (et ceux en vert) d'abord
+        tousLesChoix.sort((a, b) => {
+            if (a.recommandeEnVert && !b.recommandeEnVert) return -1;
+            if (!a.recommandeEnVert && b.recommandeEnVert) return 1;
+            return a.scoreRecommandation - b.scoreRecommandation;
+        });
+
+        res.json(tousLesChoix);
+    } catch (err) {
+        console.error("Erreur recherche globale :", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- CALCUL DE SCORE ---
 function calculerScoreEcart(recette, cible) {
     const calR = parseFloat(recette.calories) || 0;
@@ -502,9 +650,10 @@ app.post('/api/menu-prevu', async (req, res) => {
     }
 });
 
-// --- LOGIQUE COMMUNE POUR LA GÉNÉRATION ALÉATOIRE ---
+// --- 2. LOGIQUE COMMUNE POUR LA GÉNÉRATION ALÉATOIRE AVEC FILTRAGE PAR CATÉGORIES ---
 async function executerGenerationAleatoire(req) {
     let profil = req.body.profil;
+    let categoriesFiltre = req.body.categories; // Tableau ou string ex: ["Petit-déjeuner", "Desserts"]
 
     if (!profil && req.session.user) {
         const userProfiles = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [req.session.user]);
@@ -532,8 +681,18 @@ async function executerGenerationAleatoire(req) {
     const budgetMaxSemaine = parseFloat(obj.budget) || 99999;
 
     const recettesRes = await pool.query("SELECT * FROM recettes");
-    const recettes = recettesRes.rows || [];
+    let recettes = recettesRes.rows || [];
     if (recettes.length === 0) throw new Error("Aucune recette disponible.");
+
+    // Application du filtre par catégories si spécifié
+    if (categoriesFiltre) {
+        const catList = Array.isArray(categoriesFiltre) ? categoriesFiltre : categoriesFiltre.split(',').map(c => c.trim().toLowerCase());
+        if (catList.length > 0) {
+            recettes = recettes.filter(r => r.categorie && catList.includes(r.categorie.toLowerCase()));
+        }
+    }
+
+    if (recettes.length === 0) throw new Error("Aucune recette ne correspond aux catégories sélectionnées.");
 
     const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
     const ratios = [0.20, 0.35, 0.35, 0.10]; 
@@ -672,7 +831,7 @@ app.post('/api/menus/generer-aleatoire', async (req, res) => {
     }
 });
 
-// --- API RECETTES RECOMMANDÉES ---
+// --- API RECETTES RECOMMANDÉES (AVEC RÈGLES VERTES & OBJECTIFS) ---
 app.get('/api/recettes-recommandees-optimisees', async (req, res) => {
     const { profil, jour } = req.query;
     if (!profil || !jour) return res.status(400).json({ error: "Profil ou jour manquant" });
@@ -732,56 +891,31 @@ app.get('/api/recettes-recommandees-optimisees', async (req, res) => {
             const cout = (parseFloat(r.cout) || 0) * ratioPart;
 
             let score = 0;
+            // Limites à ne pas dépasser
             if ((consomme.calories + cal) > cible.calories) score += ((consomme.calories + cal) - cible.calories) * 2;
             if ((consomme.sucre + suc) > cible.sucre) score += ((consomme.sucre + suc) - cible.sucre) * 3;
             if ((consomme.lipides + lip) > cible.lipides) score += ((consomme.lipides + lip) - cible.lipides) * 2;
             if ((consomme.glucides + glu) > cible.glucides) score += ((consomme.glucides + glu) - cible.glucides) * 1.5;
             if ((consomme.cout + cout) > (cible.budget / 7)) score += ((consomme.cout + cout) - (cible.budget / 7)) * 5;
 
-            if ((consomme.proteines + pro) < cible.proteines) score -= pro * 1.5;
-            if ((consomme.fibres + fib) < cible.fibres) score -= fib * 1.5;
+            // Objectifs à augmenter / encourager
+            if ((consomme.proteines + pro) < cible.proteines) score -= pro * 2.5;
+            if ((consomme.fibres + fib) < cible.fibres) score -= fib * 2.5;
 
-            return { ...r, scoreRecommandation: score };
+            const aideProtéinesOuFibres = ((consomme.proteines < cible.proteines && pro >= 10) || (consomme.fibres < cible.fibres && fib >= 3));
+            const respecteLimites = (consomme.calories + cal <= cible.calories * 1.1) && (consomme.sucre + suc <= cible.sucre);
+            const recommandeEnVert = aideProtéinesOuFibres && respecteLimites;
+
+            return { ...r, scoreRecommandation: score, recommandeEnVert };
         });
 
-        recos.sort((a, b) => a.scoreRecommandation - b.scoreRecommandation);
-        res.json(recos.slice(0, 10));
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+        recos.sort((a, b) => {
+            if (a.recommandeEnVert && !b.recommandeEnVert) return -1;
+            if (!a.recommandeEnVert && b.recommandeEnVert) return 1;
+            return a.scoreRecommandation - b.scoreRecommandation;
+        });
 
-// --- API SUIVI ---
-app.get('/api/suivi', async (req, res) => {
-    try {
-        const result = await pool.query("SELECT * FROM suivi_conso");
-        res.json(result.rows || []);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.get('/api/suivi-conso', async (req, res) => {
-    const { profil, jour } = req.query;
-    if (!profil) return res.json([]);
-    try {
-        const query = `
-            SELECT s.*, 
-                   COALESCE(r.nom, i.nom) as nom_element,
-                   COALESCE(r.parts, 1) as parts,
-                   COALESCE(r.calories, i.calories) as calories,
-                   COALESCE(r.proteines, i.proteines) as proteines,
-                   COALESCE(r.glucides, i.glucides) as glucides,
-                   COALESCE(r.lipides, i.lipides) as lipides,
-                   COALESCE(r.fibres, i.fibres) as fibres,
-                   COALESCE(r.sucre, i.sucre) as sucre
-            FROM suivi_conso s
-            LEFT JOIN recettes r ON s.type_element = 'recette' AND s.element_id = r.id
-            LEFT JOIN ingredients i ON s.type_element = 'aliment' AND s.element_id = i.id
-            WHERE s.profil = $1 AND s.jour = $2
-        `;
-        const result = await pool.query(query, [profil, jour]);
-        res.json(result.rows || []);
+        res.json(recos);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
