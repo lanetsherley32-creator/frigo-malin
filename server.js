@@ -710,7 +710,6 @@ async function traiterGenerationMenu(req, res) {
         res.status(500).json({ error: err.message });
     }
 }
-
 // --- API GET /api/menus-semaine (Avec calculs nutritionnels et budget par jour) ---
 app.get('/api/menus-semaine', async (req, res) => {
     let profil = req.query.profil;
@@ -808,6 +807,34 @@ app.get('/api/menus-semaine', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+// --- API GET /api/suivi-conso-semaine ---
+app.get('/api/suivi-conso-semaine', async (req, res) => {
+    let profil = req.query.profil;
+    const compteEmail = req.session.user;
+
+    try {
+        if (!profil || profil === 'undefined' || profil === 'null' || profil.trim() === '') {
+            if (compteEmail) {
+                const profilsRes = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [compteEmail]);
+                if (profilsRes.rows.length > 0) {
+                    profil = profilsRes.rows[0].nom;
+                } else {
+                    profil = compteEmail;
+                }
+            } else {
+                return res.status(400).json({ error: "Profil manquant et utilisateur non connecté" });
+            }
+        }
+
+        const result = await pool.query("SELECT * FROM suivi_conso WHERE profil = $1", [profil]);
+        res.json(result.rows || []);
+    } catch (err) {
+        console.error("ERREUR /api/suivi-conso-semaine :", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- API GÉNÉRATION AUTOMATIQUE DE MENU (LES DEUX ROUTES SUPPORTÉES) ---
 app.post('/api/generer-menu', traiterGenerationMenu);
 app.post('/api/menus-semaine', traiterGenerationMenu);
