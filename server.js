@@ -422,18 +422,21 @@ app.get('/api/menu-prevu-resume-jour', async (req, res) => {
         }
         
         const placeholders = idsRecettes.map((_, i) => `$${i + 1}`).join(',');
-        const recettesRes = await pool.query(`SELECT calories, proteines, glucides, lipides, fibres, sucre, cout FROM recettes WHERE id IN (${placeholders})`, idsRecettes);
+        const recettesRes = await pool.query(`SELECT parts, calories, proteines, glucides, lipides, fibres, sucre, cout FROM recettes WHERE id IN (${placeholders})`, idsRecettes);
         
         let totaux = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 };
         
         recettesRes.rows.forEach(r => {
-            totaux.calories += parseFloat(r.calories) || 0;
-            totaux.proteines += parseFloat(r.proteines) || 0;
-            totaux.glucides += parseFloat(r.glucides) || 0;
-            totaux.lipides += parseFloat(r.lipides) || 0;
-            totaux.fibres += parseFloat(r.fibres) || 0;
-            totaux.sucre += parseFloat(r.sucre) || 0;
-            totaux.cout += parseFloat(r.cout) || 0;
+            const parts = parseFloat(r.parts) || 1;
+            const ratioPart = 1 / parts; // Ramène au coût et apports d'une part
+            
+            totaux.calories += (parseFloat(r.calories) || 0) * ratioPart;
+            totaux.proteines += (parseFloat(r.proteines) || 0) * ratioPart;
+            totaux.glucides += (parseFloat(r.glucides) || 0) * ratioPart;
+            totaux.lipides += (parseFloat(r.lipides) || 0) * ratioPart;
+            totaux.fibres += (parseFloat(r.fibres) || 0) * ratioPart;
+            totaux.sucre += (parseFloat(r.sucre) || 0) * ratioPart;
+            totaux.cout += (parseFloat(r.cout) || 0) * ratioPart;
         });
         
         res.json(totaux);
@@ -464,7 +467,7 @@ app.post('/api/menu-prevu', async (req, res) => {
     }
 });
 
-// --- LOGIQUE COMMUNE POUR LA GÉNÉRATION ALÉATOIRE ---
+// --- LOGIQUE COMMUNE POUR LA GÉNÉRATION ALÉATOIRE AVEC OPTIMISATION ANTI-RESTES ---
 async function executerGenerationAleatoire(req) {
     let profil = req.body.profil;
 
@@ -504,9 +507,10 @@ async function executerGenerationAleatoire(req) {
     let meilleureSemaine = null;
     let meilleurScoreGlobal = Infinity;
 
-    for (let essai = 0; essai < 20; essai++) {
+    for (let essai = 0; essai < 25; essai++) {
         let semaineCourante = {};
         let coutTotalSemaine = 0;
+        let ingredientsSemaineQte = {};
         let scoreSemaine = 0;
 
         for (const jour of jours) {
@@ -523,20 +527,76 @@ async function executerGenerationAleatoire(req) {
                 };
 
                 const recettesTriees = [...recettes].sort((a, b) => {
-                    return calculerScoreEcart(a, sousCible) - calculerScoreEcart(b, sousCible);
+                    let scoreA = calculerScoreEcart(a, sousCible);
+                    let scoreB = calculerScoreEcart(b, sousCible);
+
+                    // Bonus anti-gaspillage si la recette utilise des ingrédients déjà entamés
+                    try {
+                        let ingsA = typeof a.ingredients === 'string' ? JSON.parse(a.ingredients) : a.ingredients;
+                        if (Array.isArray(ingsA)) {
+                            ingsA.forEach(ing => {
+                                let id = ing.id || ing.ingredient_id;
+                                if (id && ingredientsSemaineQte[id] && ingredientsSemaineQte[id].reste > 0) {
+                                    scoreA -= 15;
+                                }
+                            });
+                        }
+                    } catch(e){}
+
+                    try {
+                        let ingsB = typeof b.ingredients === 'string' ? JSON.parse(b.ingredients) : b.ingredients;
+                        if (Array.isArray(ingsB)) {
+                            ingsB.forEach(ing => {
+                                let id = ing.id || ing.ingredient_id;
+                                if (id && ingredientsSemaineQte[id] && ingredientsSemaineQte[id].reste > 0) {
+                                    scoreB -= 15;
+                                }
+                            });
+                        }
+                    } catch(e){}
+
+                    return scoreA - scoreB;
                 });
 
                 const topChoices = recettesTriees.slice(0, Math.min(4, recettesTriees.length));
                 const chosen = topChoices[Math.floor(Math.random() * topChoices.length)] || recettesTriees[0];
 
                 selectionJour[repasKeys[i]] = chosen ? chosen.id : null;
-                coutTotalSemaine += parseFloat(chosen?.cout || 0);
+                
+                // Coût ramené à une part
+                const parts = parseFloat(chosen?.parts) || 1;
+                coutTotalSemaine += (parseFloat(chosen?.cout) || 0) / parts;
+
+                // Suivi des ingrédients pour optimiser les restes
+                try {
+                    let ings = typeof chosen.ingredients === 'string' ? JSON.parse(chosen.ingredients) : chosen.ingredients;
+                    if (Array.isArray(ings)) {
+                        ings.forEach(ing => {
+                            let id = ing.id || ing.ingredient_id;
+                            let qteUtilisee = parseFloat(ing.quantite) || 0;
+                            if (id) {
+                                if (!ingredientsSemaineQte[id]) {
+                                    ingredientsSemaineQte[id] = { reste: 0 };
+                                }
+                                ingredientsSemaineQte[id].reste += qteUtilisee;
+                                if (ingredientsSemaineQte[id].reste >= 500) { // Conditionnement simulé
+                                    ingredientsSemaineQte[id].reste = 0;
+                                }
+                            }
+                        });
+                    }
+                } catch(e){}
             }
             semaineCourante[jour] = selectionJour;
         }
 
+        let penaliteRestes = 0;
+        Object.values(ingredientsSemaineQte).forEach(item => {
+            if (item.reste > 0) penaliteRestes += item.reste * 0.05;
+        });
+
         let penaliteBudget = coutTotalSemaine > budgetMaxSemaine ? (coutTotalSemaine - budgetMaxSemaine) * 50 : 0;
-        scoreSemaine += penaliteBudget;
+        scoreSemaine += penaliteBudget + penaliteRestes;
 
         if (scoreSemaine < meilleurScoreGlobal) {
             meilleurScoreGlobal = scoreSemaine;
@@ -586,7 +646,6 @@ app.get('/api/recettes-recommandees-optimisees', async (req, res) => {
     if (!profil || !jour) return res.status(400).json({ error: "Profil ou jour manquant" });
 
     try {
-        // 1. Récupérer les objectifs du profil
         const objRes = await pool.query("SELECT * FROM personnes_objectifs WHERE nom = $1", [profil]);
         const obj = objRes.rows[0] || {};
         const cible = {
@@ -599,9 +658,9 @@ app.get('/api/recettes-recommandees-optimisees', async (req, res) => {
             budget: parseFloat(obj.budget) || 100
         };
 
-        // 2. Calculer ce qui a déjà été consommé (ou prévu) pour ce jour
         const suiviRes = await pool.query(`
-            SELECT COALESCE(r.calories, i.calories) as calories,
+            SELECT r.parts,
+                   COALESCE(r.calories, i.calories) as calories,
                    COALESCE(r.proteines, i.proteines) as proteines,
                    COALESCE(r.glucides, i.glucides) as glucides,
                    COALESCE(r.lipides, i.lipides) as lipides,
@@ -616,53 +675,45 @@ app.get('/api/recettes-recommandees-optimisees', async (req, res) => {
 
         let consomme = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 };
         suiviRes.rows.forEach(row => {
-            consomme.calories += parseFloat(row.calories) || 0;
-            consomme.proteines += parseFloat(row.proteines) || 0;
-            consomme.glucides += parseFloat(row.glucides) || 0;
-            consomme.lipides += parseFloat(row.lipides) || 0;
-            consomme.fibres += parseFloat(row.fibres) || 0;
-            consomme.sucre += parseFloat(row.sucre) || 0;
-            consomme.cout += parseFloat(row.cout) || 0;
+            const ratioPart = 1 / (parseFloat(row.parts) || 1);
+            consomme.calories += (parseFloat(row.calories) || 0) * ratioPart;
+            consomme.proteines += (parseFloat(row.proteines) || 0) * ratioPart;
+            consomme.glucides += (parseFloat(row.glucides) || 0) * ratioPart;
+            consomme.lipides += (parseFloat(row.lipides) || 0) * ratioPart;
+            consomme.fibres += (parseFloat(row.fibres) || 0) * ratioPart;
+            consomme.sucre += (parseFloat(row.sucre) || 0) * ratioPart;
+            consomme.cout += (parseFloat(row.cout) || 0) * ratioPart;
         });
 
-        // 3. Calculer ce qui reste à acquérir pour atteindre / respecter les critères cibles :
-        // - En dessous en calories, sucre, lipides, glucides, budget (on cherche des recettes avec de faibles valeurs ou qui ne font pas exploser le reste)
-        // - Au dessus en protéines, fibres (on favorise les apports riches)
         const recettesRes = await pool.query("SELECT * FROM recettes");
         const recettes = recettesRes.rows || [];
 
         const recos = recettes.map(r => {
-            const cal = parseFloat(r.calories) || 0;
-            const pro = parseFloat(r.proteines) || 0;
-            const glu = parseFloat(r.glucides) || 0;
-            const lip = parseFloat(r.lipides) || 0;
-            const fib = parseFloat(r.fibres) || 0;
-            const suc = parseFloat(r.sucre) || 0;
-            const cout = parseFloat(r.cout) || 0;
+            const parts = parseFloat(r.parts) || 1;
+            const ratioPart = 1 / parts;
+            const cal = (parseFloat(r.calories) || 0) * ratioPart;
+            const pro = (parseFloat(r.proteines) || 0) * ratioPart;
+            const glu = (parseFloat(r.glucides) || 0) * ratioPart;
+            const lip = (parseFloat(r.lipides) || 0) * ratioPart;
+            const fib = (parseFloat(r.fibres) || 0) * ratioPart;
+            const suc = (parseFloat(r.sucre) || 0) * ratioPart;
+            const cout = (parseFloat(r.cout) || 0) * ratioPart;
 
             let score = 0;
-            // Pénalités si on dépasse les plafonds (calories, sucre, lipides, glucides, budget)
             if ((consomme.calories + cal) > cible.calories) score += ((consomme.calories + cal) - cible.calories) * 2;
             if ((consomme.sucre + suc) > cible.sucre) score += ((consomme.sucre + suc) - cible.sucre) * 3;
             if ((consomme.lipides + lip) > cible.lipides) score += ((consomme.lipides + lip) - cible.lipides) * 2;
             if ((consomme.glucides + glu) > cible.glucides) score += ((consomme.glucides + glu) - cible.glucides) * 1.5;
             if ((consomme.cout + cout) > (cible.budget / 7)) score += ((consomme.cout + cout) - (cible.budget / 7)) * 5;
 
-            // Bonus / Récompense si on aide à monter les protéines et fibres manquantes
-            if ((consomme.proteines + pro) < cible.proteines) {
-                score -= pro * 1.5; // Favorise les protéines
-            }
-            if ((consomme.fibres + fib) < cible.fibres) {
-                score -= fib * 1.5; // Favorise les fibres
-            }
+            if ((consomme.proteines + pro) < cible.proteines) score -= pro * 1.5;
+            if ((consomme.fibres + fib) < cible.fibres) score -= fib * 1.5;
 
             return { ...r, scoreRecommandation: score };
         });
 
-        // Tri par score croissant (le score le plus bas est le plus optimal selon les critères)
         recos.sort((a, b) => a.scoreRecommandation - b.scoreRecommandation);
-
-        res.json(recos.slice(0, 10)); // Retourne le top 10 des recettes recommandées
+        res.json(recos.slice(0, 10));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -685,6 +736,7 @@ app.get('/api/suivi-conso', async (req, res) => {
         const query = `
             SELECT s.*, 
                    COALESCE(r.nom, i.nom) as nom_element,
+                   COALESCE(r.parts, 1) as parts,
                    COALESCE(r.calories, i.calories) as calories,
                    COALESCE(r.proteines, i.proteines) as proteines,
                    COALESCE(r.glucides, i.glucides) as glucides,
@@ -709,12 +761,14 @@ app.get('/api/suivi-conso-semaine', async (req, res) => {
     try {
         const query = `
             SELECT s.*, 
+                   COALESCE(r.parts, 1) as parts,
                    COALESCE(r.calories, i.calories) as calories,
                    COALESCE(r.proteines, i.proteines) as proteines,
                    COALESCE(r.glucides, i.glucides) as glucides,
                    COALESCE(r.lipides, i.lipides) as lipides,
                    COALESCE(r.fibres, i.fibres) as fibres,
-                   COALESCE(r.sucre, i.sucre) as sucre
+                   COALESCE(r.sucre, i.sucre) as sucre,
+                   COALESCE(r.cout, 0) as cout
             FROM suivi_conso s
             LEFT JOIN recettes r ON s.type_element = 'recette' AND s.element_id = r.id
             LEFT JOIN ingredients i ON s.type_element = 'aliment' AND s.element_id = i.id
@@ -836,7 +890,7 @@ app.post('/api/courses/generer', async (req, res) => {
             if (ref) {
                 await pool.query(
                     "INSERT INTO courses (profil, ingredient_id, nom, rayon, quantite_necessaire, unite, prix_total, coche) VALUES ($1, $2, $3, $4, $5, $6, $7, 0)",
-                    [profil, ref.id, ref.nom, ref.rayon || 'Épicerie', data.qte, data.unite, 0]
+                    [profil, ref.id, ref.nom, ref.rayon || 'Épicerie', data.qte, data.unite, parseFloat(ref.prix) || 0]
                 );
             }
         }
