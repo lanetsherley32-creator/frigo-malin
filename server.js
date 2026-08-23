@@ -711,6 +711,18 @@ async function traiterGenerationMenu(req, res) {
     }
 }
 
+// --- API GET & POST /api/menus-semaine ---
+app.get('/api/menus-semaine', async (req, res) => {
+    const profil = req.query.profil;
+    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+    try {
+        const result = await pool.query("SELECT * FROM menu_prevu WHERE profil = $1", [profil]);
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- API GÉNÉRATION AUTOMATIQUE DE MENU (LES DEUX ROUTES SUPPORTÉES) ---
 app.post('/api/generer-menu', traiterGenerationMenu);
 app.post('/api/menus-semaine', traiterGenerationMenu);
