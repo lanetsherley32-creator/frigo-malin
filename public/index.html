@@ -71,9 +71,15 @@
             <div id="recap-apport-prevu-semaine" class="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-2xl shadow-sm border border-blue-100 text-xs hidden space-y-1.5">
                 <div class="font-bold text-blue-900 flex justify-between items-center">
                     <span>📊 Apports Prévus de la Semaine (Calculés vs Visés) :</span>
-                    <span id="prevu-semaine-cal-tot">0 kcal</span>
+                    <span><strong id="prevu-semaine-cal-val">0</strong> / <span id="obj-semaine-cal">0</span> kcal</span>
                 </div>
-                <div id="grid-recap-prevu" class="grid grid-cols-2 sm:grid-cols-6 gap-2 text-[11px] text-blue-800"></div>
+                <div id="grid-recap-prevu" class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px] text-blue-800">
+                    <div class="bg-white/60 p-2 rounded-xl">Protéines : <strong id="prevu-semaine-prot-tot">0</strong> / <span id="obj-semaine-prot">0</span>g</div>
+                    <div class="bg-white/60 p-2 rounded-xl">Glucides : <strong id="prevu-semaine-gluc-tot">0</strong> / <span id="obj-semaine-gluc">0</span>g</div>
+                    <div class="bg-white/60 p-2 rounded-xl">Lipides : <strong id="prevu-semaine-lip-tot">0</strong> / <span id="obj-semaine-lip">0</span>g</div>
+                    <div class="bg-white/60 p-2 rounded-xl">Fibres : <strong id="prevu-semaine-fibres-tot">0</strong> / <span id="obj-semaine-fibres">0</span>g</div>
+                    <div class="bg-white/60 p-2 rounded-xl">Sucre : <strong id="prevu-semaine-sucre-tot">0</strong> / <span id="obj-semaine-sucre">0</span>g</div>
+                </div>
             </div>
             <div id="semaine-container" class="space-y-3"></div>
             <div id="recap-budget-prevu" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center text-xs font-bold hidden">
@@ -96,7 +102,7 @@
                     <span id="aff-conso-eau" class="font-bold text-blue-800 text-sm">0.0</span> L
                     <button onclick="ajouterEau(0.25)" class="bg-blue-600 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold">+25 cl</button>
                     <button onclick="ajouterEau(0.5)" class="bg-blue-600 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold">+50 cl</button>
-                    <button onclick="reinitialiserEau()" class="bg-slate-200 text-slate-600 px-2 py-1.5 rounded-lg text-xs font-bold">🔄</button>
+                    <button onclick="reinitialiserEau()" class="bg-slate-200 text-slate-600 px-2.5 py-1.5 rounded-lg text-xs font-bold">🔄</button>
                 </div>
             </div>
             <!-- Bilan Réel Semaine -->
@@ -105,10 +111,17 @@
                     <span>📊 Bilan Réel Cumulé (Semaine entière) :</span>
                     <span id="suivi-semaine-cal-tot">0 kcal</span>
                 </div>
-                <div id="grid-recap-conso-semaine" class="grid grid-cols-2 sm:grid-cols-6 gap-2 text-[11px] text-slate-600"></div>
+                <div id="grid-recap-conso-semaine" class="grid grid-cols-2 sm:grid-cols-6 gap-2 text-[11px] text-slate-600">
+                    <div class="bg-white p-2 rounded-lg">Protéines : <strong id="suivi-semaine-prot">0</strong>g</div>
+                    <div class="bg-white p-2 rounded-lg">Glucides : <strong id="suivi-semaine-gluc">0</strong>g</div>
+                    <div class="bg-white p-2 rounded-lg">Lipides : <strong id="suivi-semaine-lip">0</strong>g</div>
+                    <div class="bg-white p-2 rounded-lg">Fibres : <strong id="suivi-semaine-fibres">0</strong>g</div>
+                    <div class="bg-white p-2 rounded-lg">Sucre : <strong id="suivi-semaine-sucre">0</strong>g</div>
+                    <div class="bg-white p-2 rounded-lg">Eau : <strong id="suivi-semaine-eau">0</strong>L</div>
+                </div>
                 <div class="flex justify-between items-center pt-1 font-bold text-slate-700 border-t border-slate-200 text-[11px]">
                     <span>💰 Budget Réel Semaine / Prévu :</span>
-                    <span><strong id="suivi-semaine-budget-reel" class="text-emerald-700">0€</strong> / <span id="suivi-semaine-budget-obj">0€</span></span>
+                    <span><strong id="suivi-semaine-budget-reel" class="text-emerald-700">0€</strong></span>
                 </div>
             </div>
             <h2 class="font-bold text-slate-700 text-sm">🍽️ Enregistrer ce qui a été réellement mangé (<span id="libelle-jour-conso">Lundi</span>)</h2>
@@ -125,7 +138,7 @@
                     </div>
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Recette / Aliment</label>
-                        <select id="conso-recette" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium"></select>
+                        <select id="conso-recette" class="border border-slate-200 p-2 rounded-xl bg-white w-full font-medium" required></select>
                     </div>
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Quantité (parts)</label>
@@ -227,7 +240,7 @@
         }));
 
         const getProfilActuel = () => document.getElementById('select-profil').value;
-        const escapeHtml = text => text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const escapeHtml = text => text ? text.toString().replace(/'/g, "\\'").replace(/"/g, '&quot;') : '';
 
         async function init() {
             try {
@@ -281,7 +294,7 @@
 
         function initialiserBoutonsJoursConso() {
             document.getElementById('jours-conso-container').innerHTML = joursSemaine.map(j => 
-                `<button onclick="changerJourConso('${j}')" id="btn-conso-${j}" class="jour-conso-btn px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 ${j === 'Lundi' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}">${j}</button>`
+                `<button type="button" onclick="changerJourConso('${j}')" id="btn-conso-${j}" class="jour-conso-btn px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 ${j === 'Lundi' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}">${j}</button>`
             ).join('');
         }
 
@@ -299,11 +312,12 @@
             document.getElementById('dashboard-nutri').classList.toggle('hidden', isPrevu);
             document.getElementById('tab-prevu').className = isPrevu ? 'flex-1 py-2.5 rounded-xl bg-white text-blue-600 shadow-sm transition-all' : 'flex-1 py-2.5 rounded-xl text-slate-600 transition-all';
             document.getElementById('tab-conso').className = !isPrevu ? 'flex-1 py-2.5 rounded-xl bg-white text-blue-600 shadow-sm transition-all' : 'flex-1 py-2.5 rounded-xl text-slate-600 transition-all';
+            if (!isPrevu) { chargerSuiviConsomme(); }
         }
 
         function changerJourConso(jour) {
             jourConsoActuel = jour;
-            ['libelle-jour-conso', 'libelle-jour-eau'].forEach(id => document.getElementById(id).innerText = jour);
+            ['libelle-jour-conso', 'libelle-jour-eau'].forEach(id => { const el = document.getElementById(id); if(el) el.innerText = jour; });
             document.querySelectorAll('.jour-conso-btn').forEach(btn => {
                 const actif = btn.id === `btn-conso-${jour}`;
                 btn.className = `jour-conso-btn px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 ${actif ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`;
@@ -345,7 +359,7 @@
                     return `<div class="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 space-y-2">
                         <div class="flex justify-between items-center border-b border-slate-100 pb-2">
                             <h3 class="font-bold text-slate-700 text-xs">📅 ${jour}</h3>
-                            <button onclick="copierJourVersTous('${jour}')" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded-lg font-bold">Copier partout</button>
+                            <button type="button" onclick="copierJourVersTous('${jour}')" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded-lg font-bold">Copier partout</button>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">${typesRepasStandard.map((type, idx) => `
                             <div class="space-y-1 relative">
@@ -386,7 +400,6 @@
         async function genererSemaineAleatoireOptimisee() {
             const profil = getProfilActuel();
             if (!profil) return alert("Sélectionnez un profil.");
-            const obj = (await fetch('/api/personnes-objectifs').then(r => r.json())).find(p => p.nom === profil) || {};
             let nouvelleSemaine = {};
             joursSemaine.forEach(jour => {
                 nouvelleSemaine[jour] = {};
@@ -401,6 +414,7 @@
             });
             menusSemaineCache = nouvelleSemaine;
             await sauvegarderTouteLaSemaine(true);
+            await chargerTouteLaSemaine();
             alert("🎲 Menu aléatoire généré !");
         }
 
@@ -439,11 +453,12 @@
                 const r = recettesDisponibles.find(rc => rc.nom === nom);
                 if (r) ['cal', 'prot', 'gluc', 'lip', 'fibres', 'sucre', 'budget'].forEach(k => t[k] += r[k === 'cal' ? 'calories' : k === 'prot' ? 'proteines' : k === 'budget' ? 'prix' : k] || r.prot || 0);
             }));
-            document.getElementById('prevu-semaine-cal-tot').innerText = `${t.cal} kcal`;
-            document.getElementById('prevu-semaine-cal-val').innerText = t.cal;
+            document.getElementById('prevu-semaine-cal-val').innerText = Math.round(t.cal);
             ['prot', 'gluc', 'lip', 'fibres', 'sucre'].forEach((k, i) => {
-                document.getElementById(`prevu-semaine-${k}-tot`).innerText = Math.round(t[k]);
-                document.getElementById(`obj-semaine-${k}`).innerText = (obj[k === 'prot' ? 'proteines' : k] || 50) * 7;
+                const elTot = document.getElementById(`prevu-semaine-${k}-tot`);
+                const elObj = document.getElementById(`obj-semaine-${k}`);
+                if (elTot) elTot.innerText = Math.round(t[k]);
+                if (elObj) elObj.innerText = (obj[k === 'prot' ? 'proteines' : k] || 50) * 7;
             });
             document.getElementById('obj-semaine-cal').innerText = (obj.calories || 2000) * 7;
             document.getElementById('montant-budget-prevu').innerText = `${Math.round(t.budget)}€`;
@@ -454,26 +469,19 @@
 
         async function chargerRecettesRecommandees() {
             const profil = getProfilActuel(), container = document.getElementById('container-recettes-recommandees');
-            if (!profil) return;
-            const [obj, conso] = await Promise.all([
-                fetch('/api/personnes-objectifs').then(r => r.json()).then(p => p.find(x => x.nom === profil) || {}),
-                fetch(`/api/suivi-consomme?personne=${encodeURIComponent(profil)}&jour=${encodeURIComponent(jourConsoActuel)}`).then(r => r.json())
-            ]);
-            let bilan = { cal: 0, prot: 0, fibres: 0 };
-            (conso.repas || []).forEach(c => { bilan.cal += (c.calories || 0) * c.quantite; bilan.prot += (c.proteines || c.prot || 0) * c.quantite; bilan.fibres += (c.fibres || 0) * c.quantite; });
-            
+            if (!profil || !container) return;
             let recs = recettesDisponibles.map(rec => ({ ...rec, score: ((rec.proteines || rec.prot || 0) * 2 + (rec.fibres || 0) * 2) })).sort((a, b) => b.score - a.score);
             container.innerHTML = recs.slice(0, 4).map((rec, i) => {
                 const top = i === 0;
                 return `<div class="p-3 rounded-xl border ${top ? 'bg-emerald-50 border-emerald-300 text-emerald-900 ring-1 ring-emerald-400 font-bold' : 'bg-white border-indigo-100 text-slate-700'} flex justify-between items-center">
                     <div><div class="font-bold text-xs">${rec.nom} ${top ? '🎯' : ''}</div><div class="text-[10px] opacity-80">⚡ ${rec.calories || 0} kcal | P: ${rec.proteines || rec.prot || 0}g</div></div>
-                    <button onclick="ajouterRecetteDansConsoRapide('${escapeHtml(rec.nom)}')" class="bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold">+ Manger</button></div>`;
+                    <button type="button" onclick="ajouterRecetteDansConsoRapide('${escapeHtml(rec.nom)}')" class="bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold">+ Manger</button></div>`;
             }).join('');
         }
 
         async function ajouterRecetteDansConsoRapide(nom) {
             await fetch('/api/suivi-consomme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personne: getProfilActuel(), jour: jourConsoActuel, categorie: 'Repas 1', recette: `recette_${recettesDisponibles.find(r=>r.nom===nom)?.id || ''}`, quantite: 1 }) });
-            await chargerSuiviConsomme(); chargerRecettesRecommandees();
+            await chargerSuiviConsomme(); await chargerSuiviConsommeSemaineComplete(); chargerRecettesRecommandees();
         }
 
         async function chargerSuiviConsomme() {
@@ -485,7 +493,7 @@
             container.innerHTML = (data.repas || []).length ? data.repas.map((r, i) => `
                 <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex justify-between items-center text-xs">
                     <div><span class="font-bold text-slate-800">${r.nom}</span> <span class="text-slate-500 text-[11px]">(${r.quantite} part)</span></div>
-                    <button onclick="supprimerConsommation(${i})" class="text-red-500 font-bold px-2">✕</button>
+                    <button type="button" onclick="supprimerConsommation(${i})" class="text-red-500 font-bold px-2">✕</button>
                 </div>`).join('') : `<p class="text-xs text-slate-400 italic">Aucun repas.</p>`;
             mettreAJourBilanNutriGlobal();
         }
@@ -499,15 +507,17 @@
                 t.eau += j.eau || 0;
                 (j.repas || []).forEach(r => { const q = r.quantite || 1; ['cal', 'prot', 'gluc', 'lip', 'fibres', 'sucre', 'budget'].forEach(k => t[k] += (r[k === 'cal' ? 'calories' : k === 'prot' ? 'proteines' : k === 'budget' ? 'prix' : k] || r.prot || 0) * q); });
             });
-            document.getElementById('suivi-semaine-cal-tot').innerText = `${t.cal} kcal`;
-            ['prot', 'gluc', 'lip', 'fibres', 'sucre'].forEach(k => document.getElementById(`suivi-semaine-${k}`).innerText = Math.round(t[k]));
-            document.getElementById('suivi-semaine-eau').innerText = t.eau.toFixed(1);
-            document.getElementById('suivi-semaine-budget-reel').innerText = `${Math.round(t.budget)}€`;
+            document.getElementById('suivi-semaine-cal-tot').innerText = `${Math.round(t.cal)} kcal`;
+            ['prot', 'gluc', 'lip', 'fibres', 'sucre'].forEach(k => { const el = document.getElementById(`suivi-semaine-${k}`); if(el) el.innerText = Math.round(t[k]); });
+            const elEau = document.getElementById('suivi-semaine-eau'); if(elEau) elEau.innerText = t.eau.toFixed(1);
+            const elBudget = document.getElementById('suivi-semaine-budget-reel'); if(elBudget) elBudget.innerText = `${Math.round(t.budget)}€`;
         }
 
         async function ajouterConsommation(e) {
             e.preventDefault();
-            await fetch('/api/suivi-consomme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personne: getProfilActuel(), jour: jourConsoActuel, categorie: document.getElementById('conso-cat').value, recette: document.getElementById('conso-recette').value, quantite: parseFloat(document.getElementById('conso-qte').value) || 1 }) });
+            const recetteVal = document.getElementById('conso-recette').value;
+            if (!recetteVal) return alert("Veuillez sélectionner un élément.");
+            await fetch('/api/suivi-consomme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personne: getProfilActuel(), jour: jourConsoActuel, categorie: document.getElementById('conso-cat').value, recette: recetteVal, quantite: parseFloat(document.getElementById('conso-qte').value) || 1 }) });
             await chargerSuiviConsomme(); await chargerSuiviConsommeSemaineComplete(); chargerRecettesRecommandees();
         }
 
