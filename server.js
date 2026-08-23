@@ -632,8 +632,8 @@ app.post('/api/menu-prevu', async (req, res) => {
     }
 });
 
-// --- API GÉNÉRATION AUTOMATIQUE DE MENU (NOUVELLE ROUTE) ---
-app.post('/api/generer-menu', async (req, res) => {
+// --- LOGIQUE COMMUNE POUR LA GÉNÉRATION DE MENU ---
+async function traiterGenerationMenu(req, res) {
     const { profil } = req.body;
     if (!profil) return res.status(400).json({ error: "Profil manquant" });
 
@@ -661,7 +661,7 @@ app.post('/api/generer-menu', async (req, res) => {
 
         const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
-        // Fonction utilitaire pour trouver la recette idéale selon une cible de calories par repas (ex: ~1/3 ou 1/4 du total)
+        // Fonction utilitaire pour trouver la recette idéale selon une cible de calories par repas
         function trouverMeilleureRecette(catFiltre = null, cibleCalorieRepas = 600) {
             let candidates = recettes;
             if (catFiltre) {
@@ -709,7 +709,11 @@ app.post('/api/generer-menu', async (req, res) => {
         console.error("Erreur génération automatique menu :", err);
         res.status(500).json({ error: err.message });
     }
-});
+}
+
+// --- API GÉNÉRATION AUTOMATIQUE DE MENU (LES DEUX ROUTES SUPPORTÉES) ---
+app.post('/api/generer-menu', traiterGenerationMenu);
+app.post('/api/menus-semaine', traiterGenerationMenu);
 
 // --- LANCEMENT DU SERVEUR ---
 const PORT = process.env.PORT || 3000;
