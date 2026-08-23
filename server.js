@@ -709,7 +709,30 @@ async function traiterGenerationMenu(req, res) {
         console.error("Erreur génération automatique menu :", err);
         res.status(500).json({ error: err.message });
     }
-}
+}// --- API GET /api/recettes-recommandees ---
+app.get('/api/recettes-recommandees', async (req, res) => {
+    let profil = req.query.profil;
+    const compteEmail = req.session.user;
+
+    try {
+        if (!profil || profil === 'undefined' || profil === 'null' || profil.trim() === '') {
+            if (compteEmail) {
+                const profilsRes = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [compteEmail]);
+                if (profilsRes.rows.length > 0) {
+                    profil = profilsRes.rows[0].nom;
+                } else {
+                    profil = compteEmail;
+                }
+            }
+        }
+        // Récupérer les recettes depuis la base de données
+        const result = await pool.query("SELECT * FROM recettes LIMIT 10");
+        res.json(result.rows || []);
+    } catch (err) {
+        console.error("ERREUR /api/recettes-recommandees :", err);
+        res.status(500).json({ error: err.message });
+    }
+});
 // --- API GET /api/menus-semaine (Avec calculs nutritionnels et budget par jour) ---
 app.get('/api/menus-semaine', async (req, res) => {
     let profil = req.query.profil;
