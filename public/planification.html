@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planification Semaine - Application Nutritionnelle</title>
+    <title>Planification Semaine - Frigomalin</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- jsPDF pour les exports PDF -->
@@ -53,17 +53,11 @@
             </nav>
         </header>
 
-        <!-- Onglets de navigation principale -->
-        <div class="flex bg-slate-200/70 p-1 rounded-2xl max-w-md mx-auto">
-            <a href="/planification.html" class="flex-1 py-2.5 rounded-xl bg-white text-blue-600 shadow-sm text-center transition-all text-xs font-bold">📅 Planification Semaine</a>
-            <a href="/suivi.html" class="flex-1 py-2.5 rounded-xl text-slate-600 text-center transition-all text-xs font-bold">🍽️ Suivi Réel & Bilans</a>
-        </div>
-        
         <!-- SECTION : PLANIFICATION / PRÉVU -->
         <div id="section-prevu" class="space-y-6">
             <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
                 <div class="flex items-center gap-2">
-                    <h2 class="font-bold text-sm text-slate-700">📅 Planification de la Semaine</h2>
+                    <h2 class="font-bold text-sm text-slate-700">📅 Planification Semaine</h2>
                     <button onclick="ouvrirModalCategoriesAleatoire()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-xl font-bold transition-all">⚙️ Config catégories</button>
                 </div>
                 <div class="flex items-center gap-2">
@@ -73,10 +67,7 @@
                 </div>
             </div>
 
-            <!-- Container des jours de la semaine (Généré dynamiquement avec apports/coûts par jour et recherche de recettes) -->
-            <div id="semaine-container" class="space-y-4"></div>
-
-            <!-- Récapitulatif Prévu Semaine -->
+            <!-- Récapitulatif Prévu Semaine déplacé en haut -->
             <div id="recap-apport-prevu-semaine" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
                 <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">📊 Bilan prévisionnel global de la semaine</h3>
                 <div class="grid grid-cols-2 sm:grid-cols-7 gap-3 text-xs">
@@ -117,6 +108,9 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Container des jours de la semaine (Tableau / Blocs journaliers remplissables manuellement & dynamiquement) -->
+            <div id="semaine-container" class="space-y-4"></div>
         </div>
     </div>
 
@@ -249,7 +243,6 @@
             window.location.href = '/login.html';
         }
     </script>
-
     <!-- Scripts logiques de la planification -->
     <script src="planification.js"></script>
     <script src="script.js"></script>
