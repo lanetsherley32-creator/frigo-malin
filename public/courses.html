@@ -13,21 +13,70 @@
         
         <!-- En-tête & Navigation -->
         <header class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3 print:hidden">
+            
+            <!-- Compte Connecté et Déconnexion en haut -->
+            <div class="flex justify-between items-center text-xs pb-3 border-b border-slate-100">
+                <span id="nom-utilisateur-connecte" class="font-bold text-slate-700">👤 Chargement du compte...</span>
+                <button onclick="deconnexion()" class="text-red-500 hover:text-red-700 font-bold">Se déconnecter</button>
+            </div>
+
+            <!-- Titre et Actions principales -->
             <div class="flex justify-between items-center flex-wrap gap-2">
                 <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🛒 Liste de Courses</h1>
                 <div class="flex items-center gap-2">
-                    <select id="select-profil" onchange="chargerCourses()" class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600">
+                    <select id="select-profil" onchange="chargerCourses()" class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 outline-none">
                         <option value="">Chargement...</option>
                     </select>
                     <button onclick="telechargerPDF()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all">📥 PDF</button>
                 </div>
             </div>
             
+            <!-- Navigation harmonisée -->
+            <nav class="grid grid-cols-5 gap-1 text-center text-[11px] font-medium pt-1">
+                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Compte</a>
+                <a href="planification.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">📅 Planification</a>
+                <a href="suivi.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">🍽️ Suivi Réel</a>
+                <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
+                <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
+                <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
+                <a href="courses.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Courses</a>
+            </nav>
+        </header>
+
+        <!-- Script pour charger le nom du compte et gérer la déconnexion sur cette page -->
+        <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                chargerInfosUtilisateur();
+            });
+
+            async function chargerInfosUtilisateur() {
+                try {
+                    const res = await fetch('/api/current-user');
+                    if (res.ok) {
+                        const user = await res.json();
+                        const element = document.getElementById('nom-utilisateur-connecte');
+                        if (element) element.innerText = `👤 Compte : ${user.nom} (${user.email})`;
+                    } else {
+                        window.location.href = '/login.html';
+                    }
+                } catch (e) {
+                    console.error("Erreur chargement utilisateur", e);
+                }
+            }
+
+            async function deconnexion() {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login.html';
+            }
+        </script>
+    </div>
+</body>
+</html>
             <!-- Navigation harmonisée (Courses à la fin) -->
             <nav class="grid grid-cols-5 gap-1 text-center text-[11px] font-medium">
                 <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Mon compte</a>
-                <a href="planification.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
-                <a href="suivi.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
+                <a href="planification.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">📅 Planification Semaine</a>
+                <a href="suivi.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">🍽️ Suivi Réel & Bilans</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
                 <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
                 <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
