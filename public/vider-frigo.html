@@ -257,18 +257,40 @@
             if (!ingredientsData) return parsedList;
 
             try {
-                let parsed = typeof ingredientsData === 'string' ? JSON.parse(ingredientsData) : ingredientsData;
-                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                let parsed = ingredientsData;
+                if (typeof parsed === 'string') {
+                    parsed = JSON.parse(parsed);
+                }
+                if (typeof parsed === 'string') {
+                    parsed = JSON.parse(parsed);
+                }
 
                 if (Array.isArray(parsed)) {
                     return parsed.map(ing => {
-                        const targetId = ing.id || ing.ingredient_id;
-                        const ingObj = ingredientsGlobal.find(i => i.id == targetId);
-                        const qteVal = parseFloat(ing.quantite || ing.qte || 0);
-                        const uniteVal = ing.unite || 'g';
+                        // Cherche l'ID par toutes les clés possibles selon la structure de la BDD
+                        let targetId = ing.id || ing.ingredient_id || ing.ingredientId;
+                        let qteVal = parseFloat(ing.quantite || ing.qte || ing.quantity || 0);
+                        let uniteVal = ing.unite || ing.unit || 'g';
+                        let nomIng = ing.nom || ing.name;
+
+                        // Si on a un ID, on essaie de retrouver l'ingrédient global pour l'harmoniser
+                        if (targetId) {
+                            const ingObj = ingredientsGlobal.find(i => i.id == targetId);
+                            if (ingObj) {
+                                targetId = ingObj.id;
+                                if (!nomIng) nomIng = ingObj.nom;
+                            }
+                        } else if (nomIng) {
+                            // Si pas d'ID mais un nom, on essaie de retrouver l'ID global correspondant
+                            const ingObj = ingredientsGlobal.find(i => i.nom && i.nom.toLowerCase() === nomIng.toLowerCase());
+                            if (ingObj) {
+                                targetId = ingObj.id;
+                            }
+                        }
+
                         return {
                             id: targetId,
-                            nom: ingObj ? ingObj.nom : (ing.nom || "Ingrédient"),
+                            nom: nomIng || "Ingrédient",
                             quantite: qteVal,
                             unite: uniteVal,
                             quantiteBase: convertirEnGrammeOuUnite(qteVal, uniteVal)
@@ -309,13 +331,28 @@
                 let manquant = [];
 
                 listeIngsParsed.forEach(ingR => {
-                    let stockDispoBase = frigoNormalise[ingR.id] || 0;
+                    // On cherche par ID ou par correspondance de nom si l'ID ne matche pas directement
+                    let stockDispoBase = 0;
+                    if (ingR.id && frigoNormalise[ingR.id]) {
+                        stockDispoBase = frigoNormalise[ingR.id];
+                    } else {
+                        // Recherche alternative par nom au cas où l'ID diffère
+                        const matchingFrigoId = Object.keys(frigoBrut).find(fId => {
+                            const gIng = ingredientsGlobal.find(i => i.id == fId);
+                            return gIng && ingR.nom && gIng.nom.toLowerCase() === ingR.nom.toLowerCase();
+                        });
+                        if (matchingFrigoId) {
+                            stockDispoBase = frigoNormalise[matchingFrigoId];
+                        }
+                    }
+
                     if (stockDispoBase < ingR.quantiteBase) {
                         const manquantBase = ingR.quantiteBase - stockDispoBase;
+                        const ratio = ingR.quantiteBase > 0 ? (ingR.quantite / ingR.quantiteBase) : 1;
                         manquant.push({
                             nom: ingR.nom,
                             besoin: `${ingR.quantite} ${ingR.unite}`,
-                            reste: stockDispoBase > 0 ? `${(stockDispoBase / (ingR.quantiteBase / ingR.quantite)).toFixed(1)} ${ingR.unite}` : '0'
+                            reste: stockDispoBase > 0 ? `${(stockDispoBase * ratio).toFixed(1)} ${ingR.unite}` : '0'
                         });
                     }
                 });
