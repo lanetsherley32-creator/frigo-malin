@@ -258,36 +258,35 @@
 
             try {
                 let parsed = ingredientsData;
+
                 if (typeof parsed === 'string') {
-                    parsed = JSON.parse(parsed);
-                }
-                if (typeof parsed === 'string') {
-                    parsed = JSON.parse(parsed);
+                    try {
+                        parsed = JSON.parse(parsed);
+                    } catch (e) {
+                        parsed = [parsed];
+                    }
                 }
 
                 if (Array.isArray(parsed)) {
-                    return parsed.map(ing => {
-                        let targetId = ing.id || ing.ingredient_id || ing.ingredientId;
-                        let qteVal = parseFloat(ing.quantite || ing.qte || ing.quantity || 0);
-                        let uniteVal = ing.unite || ing.unit || 'g';
-                        let nomIng = ing.nom || ing.name;
+                    return parsed.map(item => {
+                        let targetId = null;
+                        let qteVal = 1;
+                        let uniteVal = 'g';
 
-                        if (targetId) {
-                            const ingObj = ingredientsGlobal.find(i => i.id == targetId);
-                            if (ingObj) {
-                                targetId = ingObj.id;
-                                if (!nomIng) nomIng = ingObj.nom;
-                            }
-                        } else if (nomIng) {
-                            const ingObj = ingredientsGlobal.find(i => i.nom && i.nom.toLowerCase() === nomIng.toLowerCase());
-                            if (ingObj) {
-                                targetId = ingObj.id;
-                            }
+                        if (typeof item === 'object' && item !== null) {
+                            targetId = item.id || item.ingredient_id || item.ingredientId;
+                            qteVal = parseFloat(item.quantite || item.qte || item.quantity || 1);
+                            uniteVal = item.unite || item.unit || 'g';
+                        } else {
+                            targetId = item;
                         }
+
+                        const ingObj = ingredientsGlobal.find(i => i.id == targetId);
+                        let nomIng = ingObj ? ingObj.nom : `Ingrédient #${targetId}`;
 
                         return {
                             id: targetId,
-                            nom: nomIng || "Ingrédient",
+                            nom: nomIng,
                             quantite: qteVal,
                             unite: uniteVal,
                             quantiteBase: convertirEnGrammeOuUnite(qteVal, uniteVal)
@@ -295,7 +294,7 @@
                     });
                 }
             } catch(e) {
-                console.error("Erreur lors du traitement des ingrédients de recette :", e);
+                console.error("Erreur lors du traitement des ingrédients Supabase :", e);
             }
             return parsedList;
         }
@@ -334,14 +333,15 @@
                 listeIngsParsed.forEach(ingR => {
                     let stockDispoBase = 0;
                     
-                    // 1. Recherche par ID exact
-                    if (ingR.id && frigoNormalise[ingR.id]) {
+                    if (ingR.id && frigoNormalise[ingR.id] !== undefined) {
                         stockDispoBase = frigoNormalise[ingR.id];
                     } else {
-                        // 2. Recherche alternative par correspondance de nom d'ingrédient
                         const matchingFrigoId = Object.keys(frigoBrut).find(fId => {
                             const gIng = ingredientsGlobal.find(i => i.id == fId);
-                            return gIng && ingR.nom && gIng.nom.toLowerCase().trim() === gIng.nom.toLowerCase().trim();
+                            if (!gIng || !gIng.nom || !ingR.nom) return false;
+                            const nomFrigo = gIng.nom.toLowerCase().trim().replace(/s$/, '');
+                            const nomRecette = ingR.nom.toLowerCase().trim().replace(/s$/, '');
+                            return nomFrigo === nomRecette;
                         });
                         if (matchingFrigoId) {
                             stockDispoBase = frigoNormalise[matchingFrigoId];
