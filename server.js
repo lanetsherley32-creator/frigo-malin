@@ -456,7 +456,21 @@ app.post('/api/menu-prevu', async (req, res) => {
 });
 
 // --- LOGIQUE COMMUNE POUR LA GÉNÉRATION ALÉATOIRE ---
-async function executerGenerationAleatoire(profil) {
+async function executerGenerationAleatoire(req) {
+    let profil = req.body.profil;
+
+    // Si le profil n'est pas fourni dans le body, on essaie de le déduire de la session connectée
+    if (!profil && req.session.user) {
+        const userProfiles = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [req.session.user]);
+        if (userProfiles.rows.length > 0) {
+            profil = userProfiles.rows[0].nom;
+        }
+    }
+
+    if (!profil) {
+        throw new Error("Profil manquant");
+    }
+
     const objRes = await pool.query("SELECT * FROM personnes_objectifs WHERE nom = $1", [profil]);
     const obj = objRes.rows[0] || {};
     
@@ -541,26 +555,20 @@ async function executerGenerationAleatoire(profil) {
 
 // --- API ROUTES DE GÉNÉRATION (Gère les deux URL front-end) ---
 app.post('/api/menu-aleatoire-optimise', async (req, res) => {
-    const { profil } = req.body;
-    if (!profil) return res.status(400).json({ error: "Profil manquant" });
-
     try {
-        await executerGenerationAleatoire(profil);
+        await executerGenerationAleatoire(req);
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(400).json({ error: err.message });
     }
 });
 
 app.post('/api/menus/generer-aleatoire', async (req, res) => {
-    const { profil } = req.body;
-    if (!profil) return res.status(400).json({ error: "Profil manquant" });
-
     try {
-        await executerGenerationAleatoire(profil);
+        await executerGenerationAleatoire(req);
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(400).json({ error: err.message });
     }
 });
 
