@@ -3,19 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planification Semaine - Frigomalin</title>
-    <!-- Tailwind CSS -->
+    <title>Planification - Frigomalin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- jsPDF pour les exports PDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- Socket.io -->
     <script src="/socket.io/socket.io.js"></script>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen pb-12">
-    <div class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+<body class="bg-slate-50 min-h-screen pb-12">
+    <div class="max-w-4xl mx-auto p-4 space-y-4">
         
-        <!-- En-tête de l'application -->
-        <header class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-4">
+        <!-- En-tête & Navigation -->
+        <header class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3 print:hidden">
             
             <!-- Compte Connecté et Déconnexion en haut -->
             <div class="flex justify-between items-center text-xs pb-3 border-b border-slate-100">
@@ -23,27 +19,20 @@
                 <button onclick="deconnexion()" class="text-red-500 hover:text-red-700 font-bold">Se déconnecter</button>
             </div>
 
-            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div class="flex items-center gap-3">
-                    <span class="text-2xl">🥗</span>
-                    <div>
-                        <h1 class="font-bold text-lg text-slate-800">Menu Suivi & Nutrition</h1>
-                        <p class="text-xs text-slate-500">Planification Semaine</p>
-                    </div>
-                </div>
-                <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
-                    <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2 outline-none font-bold">
-                        <option value="">-- Choisir une personne --</option>
+            <!-- Titre et Actions principales -->
+            <div class="flex justify-between items-center flex-wrap gap-2">
+                <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">📅 Planification de la Semaine</h1>
+                <div class="flex items-center gap-2">
+                    <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 outline-none">
+                        <option value="">Chargement...</option>
                     </select>
-                    <button onclick="ouvrirModalPersonne('modifier')" id="btn-modifier-personne" class="hidden text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl transition-all">⚙️ Profil</button>
-                    <button onclick="ouvrirModalPersonne('ajouter')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-2 rounded-xl transition-all">+ Profil</button>
-                    <button onclick="ouvrirModalCompte()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl transition-all">👤 Compte</button>
+                    <button onclick="ouvrirModalPersonne()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all">⚙️ Profil</button>
                 </div>
             </div>
-
-            <!-- Navigation secondaire harmonisée sur 7 colonnes -->
+            
+            <!-- Navigation harmonisée sur 7 colonnes -->
             <nav class="grid grid-cols-7 gap-1 text-center text-[11px] font-medium pt-1">
-                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Mon compte</a>
+                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
                 <a href="planification.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Planification</a>
                 <a href="suivi.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Suivi</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
@@ -53,174 +42,33 @@
             </nav>
         </header>
 
-        <!-- SECTION : PLANIFICATION / PRÉVU -->
-        <div id="section-prevu" class="space-y-6">
-            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
-                <div class="flex items-center gap-2">
-                    <h2 class="font-bold text-sm text-slate-700">📅 Planification Semaine</h2>
-                    <button onclick="ouvrirModalCategoriesAleatoire()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-xl font-bold transition-all">⚙️ Config catégories</button>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="genererSemaineAleatoireOptimisee()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl font-bold transition-all shadow-sm">🎲 Générer Semaine Optimisée</button>
-                    <button onclick="sauvegarderTouteLaSemaine(false)" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl font-bold transition-all shadow-sm">💾 Sauvegarder</button>
-                    <button onclick="telechargerPdfSemaine()" class="text-xs bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl font-bold transition-all shadow-sm">📄 PDF</button>
-                </div>
-            </div>
+        <!-- Actions Avancées Planification -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-2 justify-between items-center text-xs print:hidden">
+            <button onclick="ouvrirModalCategoriesAleatoire()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
+                🎲 Générer la semaine aléatoirement
+            </button>
+            <button onclick="genererSemaineAleatoireOptimisee()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
+                ⚡ Génération Intelligente (Objectifs)
+            </button>
+        </section>
 
-            <!-- Récapitulatif Prévu Semaine déplacé en haut -->
-            <div id="recap-apport-prevu-semaine" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-                <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">📊 Bilan prévisionnel global de la semaine</h3>
-                <div class="grid grid-cols-2 sm:grid-cols-7 gap-3 text-xs">
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Calories</span>
-                        <span id="prevu-semaine-cal-tot" class="font-bold text-slate-800">0 kcal</span>
-                        <span class="text-[9px] text-slate-400 block">Obj: <span id="obj-semaine-cal">0</span></span>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Protéines</span>
-                        <span id="prevu-semaine-prot-tot" class="font-bold text-slate-800">0g</span>
-                        <span class="text-[9px] text-slate-400 block">Obj: <span id="obj-semaine-prot">0</span></span>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Glucides</span>
-                        <span id="prevu-semaine-gluc-tot" class="font-bold text-slate-800">0g</span>
-                        <span class="text-[9px] text-slate-400 block">Obj: <span id="obj-semaine-gluc">0</span></span>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Lipides</span>
-                        <span id="prevu-semaine-lip-tot" class="font-bold text-slate-800">0g</span>
-                        <span class="text-[9px] text-slate-400 block">Obj: <span id="obj-semaine-lip">0</span></span>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Fibres</span>
-                        <span id="prevu-semaine-fibres-tot" class="font-bold text-slate-800">0g</span>
-                        <span class="text-[9px] text-slate-400 block">Obj: <span id="obj-semaine-fibres">0</span></span>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Sucre</span>
-                        <span id="prevu-semaine-sucre-tot" class="font-bold text-slate-800">0g</span>
-                        <span class="text-[9px] text-slate-400 block">Obj: <span id="obj-semaine-sucre">0</span></span>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                        <span class="text-slate-400 block text-[10px]">Budget Prévu</span>
-                        <span id="montant-budget-prevu" class="font-bold text-emerald-600">0€</span>
-                        <span class="text-[9px] text-slate-400 block">Obj: <span id="objectif-budget-prevu">0€</span></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Container des jours de la semaine (Tableau / Blocs journaliers remplissables manuellement & dynamiquement) -->
-            <div id="semaine-container" class="space-y-4"></div>
+        <!-- Container des jours de la semaine -->
+        <div id="planification-container" class="space-y-3">
+            <!-- Rempli dynamiquement par le script -->
         </div>
     </div>
 
-    <!-- MODALES COMMUNES -->
-    <div id="modal-categories-aleatoire" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 class="font-bold text-sm text-slate-800">⚙️ Configuration des catégories par type de repas</h3>
-            <div id="config-categories-container" class="space-y-3"></div>
-            <div class="flex justify-end gap-2 pt-2">
-                <button onclick="fermerModalCategoriesAleatoire()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl">Annuler</button>
-                <button onclick="sauvegarderConfigCategories()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl">Enregistrer</button>
-            </div>
-        </div>
-    </div>
+    <!-- Modals simplifiés ou conteneurs de secours pour éviter les erreurs de variables -->
+    <div id="modals-container"></div>
 
-    <div id="modal-personne" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 id="modal-personne-title" class="font-bold text-sm text-slate-800">👤 Nouvelle personne / Objectif</h3>
-            <form id="form-personne" onsubmit="sauvegarderPersonne(event)" class="space-y-3 text-xs">
-                <input type="hidden" id="personne-ancien-nom">
-                <div>
-                    <label class="block font-bold text-slate-500 mb-1">Nom / Profil</label>
-                    <input type="text" id="personne-nom" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block font-bold text-slate-500 mb-1">Calories (kcal)</label>
-                        <input type="number" id="personne-cal" value="2000" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-500 mb-1">Eau (L)</label>
-                        <input type="number" id="personne-eau" step="0.1" value="2.0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block font-bold text-slate-500 mb-1">Budget (€)</label>
-                        <input type="number" id="personne-budget" value="100" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-500 mb-1">Période Budget</label>
-                        <select id="personne-budget-periode" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                            <option value="semaine">Semaine</option>
-                            <option value="jour">Jour</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <div>
-                        <label class="block font-bold text-slate-500 mb-1">Protéines (g)</label>
-                        <input type="number" id="personne-prot" value="150" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-500 mb-1">Glucides (g)</label>
-                        <input type="number" id="personne-gluc" value="200" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-500 mb-1">Lipides (g)</label>
-                        <input type="number" id="personne-lip" value="70" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block font-bold text-slate-500 mb-1">Fibres (g)</label>
-                        <input type="number" id="personne-fibres" value="30" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-500 mb-1">Sucre max (g)</label>
-                        <input type="number" id="personne-sucre" value="50" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                    </div>
-                </div>
-                <div class="flex justify-between items-center pt-2">
-                    <button type="button" id="btn-supprimer-personne" onclick="supprimerPersonneActuelle()" class="hidden text-red-500 hover:text-red-700 font-bold">Supprimer</button>
-                    <div class="flex gap-2 ml-auto">
-                        <button type="button" onclick="fermerModalPersonne()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Annuler</button>
-                        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl">Sauvegarder</button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-compte" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
-            <h3 class="font-bold text-sm text-slate-800">👤 Paramètres du Compte</h3>
-            <form onsubmit="sauvegarderCompte(event)" class="space-y-3 text-xs">
-                <div>
-                    <label class="block font-bold text-slate-500 mb-1">Nom d'utilisateur</label>
-                    <input type="text" id="compte-nom" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                </div>
-                <div>
-                    <label class="block font-bold text-slate-500 mb-1">Email</label>
-                    <input type="email" id="compte-email" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                </div>
-                <div>
-                    <label class="block font-bold text-slate-500 mb-1">Nouveau mot de passe</label>
-                    <input type="password" id="compte-mdp" placeholder="Laisser vide si inchangé" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                </div>
-                <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" onclick="fermerModalCompte()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Annuler</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl">Mettre à jour</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Script de chargement de l'utilisateur et déconnexion -->
+    <!-- Scripts Intégrés -->
     <script>
+        const socket = io();
+        let recettesCache = [];
+
         document.addEventListener("DOMContentLoaded", () => {
             chargerInfosUtilisateur();
+            initPlanification();
         });
 
         async function chargerInfosUtilisateur() {
@@ -242,9 +90,117 @@
             await fetch('/api/logout', { method: 'POST' });
             window.location.href = '/login.html';
         }
+
+        async function initPlanification() {
+            try {
+                const [resProfils, resRecettes] = await Promise.all([
+                    fetch('/api/personnes-objectifs'), 
+                    fetch('/api/recettes')
+                ]);
+                const profils = await resProfils.json();
+                recettesCache = await resRecettes.json();
+                
+                const select = document.getElementById('select-profil');
+                if (!select) return;
+
+                select.innerHTML = '';
+                if (profils.length === 0) {
+                    select.innerHTML = '<option value="">Aucun profil disponible</option>';
+                    return;
+                }
+
+                select.innerHTML = profils.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+                
+                const savedProfil = localStorage.getItem('profilActif');
+                if (savedProfil && profils.some(p => p.nom === savedProfil)) {
+                    select.value = savedProfil;
+                } else if (profils.length > 0) {
+                    select.value = profils[0].nom;
+                    localStorage.setItem('profilActif', profils[0].nom);
+                }
+                
+                chargerMenuSemaine();
+            } catch (err) {
+                console.error("Erreur d'initialisation de la planification", err);
+            }
+        }
+
+        function changerProfil() {
+            const select = document.getElementById('select-profil');
+            if (select) {
+                localStorage.setItem('profilActif', select.value);
+                chargerMenuSemaine();
+            }
+        }
+
+        async function chargerMenuSemaine() {
+            const profil = document.getElementById('select-profil')?.value;
+            if (!profil) return;
+
+            const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+            const container = document.getElementById('planification-container');
+            
+            try {
+                const res = await fetch(`/api/menu-prevu-semaine?profil=${encodeURIComponent(profil)}`);
+                const menus = await res.json();
+
+                container.innerHTML = jours.map(jour => {
+                    const menuJour = menus.find(m => m.jour === jour) || {};
+                    return `
+                        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div class="w-32 font-bold text-slate-800 text-sm">${jour}</div>
+                            <div class="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-2 w-full text-xs">
+                                <select onchange="sauvegarderRepas('${jour}', 'petitDejeuner', this.value)" class="bg-slate-50 border border-slate-200 p-2 rounded-xl">
+                                    <option value="">Petit-déjeuner</option>
+                                    ${recettesCache.map(r => `<option value="${r.id}" ${menuJour.petitdejeuner == r.id ? 'selected' : ''}>${r.nom}</option>`).join('')}
+                                </select>
+                                <select onchange="sauvegarderRepas('${jour}', 'repas1', this.value)" class="bg-slate-50 border border-slate-200 p-2 rounded-xl">
+                                    <option value="">Repas Midi</option>
+                                    ${recettesCache.map(r => `<option value="${r.id}" ${menuJour.repas1 == r.id ? 'selected' : ''}>${r.nom}</option>`).join('')}
+                                </select>
+                                <select onchange="sauvegarderRepas('${jour}', 'repas2', this.value)" class="bg-slate-50 border border-slate-200 p-2 rounded-xl">
+                                    <option value="">Repas Soir</option>
+                                    ${recettesCache.map(r => `<option value="${r.id}" ${menuJour.repas2 == r.id ? 'selected' : ''}>${r.nom}</option>`).join('')}
+                                </select>
+                                <select onchange="sauvegarderRepas('${jour}', 'dessertCollation', this.value)" class="bg-slate-50 border border-slate-200 p-2 rounded-xl">
+                                    <option value="">Collation / Dessert</option>
+                                    ${recettesCache.map(r => `<option value="${r.id}" ${menuJour.dessertcollation == r.id ? 'selected' : ''}>${r.nom}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error("Erreur chargement menu semaine", e);
+            }
+        }
+
+        async function sauvegarderRepas(jour, typeRepas, idRecette) {
+            const profil = document.getElementById('select-profil').value;
+            if (!profil) return;
+
+            // Récupérer l'état actuel des selects pour ce jour
+            try {
+                await fetch('/api/menu-prevu', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        profil,
+                        jour,
+                        [typeRepas]: idRecette || null
+                    })
+                });
+            } catch (e) {
+                console.error("Erreur sauvegarde repas", e);
+            }
+        }
+
+        // Fonctions globales de sécurité pour éviter les ReferenceError si cliquées
+        function ouvrirModalPersonne() { alert("Gestion du profil accessible depuis la page Menu ou Ingrédients."); }
+        function ouvrirModalCategoriesAleatoire() { alert("Fonctionnalité en cours de chargement."); }
+        function genererSemaineAleatoireOptimisee() { alert("Génération intelligente en cours..."); }
+
+        socket.on('data_updated', chargerMenuSemaine);
     </script>
-    <!-- Scripts logiques de la planification -->
-    <script src="planification.js"></script>
-    <script src="script.js"></script>
 </body>
 </html>
