@@ -553,7 +553,7 @@ app.post('/api/suivi', async (req, res) => {
 
     try {
         await pool.query(
-            `INSERT INTO suivi_conso (profil, jour, repas_type, nom_element, element_id, type_element, quantite, unite) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            `INSERT INTO suivi_conso (profil, jour, categorie, nom_element, element_id, type_element, quantite, unite) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
             [
                 profil, 
                 jour, 

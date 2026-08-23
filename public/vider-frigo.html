@@ -368,30 +368,42 @@
         }
 
         function calculerCoutPaquetManquant(ingId, nomIng) {
+            // 1. Recherche par ID ou par nom dans la liste globale
             let ingObj = ingredientsGlobal.find(i => i.id == ingId);
             if (!ingObj && nomIng) {
                 ingObj = ingredientsGlobal.find(i => i.nom && i.nom.toLowerCase().trim() === nomIng.toLowerCase().trim());
             }
 
-            if (!ingObj || !ingObj.marques || ingObj.marques.length === 0) return 0;
+            if (!ingObj) return 2.00; // Valeur de repli par défaut
 
-            let prixTotalFormats = 0;
-            let nbFormatsTotal = 0;
+            // 2. Si l'ingrédient possède des marques et des formats avec des prix par enseigne
+            if (ingObj.marques && Array.isArray(ingObj.marques) && ingObj.marques.length > 0) {
+                let prixTotalFormats = 0;
+                let nbFormatsTotal = 0;
 
-            ingObj.marques.forEach(m => {
-                if (m.formats && m.formats.length > 0) {
-                    m.formats.forEach(f => {
-                        const prixArr = Object.values(f.prix_enseignes || {});
-                        if (prixArr.length > 0) {
-                            const moyenneEnseignes = prixArr.reduce((a, b) => a + b, 0) / prixArr.length;
-                            prixTotalFormats += moyenneEnseignes;
-                            nbFormatsTotal++;
-                        }
-                    });
+                ingObj.marques.forEach(m => {
+                    if (m.formats && Array.isArray(m.formats)) {
+                        m.formats.forEach(f => {
+                            if (f.prix_enseignes && typeof f.prix_enseignes === 'object') {
+                                const prixArr = Object.values(f.prix_enseignes).map(p => parseFloat(p)).filter(p => !isNaN(p) && p > 0);
+                                
+                                if (prixArr.length > 0) {
+                                    const moyenneEnseignes = prixArr.reduce((a, b) => a + b, 0) / prixArr.length;
+                                    prixTotalFormats += moyenneEnseignes;
+                                    nbFormatsTotal++;
+                                }
+                            }
+                        });
+                    }
+                });
+
+                if (nbFormatsTotal > 0) {
+                    return prixTotalFormats / nbFormatsTotal;
                 }
-            });
+            }
 
-            return nbFormatsTotal > 0 ? (prixTotalFormats / nbFormatsTotal) : 0;
+            // 3. Solution de repli si aucun prix n'est renseigné
+            return 2.00; 
         }
 
         function trouverRecettes() {
@@ -515,7 +527,11 @@
         function chargerStockStocke() {
             const stock = localStorage.getItem('stock_frigo_par_profil');
             if (stock) {
-                try { stockFrigoParProfil = JSON.parse(stock); } catch(e) { stockFrigoParProfil = {}; }
+                try { 
+                    stockFrigoParProfil = JSON.parse(stock); 
+                } catch(e) { 
+                    stockFrigoParProfil = {}; 
+                }
             }
         }
     </script>
