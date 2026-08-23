@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Liste de Courses</title>
+    <title>Liste de Courses - Frigomalin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
@@ -31,52 +31,11 @@
                 </div>
             </div>
             
-            <!-- Navigation harmonisée -->
-            <nav class="grid grid-cols-5 gap-1 text-center text-[11px] font-medium pt-1">
-                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Compte</a>
-                <a href="planification.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">📅 Planification</a>
-                <a href="suivi.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">🍽️ Suivi Réel</a>
-                <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
-                <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
-                <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
-                <a href="courses.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Courses</a>
-            </nav>
-        </header>
-
-        <!-- Script pour charger le nom du compte et gérer la déconnexion sur cette page -->
-        <script>
-            document.addEventListener("DOMContentLoaded", () => {
-                chargerInfosUtilisateur();
-            });
-
-            async function chargerInfosUtilisateur() {
-                try {
-                    const res = await fetch('/api/current-user');
-                    if (res.ok) {
-                        const user = await res.json();
-                        const element = document.getElementById('nom-utilisateur-connecte');
-                        if (element) element.innerText = `👤 Compte : ${user.nom} (${user.email})`;
-                    } else {
-                        window.location.href = '/login.html';
-                    }
-                } catch (e) {
-                    console.error("Erreur chargement utilisateur", e);
-                }
-            }
-
-            async function deconnexion() {
-                await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login.html';
-            }
-        </script>
-    </div>
-</body>
-</html>
-            <!-- Navigation harmonisée (Courses à la fin) -->
-            <nav class="grid grid-cols-5 gap-1 text-center text-[11px] font-medium">
-                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Mon compte</a>
-                <a href="planification.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">📅 Planification Semaine</a>
-                <a href="suivi.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">🍽️ Suivi Réel & Bilans</a>
+            <!-- Navigation harmonisée sur 7 colonnes -->
+            <nav class="grid grid-cols-7 gap-1 text-center text-[11px] font-medium pt-1">
+                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
+                <a href="planification.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Planification</a>
+                <a href="suivi.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Suivi</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
                 <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
                 <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
@@ -124,27 +83,62 @@
         </div>
     </div>
 
+    <!-- Scripts -->
     <script>
         const socket = io();
         let ingredientsRefCache = [];
 
+        document.addEventListener("DOMContentLoaded", () => {
+            chargerInfosUtilisateur();
+            init();
+        });
+
+        async function chargerInfosUtilisateur() {
+            try {
+                const res = await fetch('/api/current-user');
+                if (res.ok) {
+                    const user = await res.json();
+                    const element = document.getElementById('nom-utilisateur-connecte');
+                    if (element) element.innerText = `👤 Compte : ${user.nom} (${user.email})`;
+                } else {
+                    window.location.href = '/login.html';
+                }
+            } catch (e) {
+                console.error("Erreur chargement utilisateur", e);
+            }
+        }
+
+        async function deconnexion() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login.html';
+        }
+
         async function init() {
             try {
                 const [resProfils, resIngs] = await Promise.all([
-                    fetch('/api/profils'), 
+                    fetch('/api/personnes-objectifs'), 
                     fetch('/api/ingredients')
                 ]);
                 const profils = await resProfils.json();
                 ingredientsRefCache = await resIngs.json();
                 
                 const select = document.getElementById('select-profil');
+                if (!select) return;
+
+                select.innerHTML = '';
+                if (profils.length === 0) {
+                    select.innerHTML = '<option value="">Aucun profil disponible</option>';
+                    return;
+                }
+
                 select.innerHTML = profils.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
                 
-                const savedProfil = localStorage.getItem('profil_actif');
+                const savedProfil = localStorage.getItem('profilActif') || localStorage.getItem('profil_actif');
                 if (savedProfil && profils.some(p => p.nom === savedProfil)) {
                     select.value = savedProfil;
                 } else if (profils.length > 0) {
                     select.value = profils[0].nom;
+                    localStorage.setItem('profilActif', profils[0].nom);
                 }
                 
                 chargerCourses();
@@ -154,12 +148,13 @@
         }
 
         async function chargerCourses() {
-            const enseigne = document.getElementById('select-enseigne').value;
-            const inclureDeja = document.getElementById('check-deja').checked;
-            const profil = document.getElementById('select-profil').value;
+            const enseigne = document.getElementById('select-enseigne')?.value || 'toutes';
+            const inclureDeja = document.getElementById('check-deja')?.checked || false;
+            const selectProfil = document.getElementById('select-profil');
+            const profil = selectProfil ? selectProfil.value : '';
             if (!profil) return;
 
-            localStorage.setItem('profil_actif', profil);
+            localStorage.setItem('profilActif', profil);
 
             try {
                 const res = await fetch(`/api/courses?enseigne=${enseigne}&inclureDeja=${inclureDeja}&profil=${encodeURIComponent(profil)}`);
@@ -285,7 +280,6 @@
         }
 
         socket.on('data_updated', chargerCourses);
-        init();
     </script>
 </body>
 </html>

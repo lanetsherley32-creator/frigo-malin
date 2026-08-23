@@ -41,7 +41,7 @@
 
             <!-- Navigation secondaire harmonisée sur 7 colonnes -->
             <nav class="grid grid-cols-7 gap-1 text-center text-[11px] font-medium pt-1">
-                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
+                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Mon compte</a>
                 <a href="planification.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Planification</a>
                 <a href="suivi.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Suivi</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
@@ -51,7 +51,7 @@
             </nav>
         </header>
 
-        <!-- Bilan cumulé de la semaine réelle (Placé directement en haut) -->
+        <!-- Bilan cumulé de la semaine réelle (Objectifs hebdomadaires basés sur les objectifs journaliers * 7) -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
             <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">📈 Bilan global cumulé de la semaine réelle</h3>
             <div class="grid grid-cols-2 sm:grid-cols-7 gap-3 text-xs">
@@ -111,7 +111,7 @@
                 </div>
             </div>
 
-            <!-- DASHBOARD NUTRITIONNEL DU JOUR (Placé juste sous les jours) -->
+            <!-- DASHBOARD NUTRITIONNEL DU JOUR -->
             <div id="dashboard-nutri" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
                 <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">🎯 Bilan Journalier vs Objectifs</h3>
                 <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
@@ -147,34 +147,50 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Formulaire ajout de repas avec recherche de recettes -->
+                <!-- Formulaire ajout de repas -->
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
                     <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">➕ Enregistrer une consommation</h3>
                     <form onsubmit="ajouterConsommation(event)" class="space-y-3">
                         <div>
                             <label class="block text-[11px] font-bold text-slate-500 mb-1">Type de repas</label>
                             <select id="conso-cat" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium">
-                                <option value="Repas 1">Repas 1 (Petit-déj / Matin)</option>
-                                <option value="Repas 2">Repas 2 (Midi / Déjeuner)</option>
-                                <option value="Repas 3">Repas 3 (Collation / Goûter)</option>
-                                <option value="Repas 4">Repas 4 (Soir / Dîner)</option>
+                                <option value="Petit-déjeuner">Petit-déjeuner</option>
+                                <option value="Déjeuner">Déjeuner</option>
+                                <option value="Collation / Goûter">Collation / Goûter</option>
+                                <option value="Soir / Dîner">Soir / Dîner</option>
+                                <option value="Grignotage">Grignotage</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-500 mb-1">Rechercher une recette ou un aliment</label>
-                            <input type="text" id="recherche-recette-input" oninput="filtrerRecettesConso()" placeholder="Tapez pour filtrer..." class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium mb-1.5">
+                            <label class="block text-[11px] font-bold text-slate-500 mb-1">Recette ou aliment</label>
+                            <!-- Recherche et Sélection dans la même interface interactive -->
+                            <input type="text" id="recherche-recette-input" oninput="filtrerRecettesConso()" placeholder="🔍 Taper pour filtrer..." class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium mb-1.5">
                             <select id="conso-recette" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium">
                                 <option value="">-- Choisir une option --</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-500 mb-1">Quantité / Portions</label>
-                            <input type="number" id="conso-qte" step="0.1" min="0.1" value="1" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-1">Quantité</label>
+                                <input type="number" id="conso-qte" step="0.1" min="0.1" value="1" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-1">Unité</label>
+                                <select id="conso-unite" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium">
+                                    <option value="portion">portion(s)</option>
+                                    <option value="gr">gr</option>
+                                    <option value="mL">mL</option>
+                                    <option value="L">L</option>
+                                    <option value="part">part(s)</option>
+                                    <option value="càc">càc</option>
+                                    <option value="càs">càs</option>
+                                </select>
+                            </div>
                         </div>
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm">Ajouter au suivi</button>
                     </form>
 
-                    <!-- Suivi Eau amélioré (-0.25L ajouté) -->
+                    <!-- Suivi Eau (-0.25L ajouté) -->
                     <div class="pt-4 border-t border-slate-100 space-y-2">
                         <div class="flex justify-between items-center">
                             <span class="font-bold text-xs text-slate-700">💧 Suivi Eau (<span id="libelle-jour-eau">Lundi</span>)</span>
@@ -220,10 +236,11 @@
                 <div>
                     <label class="block font-bold text-slate-500 mb-1">Type de repas</label>
                     <select id="edit-conso-cat" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                        <option value="Repas 1">Repas 1</option>
-                        <option value="Repas 2">Repas 2</option>
-                        <option value="Repas 3">Repas 3</option>
-                        <option value="Repas 4">Repas 4</option>
+                        <option value="Petit-déjeuner">Petit-déjeuner</option>
+                        <option value="Déjeuner">Déjeuner</option>
+                        <option value="Collation / Goûter">Collation / Goûter</option>
+                        <option value="Soir / Dîner">Soir / Dîner</option>
+                        <option value="Grignotage">Grignotage</option>
                     </select>
                 </div>
                 <div>
