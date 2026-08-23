@@ -24,6 +24,7 @@
                     <p class="text-xs text-slate-500" id="nom-utilisateur-connecte">Connecté</p>
                 </div>
             </div>
+    
 
             <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
                 <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2 outline-none font-bold">
@@ -40,6 +41,16 @@
             <button id="tab-prevu" onclick="changerOnglet('prevu')" class="flex-1 py-2.5 rounded-xl bg-white text-blue-600 shadow-sm transition-all text-xs font-bold">📅 Planification Semaine</button>
             <button id="tab-conso" onclick="changerOnglet('conso')" class="flex-1 py-2.5 rounded-xl text-slate-600 transition-all text-xs font-bold">🍽️ Suivi Réel & Bilans</button>
         </div>
+                    <!-- Navigation harmonisée (Courses à la fin) -->
+            <nav class="grid grid-cols-5 gap-1 text-center text-[11px] font-medium">
+                <a href="index.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
+                <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
+                <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
+                <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
+                <a href="courses.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Courses</a>
+            </nav>
+        </header>
+
 
         <!-- SECTION 1 : PLANIFICATION / PRÉVU -->
         <div id="section-prevu" class="space-y-6">
