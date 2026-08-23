@@ -74,21 +74,21 @@
             </div>
         </section>
 
-        <!-- Filtrage Avancé par Catégories (Multi-sélection par jour) -->
+        <!-- Filtrage Avancé par Catégories -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3 text-xs">
             <h3 class="font-bold text-slate-800 flex items-center gap-2">⚙️ Filtrage avancé des catégories (Génération & Sélection)</h3>
             <div class="flex flex-wrap gap-4 items-center">
                 <label class="flex items-center gap-1.5 font-medium cursor-pointer">
-                    <input type="checkbox" id="filtre-cat-pt-dej" checked onchange="mettreAJourDatalistIntelligent()" class="rounded border-slate-300"> Petit dej
+                    <input type="checkbox" id="filtre-cat-pt-dej" checked onchange="mettreAJourDatalists()" class="rounded border-slate-300"> Petit dej
                 </label>
                 <label class="flex items-center gap-1.5 font-medium cursor-pointer">
-                    <input type="checkbox" id="filtre-cat-midi" checked onchange="mettreAJourDatalistIntelligent()" class="rounded border-slate-300"> Repas midi
+                    <input type="checkbox" id="filtre-cat-midi" checked onchange="mettreAJourDatalists()" class="rounded border-slate-300"> Repas midi
                 </label>
                 <label class="flex items-center gap-1.5 font-medium cursor-pointer">
-                    <input type="checkbox" id="filtre-cat-soir" checked onchange="mettreAJourDatalistIntelligent()" class="rounded border-slate-300"> Repas soir
+                    <input type="checkbox" id="filtre-cat-soir" checked onchange="mettreAJourDatalists()" class="rounded border-slate-300"> Repas soir
                 </label>
                 <label class="flex items-center gap-1.5 font-medium cursor-pointer">
-                    <input type="checkbox" id="filtre-cat-collation" checked onchange="mettreAJourDatalistIntelligent()" class="rounded border-slate-300"> Collation / Grignotage
+                    <input type="checkbox" id="filtre-cat-collation" checked onchange="mettreAJourDatalists()" class="rounded border-slate-300"> Collation / Grignotage
                 </label>
             </div>
         </section>
@@ -105,7 +105,7 @@
 
         <!-- Propositions Repas Recommandés -->
         <section class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl shadow-sm space-y-2">
-            <h3 class="font-bold text-xs text-emerald-800 uppercase tracking-wider">🌱 Recommandations prioritaires (Protéines, Fibres & Économie) :</h3>
+            <h3 class="font-bold text-xs text-emerald-800 uppercase tracking-wider">🌱 Recommandations prioritaires :</h3>
             <div id="container-suggestions-vertes" class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <p class="text-xs text-emerald-600 italic">Chargement des suggestions...</p>
             </div>
@@ -117,10 +117,11 @@
         </div>
     </div>
 
-    <!-- Datalist Dynamique Intelligente -->
-    <datalist id="liste-recettes">
-        <!-- Rempli par script -->
-    </datalist>
+    <!-- Datalists séparées pour cibler chaque type de repas selon les filtres -->
+    <datalist id="liste-recettes-pt-dej"></datalist>
+    <datalist id="liste-recettes-midi"></datalist>
+    <datalist id="liste-recettes-soir"></datalist>
+    <datalist id="liste-recettes-collation"></datalist>
 
     <!-- MODALE GESTION PROFIL -->
     <div id="modal-personne" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
@@ -142,26 +143,9 @@
                         <input type="number" id="personne-budget" value="100" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
                     </div>
                 </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <div>
-                        <label class="block font-bold text-slate-500 mb-1">Protéines (g)</label>
-                        <input type="number" id="personne-prot" value="150" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-500 mb-1">Glucides (g)</label>
-                        <input type="number" id="personne-gluc" value="200" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-500 mb-1">Lipides (g)</label>
-                        <input type="number" id="personne-lip" value="70" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                    </div>
-                </div>
-                <div class="flex justify-between items-center pt-2">
-                    <button type="button" id="btn-supprimer-personne" onclick="supprimerPersonneActuelle()" class="hidden text-red-500 hover:text-red-700 font-bold">Supprimer</button>
-                    <div class="flex gap-2 ml-auto">
-                        <button type="button" onclick="fermerModalPersonne()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Annuler</button>
-                        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl">Sauvegarder</button>
-                    </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="fermerModalPersonne()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl">Sauvegarder</button>
                 </div>
             </form>
         </div>
@@ -228,7 +212,7 @@
                 
                 remplirChampsObjectifsDirects(savedProfil);
                 await chargerMenuSemaine();
-                mettreAJourDatalistIntelligent();
+                mettreAJourDatalists();
                 afficherSuggestionsVertes();
             } catch (err) {
                 console.error("Erreur d'initialisation de la planification", err);
@@ -241,7 +225,7 @@
                 localStorage.setItem('profilActif', select.value);
                 remplirChampsObjectifsDirects(select.value);
                 chargerMenuSemaine();
-                mettreAJourDatalistIntelligent();
+                mettreAJourDatalists();
                 afficherSuggestionsVertes();
             }
         }
@@ -305,26 +289,29 @@
                         <div id="row-${jour}" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
                             <div class="flex justify-between items-center border-b border-slate-100 pb-2">
                                 <span class="font-bold text-slate-800 text-sm">${jour}</span>
-                                <div id="totaux-${jour}" class="flex items-center gap-3 text-[11px] font-semibold text-slate-600">
-                                    <!-- Rempli dynamiquement par recalculTotauxJour -->
-                                </div>
+                                <div id="totaux-${jour}" class="flex items-center gap-3 text-[11px] font-semibold text-slate-600"></div>
                             </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+                            <!-- Grille sur 5 colonnes incluant l'en-cas libre -->
+                            <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
                                 <div>
                                     <label class="block text-[10px] text-slate-400 font-bold mb-1">Petit dej</label>
-                                    <input type="text" list="liste-recettes" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'petitdejeuner', this.value)" value="${getNomRecette(menuJour.petitdejeuner)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    <input type="text" list="liste-recettes-pt-dej" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'petitdejeuner', this.value)" value="${getNomRecette(menuJour.petitdejeuner)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-slate-400 font-bold mb-1">Repas midi</label>
-                                    <input type="text" list="liste-recettes" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'repas1', this.value)" value="${getNomRecette(menuJour.repas1)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    <input type="text" list="liste-recettes-midi" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'repas1', this.value)" value="${getNomRecette(menuJour.repas1)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-slate-400 font-bold mb-1">Repas soir</label>
-                                    <input type="text" list="liste-recettes" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'repas2', this.value)" value="${getNomRecette(menuJour.repas2)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    <input type="text" list="liste-recettes-soir" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'repas2', this.value)" value="${getNomRecette(menuJour.repas2)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-slate-400 font-bold mb-1">Collation / Grignotage</label>
-                                    <input type="text" list="liste-recettes" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'dessertcollation', this.value)" value="${getNomRecette(menuJour.dessertcollation)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    <input type="text" list="liste-recettes-collation" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'dessertcollation', this.value)" value="${getNomRecette(menuJour.dessertcollation)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-amber-600 font-bold mb-1">🍎 En-cas libre (Ex: banane, pomme)</label>
+                                    <input type="text" placeholder="Saisie libre..." onchange="sauvegarderRepasParNom('${jour}', 'encas_libre', this.value)" value="${menuJour.encas_libre || ''}" class="w-full bg-amber-50/50 border border-amber-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                             </div>
                         </div>
@@ -358,8 +345,6 @@
                         protJour += rec.proteines || 0;
                         glucJour += rec.glucides || 0;
                         lipJour += rec.lipides || 0;
-                        
-                        // Utilisation stricte de cout_par_part (ou coût unitaire/portion)
                         const coutUnitaire = rec.cout_par_part !== undefined ? rec.cout_par_part : (rec.cout || rec.prix || 0);
                         coutJour += coutUnitaire;
                     }
@@ -378,56 +363,55 @@
             }
         }
 
-        // Filtrage avancé gérant la multi-sélection des 4 catégories
-        function mettreAJourDatalistIntelligent() {
-            const datalist = document.getElementById('liste-recettes');
-            if (!datalist) return;
-
+        // Met à jour chaque datalist selon les filtres avancés actifs
+        function mettreAJourDatalists() {
             const okPtDej = document.getElementById('filtre-cat-pt-dej')?.checked;
             const okMidi = document.getElementById('filtre-cat-midi')?.checked;
             const okSoir = document.getElementById('filtre-cat-soir')?.checked;
             const okCollation = document.getElementById('filtre-cat-collation')?.checked;
 
-            const filtrees = recettesCache.filter(r => {
-                const cat = (r.type_repas || '').toLowerCase();
-                if (!cat) return true; 
+            const filtrerParCat = (motsCles) => {
+                return recettesCache.filter(r => {
+                    const cat = (r.type_repas || '').toLowerCase();
+                    if (!cat) return true;
+                    return motsCles.some(mc => cat.includes(mc));
+                });
+            };
 
-                let match = false;
-                if (okPtDej && (cat.includes('petit') || cat.includes('dej'))) match = true;
-                if (okMidi && (cat.includes('midi') || cat.includes('déjeuner') || cat.includes('plat'))) match = true;
-                if (okSoir && (cat.includes('soir') || cat.includes('dîner'))) match = true;
-                if (okCollation && (cat.includes('collation') || cat.includes('grignotage') || cat.includes('dessert'))) match = true;
+            const poolPtDej = filtrerParCat(['petit', 'dej']);
+            const poolMidi = filtrerParCat(['midi', 'déjeuner', 'plat']);
+            const poolSoir = filtrerParCat(['soir', 'dîner']);
+            const poolCollation = filtrerParCat(['collation', 'grignotage', 'dessert']);
 
-                return match;
-            });
+            const genererOptionsHtml = (pool) => {
+                return pool.map(r => {
+                    const coutUnitaire = r.cout_par_part !== undefined ? r.cout_par_part : (r.cout || r.prix || 0);
+                    return `<option value="${r.nom}">[P: ${r.proteines || 0}g | ${coutUnitaire}€] - ${r.type_repas || 'Général'}</option>`;
+                }).join('');
+            };
 
-            const triees = [...filtrees].sort((a, b) => {
-                const coutA = a.cout_par_part !== undefined ? a.cout_par_part : (a.cout || a.prix || 0);
-                const coutB = b.cout_par_part !== undefined ? b.cout_par_part : (b.cout || b.prix || 0);
-                const scoreA = (a.proteines || 0) * 2 + (a.fibres || 0) * 1.5 - coutA * 0.5;
-                const scoreB = (b.proteines || 0) * 2 + (b.fibres || 0) * 1.5 - coutB * 0.5;
-                return scoreB - scoreA;
-            });
-
-            datalist.innerHTML = triees.map(r => {
-                const coutUnitaire = r.cout_par_part !== undefined ? r.cout_par_part : (r.cout || r.prix || 0);
-                return `<option value="${r.nom}">[P: ${r.proteines || 0}g | Fibres: ${r.fibres || 0}g | ${coutUnitaire}€/part] - ${r.type_repas || 'Général'}</option>`;
-            }).join('');
+            document.getElementById('liste-recettes-pt-dej').innerHTML = okPtDej ? genererOptionsHtml(poolPtDej) : '';
+            document.getElementById('liste-recettes-midi').innerHTML = okMidi ? genererOptionsHtml(poolMidi) : '';
+            document.getElementById('liste-recettes-soir').innerHTML = okSoir ? genererOptionsHtml(poolSoir) : '';
+            document.getElementById('liste-recettes-collation').innerHTML = okCollation ? genererOptionsHtml(poolCollation) : '';
         }
 
-        async function sauvegarderRepasParNom(jour, typeRepas, nomRecette) {
+        async function sauvegarderRepasParNom(jour, typeRepas, valeurSaisie) {
             const profil = document.getElementById('select-profil').value;
             if (!profil) return;
-
-            const rec = recettesCache.find(r => r.nom.toLowerCase() === nomRecette.toLowerCase());
-            const idRecette = rec ? rec.id : null;
 
             let menuJour = menusCache.find(m => m.jour === jour);
             if (!menuJour) {
                 menuJour = { jour };
                 menusCache.push(menuJour);
             }
-            menuJour[typeRepas] = idRecette;
+
+            if (typeRepas === 'encas_libre') {
+                menuJour.encas_libre = valeurSaisie;
+            } else {
+                const rec = recettesCache.find(r => r.nom.toLowerCase() === valeurSaisie.toLowerCase());
+                menuJour[typeRepas] = rec ? rec.id : null;
+            }
 
             try {
                 await fetch('/api/menu-prevu', {
@@ -439,7 +423,8 @@
                         petitdejeuner: menuJour.petitdejeuner,
                         repas1: menuJour.repas1,
                         repas2: menuJour.repas2,
-                        dessertcollation: menuJour.dessertcollation
+                        dessertcollation: menuJour.dessertcollation,
+                        encas_libre: menuJour.encas_libre
                     })
                 });
                 recalculTotauxJour(jour);
@@ -475,28 +460,27 @@
                 menuJour.repas1 = r2;
                 menuJour.repas2 = r3;
                 menuJour.dessertcollation = r4;
+                // La case 'encas_libre' n'est volontairement pas modifiée ici pour préserver la saisie utilisateur.
 
                 await fetch('/api/menu-prevu', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ profil, jour, petitdejeuner: r1, repas1: r2, repas2: r3, dessertcollation: r4 })
+                    body: JSON.stringify({ profil, jour, petitdejeuner: r1, repas1: r2, repas2: r3, dessertcollation: r4, encas_libre: menuJour.encas_libre })
                 });
             }
             await chargerMenuSemaine();
-            alert("Semaine générée aléatoirement en respectant vos filtres de catégories !");
+            alert("Semaine générée aléatoirement (les en-cas libres ont été préservés) !");
         }
 
         async function genererSemaineAleatoireOptimisee() {
             const profil = document.getElementById('select-profil').value;
             if (!profil || recettesCache.length === 0) return;
-            const profilObj = profilsCache.find(p => p.nom === profil) || { calories: 2000 };
-
-            const cibleCal = (profilObj.calories || 2000) / 4;
+            
             const recettesOptimisees = [...recettesCache].sort((a, b) => {
                 const coutA = a.cout_par_part !== undefined ? a.cout_par_part : (a.cout || a.prix || 0);
                 const coutB = b.cout_par_part !== undefined ? b.cout_par_part : (b.cout || b.prix || 0);
-                const scoreA = (a.proteines || 0) * 2 + (a.fibres || 0) * 1.5 - coutA * 0.5 - Math.abs((a.calories || 500) - cibleCal);
-                const scoreB = (b.proteines || 0) * 2 + (b.fibres || 0) * 1.5 - coutB * 0.5 - Math.abs((b.calories || 500) - cibleCal);
+                const scoreA = (a.proteines || 0) * 2 + (a.fibres || 0) * 1.5 - coutA * 0.5;
+                const scoreB = (b.proteines || 0) * 2 + (b.fibres || 0) * 1.5 - coutB * 0.5;
                 return scoreB - scoreA;
             });
 
@@ -517,104 +501,28 @@
                 await fetch('/api/menu-prevu', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ profil, jour, petitdejeuner: r1, repas1: r2, repas2: r3, dessertcollation: r4 })
+                    body: JSON.stringify({ profil, jour, petitdejeuner: r1, repas1: r2, repas2: r3, dessertcollation: r4, encas_libre: menuJour.encas_libre })
                 });
             }
             await chargerMenuSemaine();
-            alert("Génération intelligente axée sur vos objectifs et filtres effectuée !");
+            alert("Génération intelligente axée sur vos objectifs effectuée !");
         }
 
         function afficherSuggestionsVertes() {
             const container = document.getElementById('container-suggestions-vertes');
             if (!container || recettesCache.length === 0) return;
             
-            const suggestions = [...recettesCache].sort((a, b) => {
-                const coutA = a.cout_par_part !== undefined ? a.cout_par_part : (a.cout || a.prix || 0);
-                const coutB = b.cout_par_part !== undefined ? b.cout_par_part : (b.cout || b.prix || 0);
-                return ((b.proteines || 0) + (b.fibres || 0) - coutB) - ((a.proteines || 0) + (a.fibres || 0) - coutA);
-            }).slice(0, 3);
-            
-            container.innerHTML = suggestions.map(r => {
-                const coutUnitaire = r.cout_par_part !== undefined ? r.cout_par_part : (r.cout || r.prix || 0);
-                return `
-                    <div class="bg-white p-2.5 rounded-xl border border-emerald-100 flex justify-between items-center text-xs">
-                        <div>
-                            <span class="font-bold text-slate-800">${r.nom}</span>
-                            <span class="text-emerald-600 block text-[10px]">🔥 ${r.calories || 0} kcal | 🥩 ${r.proteines || 0}g P | 🌾 ${r.fibres || 0}g Fibres | 💶 ${coutUnitaire}€</span>
-                        </div>
-                        <span class="text-emerald-600 font-bold text-sm">✓</span>
-                    </div>
-                `;
-            }).join('');
+            const triees = [...recettesCache].sort((a, b) => (b.proteines || 0) - (a.proteines || 0));
+            container.innerHTML = triees.slice(0, 3).map(r => `
+                <div class="bg-white p-2 rounded-xl border border-emerald-100 text-xs">
+                    <span class="font-bold text-slate-800">${r.nom}</span>
+                    <span class="text-[10px] text-emerald-600 block">Prot: ${r.proteines || 0}g | ${r.cout_par_part || 0}€</span>
+                </div>
+            `).join('');
         }
 
-        function ouvrirModalPersonne(mode) {
-            const modal = document.getElementById('modal-personne');
-            modal?.classList.remove('hidden');
-            const profilActif = document.getElementById('select-profil').value;
-            if (mode === 'modifier') {
-                const profilObj = profilsCache.find(p => p.nom === profilActif);
-                if (profilObj) {
-                    document.getElementById('personne-ancien-nom').value = profilObj.nom;
-                    document.getElementById('personne-nom').value = profilObj.nom;
-                    document.getElementById('personne-cal').value = profilObj.calories || 2000;
-                    document.getElementById('personne-budget').value = profilObj.budget || 100;
-                    document.getElementById('personne-prot').value = profilObj.proteines || 150;
-                    document.getElementById('personne-gluc').value = profilObj.glucides || 200;
-                    document.getElementById('personne-lip').value = profilObj.lipides || 70;
-                    document.getElementById('btn-supprimer-personne')?.classList.remove('hidden');
-                }
-            } else {
-                document.getElementById('form-personne')?.reset();
-                document.getElementById('personne-ancien-nom').value = '';
-                document.getElementById('btn-supprimer-personne')?.classList.add('hidden');
-            }
-        }
-
-        function fermerModalPersonne() {
-            document.getElementById('modal-personne')?.classList.add('hidden');
-        }
-
-        async function sauvegarderPersonne(event) {
-            event.preventDefault();
-            const ancienNom = document.getElementById('personne-ancien-nom').value;
-            const nom = document.getElementById('personne-nom').value;
-            const calories = document.getElementById('personne-cal').value;
-            const budget = document.getElementById('personne-budget').value;
-            const proteines = document.getElementById('personne-prot').value;
-            const glucides = document.getElementById('personne-gluc').value;
-            const lipides = document.getElementById('personne-lip').value;
-
-            try {
-                await fetch('/api/personnes-objectifs', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nom, ancienNom, calories, budget, proteines, glucides, lipides })
-                });
-                fermerModalPersonne();
-                initPlanification();
-            } catch (e) {
-                console.error("Erreur sauvegarde profil", e);
-            }
-        }
-
-        async function supprimerPersonneActuelle() {
-            const nom = document.getElementById('personne-nom').value;
-            if (!confirm(`Voulez-vous vraiment supprimer le profil ${nom} ?`)) return;
-
-            try {
-                await fetch('/api/personnes-objectifs', {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nom })
-                });
-                fermerModalPersonne();
-                localStorage.removeItem('profilActif');
-                initPlanification();
-            } catch (e) {
-                console.error("Erreur suppression profil", e);
-            }
-        }
+        function ouvrirModalPersonne() { document.getElementById('modal-personne').classList.remove('hidden'); }
+        function fermerModalPersonne() { document.getElementById('modal-personne').classList.add('hidden'); }
     </script>
 </body>
 </html>

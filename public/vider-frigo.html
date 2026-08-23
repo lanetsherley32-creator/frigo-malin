@@ -47,37 +47,6 @@
             <span class="text-blue-700 italic text-[11px] whitespace-nowrap">Stock propre à ce profil</span>
         </section>
 
-    </div>
-
-    <!-- Script pour charger le compte et gérer la déconnexion -->
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            chargerInfosUtilisateur();
-        });
-
-        async function chargerInfosUtilisateur() {
-            try {
-                const res = await fetch('/api/current-user');
-                if (res.ok) {
-                    const user = await res.json();
-                    const element = document.getElementById('nom-utilisateur-connecte');
-                    if (element) element.innerText = `👤 Compte : ${user.nom} (${user.email})`;
-                } else {
-                    window.location.href = '/login.html';
-                }
-            } catch (e) {
-                console.error("Erreur chargement utilisateur", e);
-            }
-        }
-
-        async function deconnexion() {
-            await fetch('/api/logout', { method: 'POST' });
-            window.location.href = '/login.html';
-        }
-    </script>
-</body>
-</html>
-
         <!-- Saisie des ingrédients disponibles -->
         <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
@@ -135,6 +104,7 @@
         </section>
     </div>
 
+    <!-- Script unique et centralisé -->
     <script>
         let socket;
         let ingredientsGlobal = [];
@@ -147,6 +117,31 @@
             socket.on('data_updated', chargerDonnees);
         } catch (e) {
             console.warn("Socket.io non initialisé", e);
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            chargerInfosUtilisateur();
+            init();
+        });
+
+        async function chargerInfosUtilisateur() {
+            try {
+                const res = await fetch('/api/current-user');
+                if (res.ok) {
+                    const user = await res.json();
+                    const element = document.getElementById('nom-utilisateur-connecte');
+                    if (element) element.innerText = `👤 Compte : ${user.nom} (${user.email})`;
+                } else {
+                    window.location.href = '/login.html';
+                }
+            } catch (e) {
+                console.error("Erreur chargement utilisateur", e);
+            }
+        }
+
+        async function deconnexion() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login.html';
         }
 
         async function init() {
@@ -523,8 +518,6 @@
                 try { stockFrigoParProfil = JSON.parse(stock); } catch(e) { stockFrigoParProfil = {}; }
             }
         }
-
-        init();
     </script>
 </body>
 </html>
