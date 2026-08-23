@@ -455,91 +455,109 @@ app.post('/api/menu-prevu', async (req, res) => {
     }
 });
 
+// --- LOGIQUE COMMUNE POUR LA GÉNÉRATION ALÉATOIRE ---
+async function executerGenerationAleatoire(profil) {
+    const objRes = await pool.query("SELECT * FROM personnes_objectifs WHERE nom = $1", [profil]);
+    const obj = objRes.rows[0] || {};
+    
+    const cibleJour = {
+        calories: parseFloat(obj.calories) || 2000,
+        proteines: parseFloat(obj.proteines) || 120,
+        glucides: parseFloat(obj.glucides) || 200,
+        lipides: parseFloat(obj.lipides) || 70,
+        fibres: parseFloat(obj.fibres) || 30,
+        sucre: parseFloat(obj.sucre) || 50
+    };
+
+    const budgetMaxSemaine = parseFloat(obj.budget) || 99999;
+
+    const recettesRes = await pool.query("SELECT * FROM recettes");
+    const recettes = recettesRes.rows || [];
+    if (recettes.length === 0) throw new Error("Aucune recette disponible.");
+
+    const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+    const ratios = [0.20, 0.35, 0.35, 0.10]; 
+    const repasKeys = ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation'];
+
+    let meilleureSemaine = null;
+    let meilleurScoreGlobal = Infinity;
+
+    for (let essai = 0; essai < 20; essai++) {
+        let semaineCourante = {};
+        let coutTotalSemaine = 0;
+        let scoreSemaine = 0;
+
+        for (const jour of jours) {
+            let selectionJour = {};
+            for (let i = 0; i < repasKeys.length; i++) {
+                const ratio = ratios[i];
+                const sousCible = {
+                    calories: cibleJour.calories * ratio,
+                    proteines: cibleJour.proteines * ratio,
+                    glucides: cibleJour.glucides * ratio,
+                    lipides: cibleJour.lipides * ratio,
+                    fibres: cibleJour.fibres * ratio,
+                    sucre: cibleJour.sucre * ratio
+                };
+
+                const recettesTriees = [...recettes].sort((a, b) => {
+                    return calculerScoreEcart(a, sousCible) - calculerScoreEcart(b, sousCible);
+                });
+
+                const topChoices = recettesTriees.slice(0, Math.min(4, recettesTriees.length));
+                const chosen = topChoices[Math.floor(Math.random() * topChoices.length)] || recettesTriees[0];
+
+                selectionJour[repasKeys[i]] = chosen ? chosen.id : null;
+                coutTotalSemaine += parseFloat(chosen?.cout || 0);
+            }
+            semaineCourante[jour] = selectionJour;
+        }
+
+        let penaliteBudget = coutTotalSemaine > budgetMaxSemaine ? (coutTotalSemaine - budgetMaxSemaine) * 50 : 0;
+        scoreSemaine += penaliteBudget;
+
+        if (scoreSemaine < meilleurScoreGlobal) {
+            meilleurScoreGlobal = scoreSemaine;
+            meilleureSemaine = semaineCourante;
+        }
+    }
+
+    for (const jour of jours) {
+        const sel = meilleureSemaine[jour];
+        const q = `
+            INSERT INTO menu_prevu (profil, jour, petitdejeuner, repas1, repas2, dessertcollation) 
+            VALUES ($1, $2, $3, $4, $5, $6) 
+            ON CONFLICT (profil, jour) DO UPDATE SET 
+                petitdejeuner = EXCLUDED.petitdejeuner, 
+                repas1 = EXCLUDED.repas1, 
+                repas2 = EXCLUDED.repas2, 
+                dessertcollation = EXCLUDED.dessertcollation
+        `;
+        await pool.query(q, [profil, jour, sel.petitDejeuner, sel.repas1, sel.repas2, sel.dessertCollation]);
+    }
+
+    io.emit('data_updated');
+}
+
+// --- API ROUTES DE GÉNÉRATION (Gère les deux URL front-end) ---
 app.post('/api/menu-aleatoire-optimise', async (req, res) => {
     const { profil } = req.body;
     if (!profil) return res.status(400).json({ error: "Profil manquant" });
 
     try {
-        const objRes = await pool.query("SELECT * FROM personnes_objectifs WHERE nom = $1", [profil]);
-        const obj = objRes.rows[0] || {};
-        
-        const cibleJour = {
-            calories: parseFloat(obj.calories) || 2000,
-            proteines: parseFloat(obj.proteines) || 120,
-            glucides: parseFloat(obj.glucides) || 200,
-            lipides: parseFloat(obj.lipides) || 70,
-            fibres: parseFloat(obj.fibres) || 30,
-            sucre: parseFloat(obj.sucre) || 50
-        };
+        await executerGenerationAleatoire(profil);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
-        const budgetMaxSemaine = parseFloat(obj.budget) || 99999;
+app.post('/api/menus/generer-aleatoire', async (req, res) => {
+    const { profil } = req.body;
+    if (!profil) return res.status(400).json({ error: "Profil manquant" });
 
-        const recettesRes = await pool.query("SELECT * FROM recettes");
-        const recettes = recettesRes.rows || [];
-        if (recettes.length === 0) return res.status(400).json({ error: "Aucune recette disponible." });
-
-        const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-        const ratios = [0.20, 0.35, 0.35, 0.10]; 
-        const repasKeys = ['petitDejeuner', 'repas1', 'repas2', 'dessertCollation'];
-
-        let meilleureSemaine = null;
-        let meilleurScoreGlobal = Infinity;
-
-        for (let essai = 0; essai < 20; essai++) {
-            let semaineCourante = {};
-            let coutTotalSemaine = 0;
-            let scoreSemaine = 0;
-
-            for (const jour of jours) {
-                let selectionJour = {};
-                for (let i = 0; i < repasKeys.length; i++) {
-                    const ratio = ratios[i];
-                    const sousCible = {
-                        calories: cibleJour.calories * ratio,
-                        proteines: cibleJour.proteines * ratio,
-                        glucides: cibleJour.glucides * ratio,
-                        lipides: cibleJour.lipides * ratio,
-                        fibres: cibleJour.fibres * ratio,
-                        sucre: cibleJour.sucre * ratio
-                    };
-
-                    const recettesTriees = [...recettes].sort((a, b) => {
-                        return calculerScoreEcart(a, sousCible) - calculerScoreEcart(b, sousCible);
-                    });
-
-                    const topChoices = recettesTriees.slice(0, Math.min(4, recettesTriees.length));
-                    const chosen = topChoices[Math.floor(Math.random() * topChoices.length)] || recettesTriees[0];
-
-                    selectionJour[repasKeys[i]] = chosen ? chosen.id : null;
-                    coutTotalSemaine += parseFloat(chosen?.cout || 0);
-                }
-                semaineCourante[jour] = selectionJour;
-            }
-
-            let penaliteBudget = coutTotalSemaine > budgetMaxSemaine ? (coutTotalSemaine - budgetMaxSemaine) * 50 : 0;
-            scoreSemaine += penaliteBudget;
-
-            if (scoreSemaine < meilleurScoreGlobal) {
-                meilleurScoreGlobal = scoreSemaine;
-                meilleureSemaine = semaineCourante;
-            }
-        }
-
-        for (const jour of jours) {
-            const sel = meilleureSemaine[jour];
-            const q = `
-                INSERT INTO menu_prevu (profil, jour, petitdejeuner, repas1, repas2, dessertcollation) 
-                VALUES ($1, $2, $3, $4, $5, $6) 
-                ON CONFLICT (profil, jour) DO UPDATE SET 
-                    petitdejeuner = EXCLUDED.petitdejeuner, 
-                    repas1 = EXCLUDED.repas1, 
-                    repas2 = EXCLUDED.repas2, 
-                    dessertcollation = EXCLUDED.dessertcollation
-            `;
-            await pool.query(q, [profil, jour, sel.petitDejeuner, sel.repas1, sel.repas2, sel.dessertCollation]);
-        }
-
-        io.emit('data_updated');
+    try {
+        await executerGenerationAleatoire(profil);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -688,7 +706,7 @@ app.post('/api/courses/generer', async (req, res) => {
         (recettesRes.rows || []).forEach(r => {
             try {
                 let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
-                if (Array.isArray(ings)) ings.exports ? [] : ings.forEach(i => {
+                if (Array.isArray(ings)) ings.forEach(i => {
                     let id = i.id || i.ingredient_id;
                     if (id) {
                         if (!besoins[id]) besoins[id] = { qte: 0, unite: i.unite || 'g' };
