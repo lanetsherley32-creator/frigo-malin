@@ -267,26 +267,55 @@
                     }
                 }
 
+                // Si Supabase renvoie un objet d'objets au lieu d'un tableau
+                if (!Array.isArray(parsed) && typeof parsed === 'object' && parsed !== null) {
+                    let tempArray = [];
+                    Object.keys(parsed).forEach(key => {
+                        let val = parsed[key];
+                        if (typeof val === 'object' && val !== null) {
+                            tempArray.push({
+                                id: val.id || key,
+                                nom: val.nom || key,
+                                quantite: val.quantite || val.qte || 1,
+                                unite: val.unite || val.unit || 'g'
+                            });
+                        } else {
+                            tempArray.push({
+                                id: key,
+                                nom: key,
+                                quantite: val || 1,
+                                unite: 'g'
+                            });
+                        }
+                    });
+                    parsed = tempArray;
+                }
+
                 if (Array.isArray(parsed)) {
                     return parsed.map(item => {
                         let targetId = null;
                         let qteVal = 1;
                         let uniteVal = 'g';
+                        let nomIng = null;
 
                         if (typeof item === 'object' && item !== null) {
                             targetId = item.id || item.ingredient_id || item.ingredientId;
                             qteVal = parseFloat(item.quantite || item.qte || item.quantity || 1);
                             uniteVal = item.unite || item.unit || 'g';
+                            nomIng = item.nom || item.name;
                         } else {
                             targetId = item;
                         }
 
                         const ingObj = ingredientsGlobal.find(i => i.id == targetId);
-                        let nomIng = ingObj ? ingObj.nom : `Ingrédient #${targetId}`;
+                        if (ingObj) {
+                            targetId = ingObj.id;
+                            if (!nomIng) nomIng = ingObj.nom;
+                        }
 
                         return {
                             id: targetId,
-                            nom: nomIng,
+                            nom: nomIng || `Ingrédient #${targetId || 'inconnu'}`,
                             quantite: qteVal,
                             unite: uniteVal,
                             quantiteBase: convertirEnGrammeOuUnite(qteVal, uniteVal)
@@ -303,9 +332,6 @@
             const container = document.getElementById('resultats-recettes');
             const profilId = getProfilActifId();
             const frigoBrut = (profilId && stockFrigoParProfil[profilId]) ? stockFrigoParProfil[profilId] : {};
-
-            console.log("Frigo brut pour profil", profilId, ":", frigoBrut);
-            console.log("Recettes globales chargées :", recettesGlobal.length);
 
             if (Object.keys(frigoBrut).length === 0) {
                 container.innerHTML = `<p class="text-xs text-slate-400 italic bg-white p-4 rounded-2xl border border-slate-200 text-center">Veuillez d'abord ajouter des ingrédients dans votre frigo !</p>`;
@@ -324,8 +350,6 @@
 
             recettesGlobal.forEach(recette => {
                 const listeIngsParsed = analyserIngredientsRecette(recette.ingredients);
-                console.log(`Recette "${recette.nom}" - Ingrédients analysés :`, listeIngsParsed);
-
                 if (listeIngsParsed.length === 0) return;
 
                 let manquant = [];
@@ -372,7 +396,6 @@
             });
 
             recettesAnalysees.sort((a, b) => a.nbAchats - b.nbAchats);
-            console.log("Recettes analysées retenues :", recettesAnalysees);
 
             if (recettesAnalysees.length === 0) {
                 container.innerHTML = `<p class="text-xs text-slate-400 italic bg-white p-4 rounded-2xl border border-slate-200 text-center">Aucune recette ne correspond (nécessite trop d'achats ou stock insuffisant).</p>`;
