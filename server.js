@@ -49,10 +49,7 @@ app.use(session({
     }
 }));
 
-// --- FICHIERS STATIQUES (AVANT LA PROTECTION) ---
-app.use(express.static('public'));
-
-// --- MIDDLEWARE DE PROTECTION ---
+// --- MIDDLEWARE DE PROTECTION (PLACÉ AVANT LES FICHIERS STATIQUES) ---
 app.use((req, res, next) => {
     const cheminsPublics = [
         '/login.html', '/forgot.html', '/reset.html', 
@@ -73,6 +70,9 @@ app.use((req, res, next) => {
         res.status(401).json({ error: "Accès non autorisé. Veuillez vous connecter." });
     }
 });
+
+// --- FICHIERS STATIQUES (APRÈS LA PROTECTION) ---
+app.use(express.static('public'));
 
 // --- CONFIGURATION EMAIL (BREVO / SMTP) ---
 const transporter = nodemailer.createTransport({

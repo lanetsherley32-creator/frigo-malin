@@ -14,7 +14,7 @@
         <header class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
             <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🧊 Vider ton frigo</h1>
             <nav class="grid grid-cols-5 gap-1 text-center text-[11px] font-medium">
-                <a href="index.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
+                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
                 <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
                 <a href="vider-frigo.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Frigo</a>
@@ -327,7 +327,6 @@
             return parsedList;
         }
 
-        // Calcule le coût moyen d'un paquet/format pour un ingrédient donné
         function calculerCoutPaquetManquant(ingId, nomIng) {
             let ingObj = ingredientsGlobal.find(i => i.id == ingId);
             if (!ingObj && nomIng) {
@@ -408,7 +407,6 @@
                             reste: stockDispoBase > 0 ? `${(stockDispoBase * ratio).toFixed(1)} ${ingR.unite}` : '0'
                         });
 
-                        // Ajout du coût du paquet estimé pour cet ingrédient manquant
                         coutTotalAchats += calculerCoutPaquetManquant(ingR.id, ingR.nom);
                     }
                 });
@@ -427,7 +425,6 @@
                 }
             });
 
-            // Tri principal : par nombre d'achats croissant, puis par coût d'achats croissant
             recettesAnalysees.sort((a, b) => {
                 if (a.nbAchats !== b.nbAchats) {
                     return a.nbAchats - b.nbAchats;
