@@ -184,19 +184,34 @@
                 const prix = parseFloat(c.prix || 0);
                 if (!estCoche) cumulPrix += prix;
 
-                const qteAffichee = c.quantite_necessaire ? `(${c.quantite_necessaire} ${c.unite || 'g'})` : '';
-                const prixAffichage = prix > 0 ? `${prix.toFixed(2)} €` : '';
+                let marquesDispos = [];
+                try {
+                    marquesDispos = typeof c.marques_disponibles === 'string' ? JSON.parse(c.marques_disponibles) : (c.marques_disponibles || []);
+                } catch(e) { marquesDispos = []; }
+
+                // Construction du select de marques
+                let optionsHtml = `<option value="Standard" data-prix="${c.prix}">Standard (${parseFloat(c.prix).toFixed(2)} €)</option>`;
+                if (marquesDispos.length > 0) {
+                    optionsHtml = marquesDispos.map(m => `
+                        <option value="${m.nom}" data-prix="${m.prix}" ${c.marque === m.nom ? 'selected' : ''}>
+                            ${m.nom} - ${parseFloat(m.prix).toFixed(2)} €
+                        </option>
+                    `).join('');
+                }
 
                 return `
-                    <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all text-xs">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all text-xs gap-3">
                         <label class="flex items-center gap-2.5 cursor-pointer font-medium text-slate-700 flex-1">
                             <input type="checkbox" ${estCoche ? 'checked' : ''} onchange="toggleCoche(${c.id}, this.checked)" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500">
                             <span id="label-course-${c.id}" class="${estCoche ? 'line-through text-slate-400' : 'text-slate-800'}">
-                                <strong>${c.nom}</strong> <span class="text-slate-500 font-normal">${qteAffichee}</span>
+                                <strong>${c.nom}</strong> <span class="text-slate-500 font-normal">(${c.quantite_necessaire || 1} ${c.unite || ''})</span>
                             </span>
                         </label>
-                        <div class="flex items-center gap-2 shrink-0">
-                            ${prixAffichage ? `<span class="font-bold text-slate-600">${prixAffichage}</span>` : ''}
+                        
+                        <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
+                            <select onchange="changerMarqueArticle(${c.id}, this)" class="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 outline-none w-full sm:w-auto focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all">
+                                ${optionsHtml}
+                            </select>
                             <span class="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-semibold">${c.rayon || 'Épicerie'}</span>
                         </div>
                     </div>
@@ -205,6 +220,25 @@
 
             if (totalEles) totalEles.innerText = `${cumulPrix.toFixed(2)} €`;
             if (countEle) countEle.innerText = `${courses.length} article(s)`;
+        }
+
+        async function changerMarqueArticle(id, selectElement) {
+            const selectedOption = selectElement.options[selectElement.selectedIndex];
+            const marque = selectedOption.value;
+            const prix = parseFloat(selectedOption.getAttribute('data-prix')) || 0;
+
+            try {
+                await fetch('/api/courses/changer-marque', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, marque, prix })
+                });
+                // Le chargement est rappelé automatiquement par le WebSocket si configuré, 
+                // mais on le force ici pour une actualisation immédiate locale
+                chargerCourses();
+            } catch(e) {
+                console.error("Erreur lors du changement de marque", e);
+            }
         }
 
         async function toggleCoche(id, coche) {

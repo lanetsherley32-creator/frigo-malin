@@ -719,7 +719,154 @@ app.post('/api/eau', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+// --- API LISTE DE COURSES ---
 
+// 1. Récupérer la liste des courses
+app.get('/api/courses', async (req, res) => {
+    const { profil, enseigne, inclureDeja } = req.query;
+    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+
+    try {
+        let query = "SELECT * FROM courses WHERE profil = $1";
+        let params = [profil];
+
+        if (enseigne && enseigne !== 'toutes' && enseigne !== 'meilleur_prix') {
+            query += " AND enseigne = $2";
+            params.push(enseigne);
+        }
+
+        const result = await pool.query(query, params);
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2. Générer la liste de courses à partir du menu prévu (avec prix au paquet / marque la moins chère)
+app.post('/api/courses/generer', async (req, res) => {
+    const { profil } = req.body;
+    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+
+    try {
+        // Récupérer le menu prévu pour ce profil
+        const menuRes = await pool.query("SELECT petitdejeuner, repas1, repas2, dessertcollation FROM menu_prevu WHERE profil = $1", [profil]);
+        
+        let idsRecettes = [];
+        menuRes.rows.forEach(row => {
+            if (row.petitdejeuner) idsRecettes.push(row.petitdejeuner);
+            if (row.repas1) idsRecettes.push(row.repas1);
+            if (row.repas2) idsRecettes.push(row.repas2);
+            if (row.dessertcollation) idsRecettes.push(row.dessertcollation);
+        });
+
+        if (idsRecettes.length === 0) {
+            return res.json({ success: true, message: "Aucun menu planifié trouvé pour générer les courses." });
+        }
+
+        // Récupérer les ingrédients des recettes sélectionnées
+        const placeholders = idsRecettes.map((_, i) => `$${i + 1}`).join(',');
+        const recettesRes = await pool.query(`SELECT ingredients FROM recettes WHERE id IN (${placeholders})`, idsRecettes);
+
+        // Nettoyer l'ancienne liste de courses du profil avant de régénérer
+        await pool.query("DELETE FROM courses WHERE profil = $1", [profil]);
+
+        // Pour chaque recette, extraire ses ingrédients et les insérer dans la table courses
+        for (const recette of recettesRes.rows) {
+            let ingredientsList = [];
+            try {
+                ingredientsList = typeof recette.ingredients === 'string' ? JSON.parse(recette.ingredients) : recette.ingredients;
+            } catch (e) {
+                ingredientsList = [];
+            }
+
+            if (Array.isArray(ingredientsList)) {
+                for (const ingItem of ingredientsList) {
+                    const nomIng = ingItem.nom || ingItem.ingredient || 'Ingrédient';
+                    const qte = ingItem.quantite || 1;
+                    const unite = ingItem.unite || '';
+                    
+                    // Chercher l'ingrédient de référence pour récupérer ses marques/prix disponibles
+                    const refIngRes = await pool.query("SELECT * FROM ingredients WHERE LOWER(nom) = LOWER($1)", [nomIng]);
+                    let marquesDispos = [];
+                    let prixRetenu = parseFloat(ingItem.prix || 0);
+                    let marqueRetenue = 'Standard';
+
+                    if (refIngRes.rows.length > 0) {
+                        const ref = refIngRes.rows[0];
+                        try {
+                            marquesDispos = typeof ref.marques === 'string' ? JSON.parse(ref.marques) : (ref.marques || []);
+                        } catch (e) { marquesDispos = []; }
+
+                        // Sélectionner par défaut la marque la moins chère si disponible
+                        if (Array.isArray(marquesDispos) && marquesDispos.length > 0) {
+                            marquesDispos.sort((a, b) => parseFloat(a.prix) - parseFloat(b.prix));
+                            prixRetenu = parseFloat(marquesDispos[0].prix);
+                            marqueRetenue = marquesDispos[0].nom;
+                        } else if (ref.prix) {
+                            prixRetenu = parseFloat(ref.prix);
+                        }
+                    }
+
+                    await pool.query(
+                        `INSERT INTO courses (profil, nom, quantite_necessaire, unite, rayon, prix, marque, marques_disponibles, coche) 
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0)`,
+                        [profil, nomIng, qte, unite, ingItem.rayon || 'Épicerie', prixRetenu, marqueRetenue, JSON.stringify(marquesDispos)]
+                    );
+                }
+            }
+        }
+
+        io.emit('data_updated');
+        res.json({ success: true, message: "Liste de courses générée avec succès !" });
+    } catch (err) {
+        console.error("Erreur génération courses :", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 3. Cocher / décocher un article
+app.post('/api/courses/cocher', async (req, res) => {
+    const { id, coche } = req.body;
+    if (id === undefined || coche === undefined) return res.status(400).json({ error: "Données manquantes" });
+
+    try {
+        await pool.query("UPDATE courses SET coche = $1 WHERE id = $2", [coche, id]);
+        io.emit('data_updated');
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 4. Modifier la marque et le prix d'un article de la liste de courses
+app.post('/api/courses/changer-marque', async (req, res) => {
+    const { id, marque, prix } = req.body;
+    if (id === undefined || !marque || prix === undefined) {
+        return res.status(400).json({ error: "Données manquantes pour le changement de marque" });
+    }
+
+    try {
+        await pool.query("UPDATE courses SET marque = $1, prix = $2 WHERE id = $3", [marque, prix, id]);
+        io.emit('data_updated');
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 5. Vider la liste de courses
+app.delete('/api/courses', async (req, res) => {
+    const { profil } = req.query;
+    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+
+    try {
+        await pool.query("DELETE FROM courses WHERE profil = $1", [profil]);
+        io.emit('data_updated');
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 // --- LANCEMENT DU SERVEUR ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
