@@ -33,7 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 // --- CONFIGURATION DES SESSIONS ---
 app.use(session({
     store: new pgSession({
-        pool: pool,                
+        pool: pool,                       
         tableName: 'session',      
         createTableIfMissing: true 
     }),
@@ -628,6 +628,85 @@ app.post('/api/menu-prevu', async (req, res) => {
         io.emit('data_updated');
         res.sendStatus(200);
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- API GÉNÉRATION AUTOMATIQUE DE MENU (NOUVELLE ROUTE) ---
+app.post('/api/generer-menu', async (req, res) => {
+    const { profil } = req.body;
+    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+
+    try {
+        // 1. Récupérer les objectifs du profil
+        const objRes = await pool.query("SELECT * FROM personnes_objectifs WHERE nom = $1", [profil]);
+        let cible = { calories: 2000, proteines: 120, glucides: 200, lipides: 70 };
+        if (objRes.rows.length > 0) {
+            const obj = objRes.rows[0];
+            cible = {
+                calories: parseFloat(obj.calories) || 2000,
+                proteines: parseFloat(obj.proteines) || 120,
+                glucides: parseFloat(obj.glucides) || 200,
+                lipides: parseFloat(obj.lipides) || 70
+            };
+        }
+
+        // 2. Récupérer toutes les recettes disponibles
+        const recettesRes = await pool.query("SELECT * FROM recettes");
+        const recettes = recettesRes.rows;
+
+        if (recettes.length === 0) {
+            return res.status(400).json({ error: "Aucune recette disponible pour générer un menu." });
+        }
+
+        const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
+        // Fonction utilitaire pour trouver la recette idéale selon une cible de calories par repas (ex: ~1/3 ou 1/4 du total)
+        function trouverMeilleureRecette(catFiltre = null, cibleCalorieRepas = 600) {
+            let candidates = recettes;
+            if (catFiltre) {
+                candidates = recettes.filter(r => r.categorie && r.categorie.toLowerCase() === catFiltre.toLowerCase());
+                if (candidates.length === 0) candidates = recettes; // Fallback si la catégorie est vide
+            }
+
+            let bestRecette = candidates[0];
+            let bestScore = Infinity;
+
+            candidates.forEach(r => {
+                const parts = parseFloat(r.parts) || 1;
+                const rCal = (parseFloat(r.calories) || 0) / parts;
+                const score = Math.abs(rCal - cibleCalorieRepas);
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestRecette = r;
+                }
+            });
+            return bestRecette ? bestRecette.id : null;
+        }
+
+        // 3. Boucler sur les 7 jours de la semaine pour insérer ou mettre à jour le planning
+        for (const jour of jours) {
+            const idPetitDej = trouverMeilleureRecette('Petit-déjeuner', cible.calories * 0.2);
+            const idRepas1 = trouverMeilleureRecette('Plat', cible.calories * 0.35);
+            const idRepas2 = trouverMeilleureRecette('Plat', cible.calories * 0.35);
+            const idDessert = trouverMeilleureRecette('Dessert', cible.calories * 0.1);
+
+            const q = `
+                INSERT INTO menu_prevu (profil, jour, petitdejeuner, repas1, repas2, dessertcollation) 
+                VALUES ($1, $2, $3, $4, $5, $6) 
+                ON CONFLICT (profil, jour) DO UPDATE SET 
+                    petitdejeuner = EXCLUDED.petitdejeuner, 
+                    repas1 = EXCLUDED.repas1, 
+                    repas2 = EXCLUDED.repas2, 
+                    dessertcollation = EXCLUDED.dessertcollation
+            `;
+            await pool.query(q, [profil, jour, idPetitDej, idRepas1, idRepas2, idDessert]);
+        }
+
+        io.emit('data_updated');
+        res.json({ success: true, message: "Menu de la semaine généré avec succès !" });
+    } catch (err) {
+        console.error("Erreur génération automatique menu :", err);
         res.status(500).json({ error: err.message });
     }
 });
