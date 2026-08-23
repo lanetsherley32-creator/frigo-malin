@@ -361,7 +361,7 @@ app.post('/api/ingredients', async (req, res) => {
     }
 });
 
-// --- MODIFIER UN INGRÉDIENT (Route ajoutée) ---
+// --- MODIFIER UN INGRÉDIENT ---
 app.put('/api/ingredients/:id', async (req, res) => {
     const { id } = req.params;
     const { nom, rayon, calories, proteines, glucides, lipides, fibres, sucre, prix, marques } = req.body;
@@ -787,33 +787,6 @@ app.get('/api/suivi-conso', async (req, res) => {
     }
 });
 
-app.get('/api/suivi-conso-semaine', async (req, res) => {
-    const profil = req.query.profil;
-    if (!profil) return res.json({ repas: [], eau: [] });
-    try {
-        const query = `
-            SELECT s.*, 
-                   COALESCE(r.parts, 1) as parts,
-                   COALESCE(r.calories, i.calories) as calories,
-                   COALESCE(r.proteines, i.proteines) as proteines,
-                   COALESCE(r.glucides, i.glucides) as glucides,
-                   COALESCE(r.lipides, i.lipides) as lipides,
-                   COALESCE(r.fibres, i.fibres) as fibres,
-                   COALESCE(r.sucre, i.sucre) as sucre,
-                   COALESCE(r.cout, 0) as cout
-            FROM suivi_conso s
-            LEFT JOIN recettes r ON s.type_element = 'recette' AND s.element_id = r.id
-            LEFT JOIN ingredients i ON s.type_element = 'aliment' AND s.element_id = i.id
-            WHERE s.profil = $1
-        `;
-        const result = await pool.query(query, [profil]);
-        res.json(result.rows || []);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// --- LANCEMENT DU SERVEUR ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Serveur démarré sur le port ${PORT}`);
