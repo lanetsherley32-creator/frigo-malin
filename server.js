@@ -555,9 +555,19 @@ app.get('/api/menus', async (req, res) => {
 });
 
 app.get('/api/menu-prevu-semaine', async (req, res) => {
-    const profil = req.query.profil;
-    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+    let profil = req.query.profil;
+    const compteEmail = req.session.user;
+
     try {
+        if (!profil || profil === 'undefined' || profil === 'null' || profil.trim() === '') {
+            if (compteEmail) {
+                const profilsRes = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [compteEmail]);
+                profil = profilsRes.rows.length > 0 ? profilsRes.rows[0].nom : compteEmail;
+            } else {
+                return res.status(400).json({ error: "Profil manquant" });
+            }
+        }
+
         const result = await pool.query("SELECT * FROM menu_prevu WHERE profil = $1", [profil]);
         res.json(result.rows || []);
     } catch (err) {
@@ -566,10 +576,21 @@ app.get('/api/menu-prevu-semaine', async (req, res) => {
 });
 
 app.get('/api/menu-prevu-resume-jour', async (req, res) => {
-    const { profil, jour } = req.query;
-    if (!profil || !jour) return res.status(400).json({ error: "Profil ou jour manquant" });
+    let { profil, jour } = req.query;
+    const compteEmail = req.session.user;
+
+    if (!jour) return res.status(400).json({ error: "Jour manquant" });
     
     try {
+        if (!profil || profil === 'undefined' || profil === 'null' || profil.trim() === '') {
+            if (compteEmail) {
+                const profilsRes = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [compteEmail]);
+                profil = profilsRes.rows.length > 0 ? profilsRes.rows[0].nom : compteEmail;
+            } else {
+                return res.status(400).json({ error: "Profil manquant" });
+            }
+        }
+
         const menuRes = await pool.query(
             "SELECT petitdejeuner, repas1, repas2, dessertcollation FROM menu_prevu WHERE profil = $1 AND jour = $2", 
             [profil, jour]
@@ -611,23 +632,42 @@ app.get('/api/menu-prevu-resume-jour', async (req, res) => {
 });
 
 app.post('/api/menu-prevu', async (req, res) => {
-    const { profil, jour, petitDejeuner, repas1, repas2, dessertCollation } = req.body;
-    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+    let { profil, jour, petitDejeuner, repas1, repas2, dessertCollation } = req.body;
+    const compteEmail = req.session.user;
 
-    const q = `
-        INSERT INTO menu_prevu (profil, jour, petitdejeuner, repas1, repas2, dessertcollation) 
-        VALUES ($1, $2, $3, $4, $5, $6) 
-        ON CONFLICT (profil, jour) DO UPDATE SET 
-            petitdejeuner = EXCLUDED.petitdejeuner, 
-            repas1 = EXCLUDED.repas1, 
-            repas2 = EXCLUDED.repas2, 
-            dessertcollation = EXCLUDED.dessertcollation
-    `;
     try {
-        await pool.query(q, [profil, jour, petitDejeuner || null, repas1 || null, repas2 || null, dessertCollation || null]);
+        if (!profil || profil === 'undefined' || profil === 'null' || profil.trim() === '') {
+            if (compteEmail) {
+                const profilsRes = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [compteEmail]);
+                profil = profilsRes.rows.length > 0 ? profilsRes.rows[0].nom : compteEmail;
+            } else {
+                return res.status(400).json({ error: "Profil manquant" });
+            }
+        }
+
+        const q = `
+            INSERT INTO menu_prevu (profil, jour, petitdejeuner, repas1, repas2, dessertcollation) 
+            VALUES ($1, $2, $3, $4, $5, $6) 
+            ON CONFLICT (profil, jour) DO UPDATE SET 
+                petitdejeuner = EXCLUDED.petitdejeuner, 
+                repas1 = EXCLUDED.repas1, 
+                repas2 = EXCLUDED.repas2, 
+                dessertcollation = EXCLUDED.dessertcollation
+        `;
+        
+        await pool.query(q, [
+            profil, 
+            jour, 
+            petitDejeuner || null, 
+            repas1 || null, 
+            repas2 || null, 
+            dessertCollation || null
+        ]);
+
         io.emit('data_updated');
-        res.sendStatus(200);
+        res.json({ success: true });
     } catch (err) {
+        console.error("ERREUR POST /api/menu-prevu :", err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -831,27 +871,94 @@ app.get('/api/menus-semaine', async (req, res) => {
     }
 });
 
-// --- API GET /api/suivi-conso-semaine ---
+// --- API GET /api/suivi-conso-semaine (Avec totaux par jour et cumul semaine) ---
 app.get('/api/suivi-conso-semaine', async (req, res) => {
     let profil = req.query.profil;
     const compteEmail = req.session.user;
 
     try {
         if (!profil || profil === 'undefined' || profil === 'null' || profil.trim() === '') {
-            if (compteEmail) {
-                const profilsRes = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [compteEmail]);
-                if (profilsRes.rows.length > 0) {
-                    profil = profilsRes.rows[0].nom;
-                } else {
-                    profil = compteEmail;
-                }
-            } else {
-                return res.status(400).json({ error: "Profil manquant et utilisateur non connecté" });
-            }
+            const profilsRes = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [compteEmail]);
+            profil = profilsRes.rows.length > 0 ? profilsRes.rows[0].nom : compteEmail;
         }
 
-        const result = await pool.query("SELECT * FROM suivi_conso WHERE profil = $1", [profil]);
-        res.json(result.rows || []);
+        const result = await pool.query(`
+            SELECT s.*, 
+                   COALESCE(r.nom, i.nom) as element_nom,
+                   COALESCE(r.parts, 1) as parts,
+                   COALESCE(r.calories, i.calories) as calories,
+                   COALESCE(r.proteines, i.proteines) as proteines,
+                   COALESCE(r.glucides, i.glucides) as glucides,
+                   COALESCE(r.lipides, i.lipides) as lipides,
+                   COALESCE(r.fibres, i.fibres) as fibres,
+                   COALESCE(r.sucre, i.sucre) as sucre,
+                   COALESCE(r.cout, i.prix, 0) as cout
+            FROM suivi_conso s
+            LEFT JOIN recettes r ON s.type_element = 'recette' AND s.element_id = r.id
+            LEFT JOIN ingredients i ON s.type_element = 'aliment' AND s.element_id = i.id
+            WHERE s.profil = $1
+        `, [profil]);
+
+        let totauxSemaine = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, budget: 0 };
+        const joursData = {};
+
+        result.rows.forEach(row => {
+            const parts = parseFloat(row.parts) || 1;
+            const ratio = 1 / parts;
+            const itemNutri = {
+                id: row.id,
+                nom: row.element_nom,
+                jour: row.jour,
+                type: row.type_element,
+                calories: (parseFloat(row.calories) || 0) * ratio,
+                proteines: (parseFloat(row.proteines) || 0) * ratio,
+                glucides: (parseFloat(row.glucides) || 0) * ratio,
+                lipides: (parseFloat(row.lipides) || 0) * ratio,
+                fibres: (parseFloat(row.fibres) || 0) * ratio,
+                sucre: (parseFloat(row.sucre) || 0) * ratio,
+                cout: (parseFloat(row.cout) || 0) * ratio
+            };
+
+            if (!joursData[row.jour]) {
+                joursData[row.jour] = {
+                    elements: [],
+                    totauxJour: { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, budget: 0 }
+                };
+            }
+
+            joursData[row.jour].elements.push(itemNutri);
+            
+            // Cumul par jour
+            joursData[row.jour].totauxJour.calories += itemNutri.calories;
+            joursData[row.jour].totauxJour.proteines += itemNutri.proteines;
+            joursData[row.jour].totauxJour.glucides += itemNutri.glucides;
+            joursData[row.jour].totauxJour.lipides += itemNutri.lipides;
+            joursData[row.jour].totauxJour.fibres += itemNutri.fibres;
+            joursData[row.jour].totauxJour.sucre += itemNutri.sucre;
+            joursData[row.jour].totauxJour.budget += itemNutri.cout;
+
+            // Cumul global semaine
+            totauxSemaine.calories += itemNutri.calories;
+            totauxSemaine.proteines += itemNutri.proteines;
+            totauxSemaine.glucides += itemNutri.glucides;
+            totauxSemaine.lipides += itemNutri.lipides;
+            totauxSemaine.fibres += itemNutri.fibres;
+            totauxSemaine.sucre += itemNutri.sucre;
+            totauxSemaine.budget += itemNutri.cout;
+        });
+
+        res.json({
+            suiviParJour: joursData,
+            totauxSemaine: {
+                calories: Math.round(totauxSemaine.calories),
+                proteines: Math.round(totauxSemaine.proteines),
+                glucides: Math.round(totauxSemaine.glucides),
+                lipides: Math.round(totauxSemaine.lipides),
+                fibres: Math.round(totauxSemaine.fibres),
+                sucre: Math.round(totauxSemaine.sucre),
+                budget: Math.round(totauxSemaine.budget * 100) / 100
+            }
+        });
     } catch (err) {
         console.error("ERREUR /api/suivi-conso-semaine :", err);
         res.status(500).json({ error: err.message });
@@ -861,7 +968,41 @@ app.get('/api/suivi-conso-semaine', async (req, res) => {
 // --- API GÉNÉRATION AUTOMATIQUE DE MENU (LES DEUX ROUTES SUPPORTÉES) ---
 app.post('/api/generer-menu', traiterGenerationMenu);
 app.post('/api/menus-semaine', traiterGenerationMenu);
+// --- API POST & DELETE /api/suivi-conso ---
+app.post('/api/suivi-conso', async (req, res) => {
+    let { profil, jour, type_element, element_id } = req.body;
+    const compteEmail = req.session.user;
 
+    try {
+        if (!profil) {
+            const profilsRes = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [compteEmail]);
+            profil = profilsRes.rows.length > 0 ? profilsRes.rows[0].nom : compteEmail;
+        }
+
+        const query = `
+            INSERT INTO suivi_conso (profil, jour, type_element, element_id) 
+            VALUES ($1, $2, $3, $4)
+        `;
+        await pool.query(query, [profil, jour, type_element, element_id]);
+        io.emit('data_updated');
+        res.json({ success: true });
+    } catch (err) {
+        console.error("ERREUR POST /api/suivi-conso :", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/suivi-conso', async (req, res) => {
+    const { id } = req.query;
+    try {
+        await pool.query("DELETE FROM suivi_conso WHERE id = $1", [id]);
+        io.emit('data_updated');
+        res.json({ success: true });
+    } catch (err) {
+        console.error("ERREUR DELETE /api/suivi-conso :", err);
+        res.status(500).json({ error: err.message });
+    }
+});
 // --- LANCEMENT DU SERVEUR ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
