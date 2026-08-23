@@ -543,8 +543,10 @@ function calculerScoreEcart(recette, cible) {
 
     return scoreCal + scorePro + scoreGlu + scoreLip;
 }
+// ==========================================
+// --- API MENU PRÉVU & SUIVI ---
+// ==========================================
 
-// --- API MENU PRÉVU ---
 app.get('/api/menus', async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM menu_prevu");
@@ -601,14 +603,21 @@ app.get('/api/menu-prevu-resume-jour', async (req, res) => {
             return res.json({ calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 });
         }
         
-        const idsRecettes = [menu.petitdejeuner, menu.repas1, menu.repas2, menu.dessertcollation].filter(Boolean);
+        const idsPlats = [menu.petitdejeuner, menu.repas1, menu.repas2, menu.dessertcollation].filter(Boolean);
         
-        if (idsRecettes.length === 0) {
+        if (idsPlats.length === 0) {
             return res.json({ calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 });
         }
         
-        const placeholders = idsRecettes.map((_, i) => `$${i + 1}`).join(',');
-        const recettesRes = await pool.query(`SELECT parts, calories, proteines, glucides, lipides, fibres, sucre, cout FROM recettes WHERE id IN (${placeholders})`, idsRecettes);
+        const isNumeric = idsPlats.every(id => !isNaN(id));
+        let recettesRes;
+        
+        if (isNumeric) {
+            const placeholders = idsPlats.map((_, i) => `$${i + 1}`).join(',');
+            recettesRes = await pool.query(`SELECT parts, calories, proteines, glucides, lipides, fibres, sucre, cout FROM recettes WHERE id IN (${placeholders})`, idsPlats);
+        } else {
+            recettesRes = await pool.query(`SELECT parts, calories, proteines, glucides, lipides, fibres, sucre, cout FROM recettes WHERE nom = ANY($1::text[])`, [idsPlats]);
+        }
         
         let totaux = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 };
         
@@ -625,7 +634,15 @@ app.get('/api/menu-prevu-resume-jour', async (req, res) => {
             totaux.cout += (parseFloat(r.cout) || 0) * ratioPart;
         });
         
-        res.json(totaux);
+        res.json({
+            calories: Math.round(totaux.calories),
+            proteines: Math.round(totaux.proteines),
+            glucides: Math.round(totaux.glucides),
+            lipides: Math.round(totaux.lipides),
+            fibres: Math.round(totaux.fibres),
+            sucre: Math.round(totaux.sucre),
+            cout: Math.round(totaux.cout * 100) / 100
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -674,11 +691,19 @@ app.post('/api/menu-prevu', async (req, res) => {
 
 // --- LOGIQUE COMMUNE POUR LA GÉNÉRATION DE MENU ---
 async function traiterGenerationMenu(req, res) {
-    const { profil } = req.body;
-    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+    let { profil } = req.body;
+    const compteEmail = req.session.user;
 
     try {
-        // 1. Récupérer les objectifs du profil
+        if (!profil || profil === 'undefined' || profil === 'null' || profil.trim() === '') {
+            if (compteEmail) {
+                const profilsRes = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [compteEmail]);
+                profil = profilsRes.rows.length > 0 ? profilsRes.rows[0].nom : compteEmail;
+            } else {
+                return res.status(400).json({ error: "Profil manquant" });
+            }
+        }
+
         const objRes = await pool.query("SELECT * FROM personnes_objectifs WHERE nom = $1", [profil]);
         let cible = { calories: 2000, proteines: 120, glucides: 200, lipides: 70 };
         if (objRes.rows.length > 0) {
@@ -691,7 +716,6 @@ async function traiterGenerationMenu(req, res) {
             };
         }
 
-        // 2. Récupérer toutes les recettes disponibles
         const recettesRes = await pool.query("SELECT * FROM recettes");
         const recettes = recettesRes.rows;
 
@@ -701,12 +725,11 @@ async function traiterGenerationMenu(req, res) {
 
         const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
-        // Fonction utilitaire pour trouver la recette idéale selon une cible de calories par repas
         function trouverMeilleureRecette(catFiltre = null, cibleCalorieRepas = 600) {
             let candidates = recettes;
             if (catFiltre) {
                 candidates = recettes.filter(r => r.categorie && r.categorie.toLowerCase() === catFiltre.toLowerCase());
-                if (candidates.length === 0) candidates = recettes; // Fallback si la catégorie est vide
+                if (candidates.length === 0) candidates = recettes;
             }
 
             let bestRecette = candidates[0];
@@ -724,7 +747,6 @@ async function traiterGenerationMenu(req, res) {
             return bestRecette ? bestRecette.id : null;
         }
 
-        // 3. Boucler sur les 7 jours de la semaine pour insérer ou mettre à jour le planning
         for (const jour of jours) {
             const idPetitDej = trouverMeilleureRecette('Petit-déjeuner', cible.calories * 0.2);
             const idRepas1 = trouverMeilleureRecette('Plat', cible.calories * 0.35);
@@ -749,7 +771,8 @@ async function traiterGenerationMenu(req, res) {
         console.error("Erreur génération automatique menu :", err);
         res.status(500).json({ error: err.message });
     }
-}// --- API GET /api/recettes-recommandees ---
+}
+
 app.get('/api/recettes-recommandees', async (req, res) => {
     let profil = req.query.profil;
     const compteEmail = req.session.user;
@@ -765,7 +788,6 @@ app.get('/api/recettes-recommandees', async (req, res) => {
                 }
             }
         }
-        // Récupérer les recettes depuis la base de données
         const result = await pool.query("SELECT * FROM recettes LIMIT 10");
         res.json(result.rows || []);
     } catch (err) {
@@ -773,7 +795,8 @@ app.get('/api/recettes-recommandees', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-// --- API GET /api/menus-semaine (Avec calculs nutritionnels et budget par jour) ---
+
+// --- API GET /api/menus-semaine (Avec calculs nutritionnels et budget par jour et semaine) ---
 app.get('/api/menus-semaine', async (req, res) => {
     let profil = req.query.profil;
     const compteEmail = req.session.user;
@@ -782,11 +805,7 @@ app.get('/api/menus-semaine', async (req, res) => {
         if (!profil || profil === 'undefined' || profil === 'null' || profil.trim() === '') {
             if (compteEmail) {
                 const profilsRes = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [compteEmail]);
-                if (profilsRes.rows.length > 0) {
-                    profil = profilsRes.rows[0].nom;
-                } else {
-                    profil = compteEmail;
-                }
+                profil = profilsRes.rows.length > 0 ? profilsRes.rows[0].nom : compteEmail;
             } else {
                 return res.status(400).json({ error: "Profil manquant et utilisateur non connecté" });
             }
@@ -806,20 +825,23 @@ app.get('/api/menus-semaine', async (req, res) => {
                 'Dessert/Collation': row.dessertcollation || ''
             };
 
-            // Récupérer tous les noms / IDs des plats du jour pour calculer leurs apports
-            const nomsPlats = Object.values(repasJour).filter(Boolean);
+            const idsPlats = Object.values(repasJour).filter(Boolean);
             let totauxJour = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, budget: 0 };
 
-            if (nomsPlats.length > 0) {
-                // Recherche dans les recettes (par nom)
-                const recettesRes = await pool.query(
-                    `SELECT parts, calories, proteines, glucides, lipides, fibres, sucre, cout FROM recettes WHERE nom = ANY($1::text[])`, 
-                    [nomsPlats]
-                );
+            if (idsPlats.length > 0) {
+                const isNumeric = idsPlats.every(id => !isNaN(id));
+                let recettesRes;
+
+                if (isNumeric) {
+                    const placeholders = idsPlats.map((_, i) => `$${i + 1}`).join(',');
+                    recettesRes = await pool.query(`SELECT parts, calories, proteines, glucides, lipides, fibres, sucre, cout FROM recettes WHERE id IN (${placeholders})`, idsPlats);
+                } else {
+                    recettesRes = await pool.query(`SELECT parts, calories, proteines, glucides, lipides, fibres, sucre, cout FROM recettes WHERE nom = ANY($1::text[])`, [idsPlats]);
+                }
                 
                 recettesRes.rows.forEach(r => {
                     const parts = parseFloat(r.parts) || 1;
-                    const ratioPart = 1 / parts; // Calcul proportionnel à la part
+                    const ratioPart = 1 / parts;
                     totauxJour.calories += (parseFloat(r.calories) || 0) * ratioPart;
                     totauxJour.proteines += (parseFloat(r.proteines) || 0) * ratioPart;
                     totauxJour.glucides += (parseFloat(r.glucides) || 0) * ratioPart;
@@ -830,7 +852,6 @@ app.get('/api/menus-semaine', async (req, res) => {
                 });
             }
 
-            // Cumul pour la semaine globale
             totauxSemaine.calories += totauxJour.calories;
             totauxSemaine.proteines += totauxJour.proteines;
             totauxSemaine.glucides += totauxJour.glucides;
@@ -871,7 +892,7 @@ app.get('/api/menus-semaine', async (req, res) => {
     }
 });
 
-// --- API GET /api/suivi-conso-semaine (Avec totaux par jour et cumul semaine) ---
+// --- API GET /api/suivi-conso-semaine ---
 app.get('/api/suivi-conso-semaine', async (req, res) => {
     let profil = req.query.profil;
     const compteEmail = req.session.user;
@@ -928,7 +949,6 @@ app.get('/api/suivi-conso-semaine', async (req, res) => {
 
             joursData[row.jour].elements.push(itemNutri);
             
-            // Cumul par jour
             joursData[row.jour].totauxJour.calories += itemNutri.calories;
             joursData[row.jour].totauxJour.proteines += itemNutri.proteines;
             joursData[row.jour].totauxJour.glucides += itemNutri.glucides;
@@ -937,7 +957,6 @@ app.get('/api/suivi-conso-semaine', async (req, res) => {
             joursData[row.jour].totauxJour.sucre += itemNutri.sucre;
             joursData[row.jour].totauxJour.budget += itemNutri.cout;
 
-            // Cumul global semaine
             totauxSemaine.calories += itemNutri.calories;
             totauxSemaine.proteines += itemNutri.proteines;
             totauxSemaine.glucides += itemNutri.glucides;
@@ -965,9 +984,10 @@ app.get('/api/suivi-conso-semaine', async (req, res) => {
     }
 });
 
-// --- API GÉNÉRATION AUTOMATIQUE DE MENU (LES DEUX ROUTES SUPPORTÉES) ---
+// --- API GÉNÉRATION AUTOMATIQUE DE MENU ---
 app.post('/api/generer-menu', traiterGenerationMenu);
 app.post('/api/menus-semaine', traiterGenerationMenu);
+
 // --- API POST & DELETE /api/suivi-conso ---
 app.post('/api/suivi-conso', async (req, res) => {
     let { profil, jour, type_element, element_id } = req.body;
@@ -1003,6 +1023,7 @@ app.delete('/api/suivi-conso', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 // --- LANCEMENT DU SERVEUR ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
