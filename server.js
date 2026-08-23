@@ -468,7 +468,6 @@ app.post('/api/menu-prevu', async (req, res) => {
 async function executerGenerationAleatoire(req) {
     let profil = req.body.profil;
 
-    // Si le profil n'est pas fourni dans le body, on essaie de le déduire de la session connectée
     if (!profil && req.session.user) {
         const userProfiles = await pool.query("SELECT nom FROM personnes_objectifs WHERE compte_email = $1 LIMIT 1", [req.session.user]);
         if (userProfiles.rows.length > 0) {
@@ -562,7 +561,7 @@ async function executerGenerationAleatoire(req) {
     io.emit('data_updated');
 }
 
-// --- API ROUTES DE GÉNÉRATION (Gère les deux URL front-end) ---
+// --- API ROUTES DE GÉNÉRATION ---
 app.post('/api/menu-aleatoire-optimise', async (req, res) => {
     try {
         await executerGenerationAleatoire(req);
@@ -578,6 +577,94 @@ app.post('/api/menus/generer-aleatoire', async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         res.status(400).json({ error: err.message });
+    }
+});
+
+// --- API RECETTES RECOMMANDÉES OPTIMISÉES (POUR COMPLÉTER LA JOURNÉE) ---
+app.get('/api/recettes-recommandees-optimisees', async (req, res) => {
+    const { profil, jour } = req.query;
+    if (!profil || !jour) return res.status(400).json({ error: "Profil ou jour manquant" });
+
+    try {
+        // 1. Récupérer les objectifs du profil
+        const objRes = await pool.query("SELECT * FROM personnes_objectifs WHERE nom = $1", [profil]);
+        const obj = objRes.rows[0] || {};
+        const cible = {
+            calories: parseFloat(obj.calories) || 2000,
+            proteines: parseFloat(obj.proteines) || 120,
+            glucides: parseFloat(obj.glucides) || 200,
+            lipides: parseFloat(obj.lipides) || 70,
+            fibres: parseFloat(obj.fibres) || 30,
+            sucre: parseFloat(obj.sucre) || 50,
+            budget: parseFloat(obj.budget) || 100
+        };
+
+        // 2. Calculer ce qui a déjà été consommé (ou prévu) pour ce jour
+        const suiviRes = await pool.query(`
+            SELECT COALESCE(r.calories, i.calories) as calories,
+                   COALESCE(r.proteines, i.proteines) as proteines,
+                   COALESCE(r.glucides, i.glucides) as glucides,
+                   COALESCE(r.lipides, i.lipides) as lipides,
+                   COALESCE(r.fibres, i.fibres) as fibres,
+                   COALESCE(r.sucre, i.sucre) as sucre,
+                   COALESCE(r.cout, 0) as cout
+            FROM suivi_conso s
+            LEFT JOIN recettes r ON s.type_element = 'recette' AND s.element_id = r.id
+            LEFT JOIN ingredients i ON s.type_element = 'aliment' AND s.element_id = i.id
+            WHERE s.profil = $1 AND s.jour = $2
+        `, [profil, jour]);
+
+        let consomme = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 };
+        suiviRes.rows.forEach(row => {
+            consomme.calories += parseFloat(row.calories) || 0;
+            consomme.proteines += parseFloat(row.proteines) || 0;
+            consomme.glucides += parseFloat(row.glucides) || 0;
+            consomme.lipides += parseFloat(row.lipides) || 0;
+            consomme.fibres += parseFloat(row.fibres) || 0;
+            consomme.sucre += parseFloat(row.sucre) || 0;
+            consomme.cout += parseFloat(row.cout) || 0;
+        });
+
+        // 3. Calculer ce qui reste à acquérir pour atteindre / respecter les critères cibles :
+        // - En dessous en calories, sucre, lipides, glucides, budget (on cherche des recettes avec de faibles valeurs ou qui ne font pas exploser le reste)
+        // - Au dessus en protéines, fibres (on favorise les apports riches)
+        const recettesRes = await pool.query("SELECT * FROM recettes");
+        const recettes = recettesRes.rows || [];
+
+        const recos = recettes.map(r => {
+            const cal = parseFloat(r.calories) || 0;
+            const pro = parseFloat(r.proteines) || 0;
+            const glu = parseFloat(r.glucides) || 0;
+            const lip = parseFloat(r.lipides) || 0;
+            const fib = parseFloat(r.fibres) || 0;
+            const suc = parseFloat(r.sucre) || 0;
+            const cout = parseFloat(r.cout) || 0;
+
+            let score = 0;
+            // Pénalités si on dépasse les plafonds (calories, sucre, lipides, glucides, budget)
+            if ((consomme.calories + cal) > cible.calories) score += ((consomme.calories + cal) - cible.calories) * 2;
+            if ((consomme.sucre + suc) > cible.sucre) score += ((consomme.sucre + suc) - cible.sucre) * 3;
+            if ((consomme.lipides + lip) > cible.lipides) score += ((consomme.lipides + lip) - cible.lipides) * 2;
+            if ((consomme.glucides + glu) > cible.glucides) score += ((consomme.glucides + glu) - cible.glucides) * 1.5;
+            if ((consomme.cout + cout) > (cible.budget / 7)) score += ((consomme.cout + cout) - (cible.budget / 7)) * 5;
+
+            // Bonus / Récompense si on aide à monter les protéines et fibres manquantes
+            if ((consomme.proteines + pro) < cible.proteines) {
+                score -= pro * 1.5; // Favorise les protéines
+            }
+            if ((consomme.fibres + fib) < cible.fibres) {
+                score -= fib * 1.5; // Favorise les fibres
+            }
+
+            return { ...r, scoreRecommandation: score };
+        });
+
+        // Tri par score croissant (le score le plus bas est le plus optimal selon les critères)
+        recos.sort((a, b) => a.scoreRecommandation - b.scoreRecommandation);
+
+        res.json(recos.slice(0, 10)); // Retourne le top 10 des recettes recommandées
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
