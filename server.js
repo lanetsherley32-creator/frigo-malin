@@ -380,6 +380,15 @@ function calculerScoreEcart(recette, cible) {
 }
 
 // --- API MENU PRÉVU ---
+app.get('/api/menus', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM menu_prevu");
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/menu-prevu-semaine', async (req, res) => {
     const profil = req.query.profil;
     if (!profil) return res.status(400).json({ error: "Profil manquant" });
@@ -573,6 +582,15 @@ app.post('/api/menus/generer-aleatoire', async (req, res) => {
 });
 
 // --- API SUIVI ---
+app.get('/api/suivi', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM suivi_conso");
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/suivi-conso', async (req, res) => {
     const { profil, jour } = req.query;
     if (!profil) return res.json([]);
