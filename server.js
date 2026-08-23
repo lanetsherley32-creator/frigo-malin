@@ -361,6 +361,41 @@ app.post('/api/ingredients', async (req, res) => {
     }
 });
 
+// --- MODIFIER UN INGRÉDIENT (Route ajoutée) ---
+app.put('/api/ingredients/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nom, rayon, calories, proteines, glucides, lipides, fibres, sucre, prix, marques } = req.body;
+    const marquesStr = Array.isArray(marques) ? JSON.stringify(marques) : (marques || '[]');
+    
+    try {
+        const query = `
+            UPDATE ingredients 
+            SET nom = $1, rayon = $2, calories = $3, proteines = $4, glucides = $5, 
+                lipides = $6, fibres = $7, sucre = $8, prix = $9, marques = $10 
+            WHERE id = $11
+        `;
+        await pool.query(query, [
+            nom, 
+            rayon || 'Épicerie', 
+            calories || 0, 
+            proteines || 0, 
+            glucides || 0, 
+            lipides || 0, 
+            fibres || 0, 
+            sucre || 0, 
+            prix || 0, 
+            marquesStr, 
+            id
+        ]);
+        
+        io.emit('data_updated');
+        res.json({ success: true, message: "Ingrédient mis à jour avec succès !" });
+    } catch (err) {
+        console.error("Erreur mise à jour ingrédient :", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- CALCUL DE SCORE ---
 function calculerScoreEcart(recette, cible) {
     const calR = parseFloat(recette.calories) || 0;
@@ -428,7 +463,7 @@ app.get('/api/menu-prevu-resume-jour', async (req, res) => {
         
         recettesRes.rows.forEach(r => {
             const parts = parseFloat(r.parts) || 1;
-            const ratioPart = 1 / parts; // Ramène au coût et apports d'une part
+            const ratioPart = 1 / parts;
             
             totaux.calories += (parseFloat(r.calories) || 0) * ratioPart;
             totaux.proteines += (parseFloat(r.proteines) || 0) * ratioPart;
@@ -467,7 +502,7 @@ app.post('/api/menu-prevu', async (req, res) => {
     }
 });
 
-// --- LOGIQUE COMMUNE POUR LA GÉNÉRATION ALÉATOIRE AVEC OPTIMISATION ANTI-RESTES ---
+// --- LOGIQUE COMMUNE POUR LA GÉNÉRATION ALÉATOIRE ---
 async function executerGenerationAleatoire(req) {
     let profil = req.body.profil;
 
@@ -530,7 +565,6 @@ async function executerGenerationAleatoire(req) {
                     let scoreA = calculerScoreEcart(a, sousCible);
                     let scoreB = calculerScoreEcart(b, sousCible);
 
-                    // Bonus anti-gaspillage si la recette utilise des ingrédients déjà entamés
                     try {
                         let ingsA = typeof a.ingredients === 'string' ? JSON.parse(a.ingredients) : a.ingredients;
                         if (Array.isArray(ingsA)) {
@@ -563,11 +597,9 @@ async function executerGenerationAleatoire(req) {
 
                 selectionJour[repasKeys[i]] = chosen ? chosen.id : null;
                 
-                // Coût ramené à une part
                 const parts = parseFloat(chosen?.parts) || 1;
                 coutTotalSemaine += (parseFloat(chosen?.cout) || 0) / parts;
 
-                // Suivi des ingrédients pour optimiser les restes
                 try {
                     let ings = typeof chosen.ingredients === 'string' ? JSON.parse(chosen.ingredients) : chosen.ingredients;
                     if (Array.isArray(ings)) {
@@ -579,7 +611,7 @@ async function executerGenerationAleatoire(req) {
                                     ingredientsSemaineQte[id] = { reste: 0 };
                                 }
                                 ingredientsSemaineQte[id].reste += qteUtilisee;
-                                if (ingredientsSemaineQte[id].reste >= 500) { // Conditionnement simulé
+                                if (ingredientsSemaineQte[id].reste >= 500) {
                                     ingredientsSemaineQte[id].reste = 0;
                                 }
                             }
@@ -640,7 +672,7 @@ app.post('/api/menus/generer-aleatoire', async (req, res) => {
     }
 });
 
-// --- API RECETTES RECOMMANDÉES OPTIMISÉES (POUR COMPLÉTER LA JOURNÉE) ---
+// --- API RECETTES RECOMMANDÉES ---
 app.get('/api/recettes-recommandees-optimisees', async (req, res) => {
     const { profil, jour } = req.query;
     if (!profil || !jour) return res.status(400).json({ error: "Profil ou jour manquant" });
@@ -774,132 +806,15 @@ app.get('/api/suivi-conso-semaine', async (req, res) => {
             LEFT JOIN ingredients i ON s.type_element = 'aliment' AND s.element_id = i.id
             WHERE s.profil = $1
         `;
-        const resRepas = await pool.query(query, [profil]);
-        const resEau = await pool.query("SELECT * FROM suivi_eau WHERE profil = $1", [profil]);
-        res.json({ repas: resRepas.rows || [], eau: resEau.rows || [] });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.post('/api/suivi-conso', async (req, res) => {
-    const { profil, jour, categorie, type_element, element_id, quantite } = req.body;
-    try {
-        const q = `INSERT INTO suivi_conso (profil, jour, categorie, type_element, element_id, quantite) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`;
-        const result = await pool.query(q, [profil, jour, categorie, type_element, element_id, quantite]);
-        io.emit('data_updated');
-        res.json({ success: true, id: result.rows[0].id });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.delete('/api/suivi-conso/:id', async (req, res) => {
-    try {
-        await pool.query("DELETE FROM suivi_conso WHERE id = $1", [req.params.id]);
-        io.emit('data_updated');
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.get('/api/suivi-eau', async (req, res) => {
-    const { profil, jour } = req.query;
-    try {
-        const r = await pool.query("SELECT * FROM suivi_eau WHERE profil = $1 AND jour = $2", [profil, jour]);
-        res.json(r.rows[0] || { quantite: 0 });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.post('/api/suivi-eau', async (req, res) => {
-    const { profil, jour, quantite } = req.body;
-    try {
-        const q = `
-            INSERT INTO suivi_eau (profil, jour, quantite) VALUES ($1, $2, $3)
-            ON CONFLICT (profil, jour) DO UPDATE SET quantite = EXCLUDED.quantite
-        `;
-        await pool.query(q, [profil, jour, quantite]);
-        io.emit('data_updated');
-        res.sendStatus(200);
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.get('/api/courses', async (req, res) => {
-    const profil = req.query.profil;
-    if (!profil) return res.status(400).json({ error: "Profil manquant" });
-    try {
-        const result = await pool.query("SELECT * FROM courses WHERE profil = $1", [profil]);
+        const result = await pool.query(query, [profil]);
         res.json(result.rows || []);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.post('/api/courses/cocher', async (req, res) => {
-    const { id, coche } = req.body;
-    try {
-        await pool.query("UPDATE courses SET coche = $1 WHERE id = $2", [coche ? 1 : 0, id]);
-        io.emit('data_updated');
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/api/courses/generer', async (req, res) => {
-    const profil = req.body.profil;
-    if (!profil) return res.status(400).json({ error: "Profil manquant" });
-
-    try {
-        const menusRes = await pool.query("SELECT * FROM menu_prevu WHERE profil = $1", [profil]);
-        let idsRecettes = new Set();
-        (menusRes.rows || []).forEach(m => {
-            ['petitdejeuner', 'repas1', 'repas2', 'dessertcollation'].forEach(c => { if (m[c]) idsRecettes.add(m[c]); });
-        });
-        
-        if (idsRecettes.size === 0) return res.json({ success: true });
-
-        const idsArray = Array.from(idsRecettes);
-        const placeholders = idsArray.map((_, i) => `$${i + 1}`).join(',');
-        const recettesRes = await pool.query(`SELECT * FROM recettes WHERE id IN (${placeholders})`, idsArray);
-        const ingsRefRes = await pool.query("SELECT * FROM ingredients");
-
-        let besoins = {};
-        (recettesRes.rows || []).forEach(r => {
-            try {
-                let ings = typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : r.ingredients;
-                if (Array.isArray(ings)) ings.forEach(i => {
-                    let id = i.id || i.ingredient_id;
-                    if (id) {
-                        if (!besoins[id]) besoins[id] = { qte: 0, unite: i.unite || 'g' };
-                        besoins[id].qte += parseFloat(i.quantite || 0);
-                    }
-                });
-            } catch (e) {}
-        });
-
-        await pool.query("DELETE FROM courses WHERE profil = $1", [profil]);
-
-        for (const [id, data] of Object.entries(besoins)) {
-            const ref = (ingsRefRes.rows || []).find(i => i.id == id);
-            if (ref) {
-                await pool.query(
-                    "INSERT INTO courses (profil, ingredient_id, nom, rayon, quantite_necessaire, unite, prix_total, coche) VALUES ($1, $2, $3, $4, $5, $6, $7, 0)",
-                    [profil, ref.id, ref.nom, ref.rayon || 'Épicerie', data.qte, data.unite, parseFloat(ref.prix) || 0]
-                );
-            }
-        }
-        io.emit('data_updated');
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
+// --- LANCEMENT DU SERVEUR ---
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));
+server.listen(PORT, () => {
+    console.log(`Serveur démarré sur le port ${PORT}`);
+});
