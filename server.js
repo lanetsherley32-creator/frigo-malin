@@ -74,6 +74,15 @@ app.use((req, res, next) => {
 // --- FICHIERS STATIQUES (APRÈS LA PROTECTION) ---
 app.use(express.static('public'));
 
+// --- ROUTE RACINE (Redirige vers login.html ou global.html selon l'authentification) ---
+app.get('/', (req, res) => {
+    if (req.session.user) {
+        res.sendFile(__dirname + '/public/global.html');
+    } else {
+        res.sendFile(__dirname + '/public/login.html');
+    }
+});
+
 // --- CONFIGURATION EMAIL (BREVO / SMTP) ---
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
@@ -526,24 +535,6 @@ app.get('/api/recherche-globale', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
-// --- CALCUL DE SCORE ---
-function calculerScoreEcart(recette, cible) {
-    const calR = parseFloat(recette.calories) || 0;
-    const proR = parseFloat(recette.proteines) || 0;
-    const gluR = parseFloat(recette.glucides) || 0;
-    const lipR = parseFloat(recette.lipides) || 0;
-
-    let scoreCal = Math.abs(calR - cible.calories);
-    if (calR > cible.calories) scoreCal *= 2; 
-
-    let scorePro = proR >= cible.proteines ? 0 : (cible.proteines - proR) * 2.5;
-
-    let scoreGlu = gluR > cible.glucides ? (gluR - cible.glucides) * 2 : Math.abs(gluR - cible.glucides) * 0.5;
-    let scoreLip = lipR > cible.lipides ? (lipR - cible.lipides) * 2 : Math.abs(lipR - cible.lipides) * 0.5;
-
-    return scoreCal + scorePro + scoreGlu + scoreLip;
-}
 
 // --- API MENU PRÉVU ---
 app.get('/api/menus', async (req, res) => {
