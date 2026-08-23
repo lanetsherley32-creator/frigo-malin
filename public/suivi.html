@@ -168,7 +168,6 @@
                             <datalist id="liste-recettes-options">
                                 <!-- Rempli dynamiquement par JS -->
                             </datalist>
-                            <select id="conso-recette" class="hidden"></select>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
                             <div>
@@ -368,6 +367,7 @@
                 remplirSelectProfils();
                 remplirDatalistRecettes();
                 chargerSuiviJour();
+                chargerBilanSemaine();
             } catch (e) {
                 console.error("Erreur initialisation", e);
             }
@@ -399,27 +399,18 @@
                 profilActif = select.value;
                 localStorage.setItem('profilActif', profilActif);
                 chargerSuiviJour();
+                chargerBilanSemaine();
             }
         }
 
         function remplirDatalistRecettes() {
             const datalist = document.getElementById('liste-recettes-options');
-            const selectFallback = document.getElementById('conso-recette');
             if (!datalist) return;
 
-            let optionsHtml = '';
-            let selectHtml = '';
-
-            // Combiner les recettes et les ingrédients de la base de données
-            const optionsRecettes = recettesCache.map(r => `<option value="${r.nom}" data-id="${r.id}" data-type="recette">${r.nom} (Recette)</option>`).join('');
-            const optionsIngs = ingredientsCache.map(i => `<option value="${i.nom}" data-id="${i.id}" data-type="aliment">${i.nom} (Aliment)</option>`).join('');
+            const optionsRecettes = recettesCache.map(r => `<option value="${r.nom}">Recette : ${r.nom}</option>`).join('');
+            const optionsIngs = ingredientsCache.map(i => `<option value="${i.nom}">Aliment : ${i.nom}</option>`).join('');
 
             datalist.innerHTML = optionsRecettes + optionsIngs;
-            if (selectFallback) {
-                selectFallback.innerHTML = '<option value="">-- Choisir --</option>' + 
-                    recettesCache.map(r => `<option value="recette_${r.id}">${r.nom}</option>`).join('') +
-                    ingredientsCache.map(i => `<option value="aliment_${i.id}">${i.nom}</option>`).join('');
-            }
         }
 
         function changerJourConso(jour) {
@@ -441,17 +432,14 @@
         async function chargerSuiviJour() {
             if (!profilActif) return;
             try {
-                // Charger le suivi de la journée
                 const res = await fetch(`/api/suivi?profil=${encodeURIComponent(profilActif)}&jour=${encodeURIComponent(jourActif)}`);
                 const consommations = await res.json();
 
-                // Charger l'eau
                 const resEau = await fetch(`/api/eau?profil=${encodeURIComponent(profilActif)}&jour=${encodeURIComponent(jourActif)}`);
                 const eauData = await resEau.json();
                 document.getElementById('aff-conso-eau').innerText = eauData.quantite || 0;
                 document.getElementById('stat-eau').innerText = `${eauData.quantite || 0}L`;
 
-                // Objectifs du profil
                 const profilObj = profilsCache.find(p => p.nom === profilActif) || {};
                 document.getElementById('obj-cal').innerText = profilObj.calories || 2000;
                 document.getElementById('obj-prot').innerText = profilObj.proteines || 150;
@@ -468,7 +456,6 @@
                     container.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-4">Aucune consommation enregistrée pour ce jour.</p>`;
                 } else {
                     container.innerHTML = consommations.map(c => {
-                        // Retrouver l'élément dans le cache
                         let nomItem = "Élément inconnu";
                         let cal = 0;
                         if (c.type_element === 'recette') {
@@ -485,7 +472,7 @@
                             <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
                                 <div>
                                     <span class="font-bold text-slate-800">${nomItem}</span>
-                                    <span class="text-slate-400 block text-[10px]">${c.repas_type || 'Repas'} - Qte: ${c.quantite}</span>
+                                    <span class="text-slate-400 block text-[10px]">${c.repas || 'Repas'} - Qte: ${c.quantite}</span>
                                 </div>
                                 <button onclick="supprimerConsommation(${c.id})" class="text-rose-500 font-bold hover:text-rose-700 text-xs px-2 py-1">✕</button>
                             </div>
@@ -493,7 +480,6 @@
                     }).join('');
                 }
 
-                // Mettre à jour les stats du jour
                 document.getElementById('stat-cal').innerText = Math.round(totaux.calories);
                 document.getElementById('stat-budget').innerText = `${totaux.cout.toFixed(2)}€`;
 
@@ -503,13 +489,52 @@
             }
         }
 
+        async function chargerBilanSemaine() {
+            if (!profilActif) return;
+            const profilObj = profilsCache.find(p => p.nom === profilActif) || {};
+            
+            // Calculs objectifs semaine basés sur les objectifs journaliers * 7
+            document.getElementById('obj-semaine-cal').innerText = (profilObj.calories || 2000) * 7 + ' kcal';
+            document.getElementById('obj-semaine-prot').innerText = (profilObj.proteines || 150) * 7 + 'g';
+            document.getElementById('obj-semaine-gluc').innerText = (profilObj.glucides || 200) * 7 + 'g';
+            document.getElementById('obj-semaine-lip').innerText = (profilObj.lipides || 70) * 7 + 'g';
+            document.getElementById('obj-semaine-fibres').innerText = (profilObj.fibres || 30) * 7 + 'g';
+            document.getElementById('obj-semaine-sucre').innerText = (profilObj.sucre || 50) * 7 + 'g';
+            document.getElementById('objectif-budget-prevu').innerText = (profilObj.budget || 100) + '€';
+
+            try {
+                let totalSemaineCal = 0;
+                let jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+                
+                for (let jour of jours) {
+                    const res = await fetch(`/api/suivi?profil=${encodeURIComponent(profilActif)}&jour=${encodeURIComponent(jour)}`);
+                    const consommations = await res.json();
+                    if (Array.isArray(consommations)) {
+                        consommations.forEach(c => {
+                            let cal = 0;
+                            if (c.type_element === 'recette') {
+                                const rec = recettesCache.find(r => r.id == c.element_id);
+                                if (rec) cal = rec.calories || 0;
+                            } else {
+                                const ing = ingredientsCache.find(i => i.id == c.element_id);
+                                if (ing) cal = ing.calories || 0;
+                            }
+                            totalSemaineCal += cal * (c.quantite || 1);
+                        });
+                    }
+                }
+                document.getElementById('suivi-semaine-cal-tot').innerText = Math.round(totalSemaineCal) + ' kcal';
+            } catch (e) {
+                console.error("Erreur bilan semaine", e);
+            }
+        }
+
         async function ajouterConsommation(event) {
             event.preventDefault();
             const inputNom = document.getElementById('recherche-recette-input').value.trim();
             const categorieRepas = document.getElementById('conso-cat').value;
             const quantite = parseFloat(document.getElementById('conso-qte').value) || 1;
 
-            // Retrouver l'ID de la recette ou de l'aliment correspondant au texte saisi
             let elementId = null;
             let typeElement = 'recette';
 
@@ -540,11 +565,12 @@
                         type_element: typeElement,
                         element_id: elementId,
                         quantite: quantite,
-                        repas_type: categorieRepas
+                        repas: categorieRepas
                     })
                 });
                 document.getElementById('recherche-recette-input').value = '';
                 chargerSuiviJour();
+                chargerBilanSemaine();
             } catch (e) {
                 console.error("Erreur ajout consommation", e);
             }
@@ -554,6 +580,7 @@
             try {
                 await fetch(`/api/suivi/${id}`, { method: 'DELETE' });
                 chargerSuiviJour();
+                chargerBilanSemaine();
             } catch (e) {
                 console.error("Erreur suppression", e);
             }
@@ -596,7 +623,6 @@
                 container.innerHTML = `<p class="text-xs text-slate-400 italic">Aucune recommandation disponible.</p>`;
                 return;
             }
-            // Afficher 2 recettes aléatoires ou recommandées par défaut
             const suggestions = recettesCache.slice(0, 2);
             container.innerHTML = suggestions.map(r => `
                 <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex justify-between items-center text-xs">
@@ -620,16 +646,16 @@
                         type_element: 'recette',
                         element_id: idRecette,
                         quantite: 1,
-                        repas_type: 'Déjeuner'
+                        repas: 'Déjeuner'
                     })
                 });
                 chargerSuiviJour();
+                chargerBilanSemaine();
             } catch (e) {
                 console.error("Erreur ajout rapide", e);
             }
         }
 
-        // Gestion des modales Profil & Compte
         function ouvrirModalPersonne(mode) {
             const modal = document.getElementById('modal-personne');
             modal?.classList.remove('hidden');
@@ -641,6 +667,7 @@
                     document.getElementById('personne-cal').value = profilObj.calories || 2000;
                     document.getElementById('personne-eau').value = profilObj.eau || 2.0;
                     document.getElementById('personne-budget').value = profilObj.budget || 100;
+                    document.getElementById('personne-budget-periode').value = profilObj.budget_periode || 'semaine';
                     document.getElementById('personne-prot').value = profilObj.proteines || 150;
                     document.getElementById('personne-gluc').value = profilObj.glucides || 200;
                     document.getElementById('personne-lip').value = profilObj.lipides || 70;
