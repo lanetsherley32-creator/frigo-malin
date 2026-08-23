@@ -149,8 +149,9 @@
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Formulaire ajout de repas -->
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-                    <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">➕ Enregistrer une consommation</h3>
-                    <form onsubmit="ajouterConsommation(event)" class="space-y-3">
+                    <h3 id="form-conso-title" class="font-bold text-xs text-slate-700 uppercase tracking-wider">➕ Enregistrer une consommation</h3>
+                    <form id="form-conso" onsubmit="soumettreConsommation(event)" class="space-y-3">
+                        <input type="hidden" id="conso-id-edit">
                         <div>
                             <label class="block text-[11px] font-bold text-slate-500 mb-1">Type de repas</label>
                             <select id="conso-cat" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium">
@@ -163,11 +164,8 @@
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-slate-500 mb-1">Recette ou aliment</label>
-                            <!-- Champ de recherche relié à la liste dynamique -->
                             <input type="text" id="recherche-recette-input" list="liste-recettes-options" placeholder="-- Choisir ou taper pour filtrer --" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium" required>
-                            <datalist id="liste-recettes-options">
-                                <!-- Rempli dynamiquement par JS -->
-                            </datalist>
+                            <datalist id="liste-recettes-options"></datalist>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
                             <div>
@@ -187,7 +185,10 @@
                                 </select>
                             </div>
                         </div>
-                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm">Ajouter au suivi</button>
+                        <div class="flex gap-2">
+                            <button type="submit" id="btn-submit-conso" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm">Ajouter au suivi</button>
+                            <button type="button" id="btn-annuler-edit" onclick="annulerEditionConso()" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs px-3 py-2.5 rounded-xl transition-all">Annuler</button>
+                        </div>
                     </form>
 
                     <!-- Suivi Eau -->
@@ -197,9 +198,9 @@
                             <span class="text-xs font-bold text-blue-600"><span id="aff-conso-eau">0</span>L / <span id="aff-obj-eau">2.0</span>L</span>
                         </div>
                         <div class="grid grid-cols-4 gap-1.5">
-                            <button type="button" onclick="ajouterEau(-0.25)" class="bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold py-1.5 rounded-lg">-0.25L</button>
-                            <button type="button" onclick="ajouterEau(0.25)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-1.5 rounded-lg">+0.25L</button>
-                            <button type="button" onclick="ajouterEau(0.5)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-1.5 rounded-lg">+0.5L</button>
+                            <button type="button" onclick="modifierEau(-0.25)" class="bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold py-1.5 rounded-lg">-0.25L</button>
+                            <button type="button" onclick="modifierEau(0.25)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-1.5 rounded-lg">+0.25L</button>
+                            <button type="button" onclick="modifierEau(0.5)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-1.5 rounded-lg">+0.5L</button>
                             <button type="button" onclick="reinitialiserEau()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-bold py-1.5 rounded-lg">Reset</button>
                         </div>
                     </div>
@@ -295,30 +296,6 @@
         </div>
     </div>
 
-    <div id="modal-compte" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
-            <h3 class="font-bold text-sm text-slate-800">👤 Paramètres du Compte</h3>
-            <form onsubmit="sauvegarderCompte(event)" class="space-y-3 text-xs">
-                <div>
-                    <label class="block font-bold text-slate-500 mb-1">Nom d'utilisateur</label>
-                    <input type="text" id="compte-nom" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                </div>
-                <div>
-                    <label class="block font-bold text-slate-500 mb-1">Email</label>
-                    <input type="email" id="compte-email" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                </div>
-                <div>
-                    <label class="block font-bold text-slate-500 mb-1">Nouveau mot de passe</label>
-                    <input type="password" id="compte-mdp" placeholder="Laisser vide si inchangé" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
-                </div>
-                <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" onclick="fermerModalCompte()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Annuler</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl">Mettre à jour</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- SCRIPTS INTÉGRÉS -->
     <script>
         const socket = io();
@@ -327,6 +304,7 @@
         let profilsCache = [];
         let recettesCache = [];
         let ingredientsCache = [];
+        let suiviCache = [];
 
         document.addEventListener("DOMContentLoaded", () => {
             chargerInfosUtilisateur();
@@ -366,7 +344,7 @@
 
                 remplirSelectProfils();
                 remplirDatalistRecettes();
-                chargerSuiviJour();
+                await chargerSuiviJour();
                 chargerBilanSemaine();
             } catch (e) {
                 console.error("Erreur initialisation", e);
@@ -406,10 +384,8 @@
         function remplirDatalistRecettes() {
             const datalist = document.getElementById('liste-recettes-options');
             if (!datalist) return;
-
-            const optionsRecettes = recettesCache.map(r => `<option value="${r.nom}">Recette : ${r.nom}</option>`).join('');
-            const optionsIngs = ingredientsCache.map(i => `<option value="${i.nom}">Aliment : ${i.nom}</option>`).join('');
-
+            const optionsRecettes = recettesCache.map(r => `<option value="${r.nom}" data-type="recette" data-id="${r.id}">Recette : ${r.nom}</option>`).join('');
+            const optionsIngs = ingredientsCache.map(i => `<option value="${i.nom}" data-type="ingredient" data-id="${i.id}">Aliment : ${i.nom}</option>`).join('');
             datalist.innerHTML = optionsRecettes + optionsIngs;
         }
 
@@ -426,6 +402,7 @@
             }
             document.getElementById('libelle-jour-conso').innerText = jour;
             document.getElementById('libelle-jour-eau').innerText = jour;
+            annulerEditionConso();
             chargerSuiviJour();
         }
 
@@ -433,12 +410,13 @@
             if (!profilActif) return;
             try {
                 const res = await fetch(`/api/suivi?profil=${encodeURIComponent(profilActif)}&jour=${encodeURIComponent(jourActif)}`);
-                const consommations = await res.json();
+                suiviCache = await res.json();
 
                 const resEau = await fetch(`/api/eau?profil=${encodeURIComponent(profilActif)}&jour=${encodeURIComponent(jourActif)}`);
                 const eauData = await resEau.json();
-                document.getElementById('aff-conso-eau').innerText = eauData.quantite || 0;
-                document.getElementById('stat-eau').innerText = `${eauData.quantite || 0}L`;
+                const qteEau = eauData.quantite || 0;
+                document.getElementById('aff-conso-eau').innerText = qteEau;
+                document.getElementById('stat-eau').innerText = `${qteEau}L`;
 
                 const profilObj = profilsCache.find(p => p.nom === profilActif) || {};
                 document.getElementById('obj-cal').innerText = profilObj.calories || 2000;
@@ -452,140 +430,260 @@
                 let totaux = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 };
                 const container = document.getElementById('liste-conso-container');
 
-                if (!consommations || consommations.length === 0) {
+                if (!suiviCache || suiviCache.length === 0) {
                     container.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-4">Aucune consommation enregistrée pour ce jour.</p>`;
                 } else {
-                    container.innerHTML = consommations.map(c => {
-                        let nomItem = "Élément inconnu";
-                        let cal = 0;
+                    container.innerHTML = suiviCache.map(c => {
+                        let nomItem = c.nom_element || "Élément";
+                        let cal = 0, prot = 0, gluc = 0, lip = 0, fib = 0, suc = 0, prix = 0;
+
                         if (c.type_element === 'recette') {
                             const rec = recettesCache.find(r => r.id == c.element_id);
-                            if (rec) { nomItem = rec.nom; cal = rec.calories || 0; }
+                            if (rec) {
+                                nomItem = rec.nom;
+                                const qte = c.quantite || 1;
+                                cal = (rec.calories || 0) * qte;
+                                prot = (rec.proteines || 0) * qte;
+                                gluc = (rec.glucides || 0) * qte;
+                                lip = (rec.lipides || 0) * qte;
+                                fib = (rec.fibres || 0) * qte;
+                                suc = (rec.sucre || 0) * qte;
+                                prix = (rec.cout_par_part !== undefined ? rec.cout_par_part : (rec.cout || rec.prix || 0)) * qte;
+                            }
                         } else {
                             const ing = ingredientsCache.find(i => i.id == c.element_id);
-                            if (ing) { nomItem = ing.nom; cal = ing.calories || 0; }
+                            if (ing) {
+                                nomItem = ing.nom;
+                                const qte = c.quantite || 1;
+                                cal = (ing.calories || 0) * qte;
+                                prot = (ing.proteines || 0) * qte;
+                                gluc = (ing.glucides || 0) * qte;
+                                lip = (ing.lipides || 0) * qte;
+                                fib = (ing.fibres || 0) * qte;
+                                suc = (ing.sucre || 0) * qte;
+                                prix = (ing.prix || ing.cout || 0) * qte;
+                            }
                         }
 
-                        totaux.calories += cal * (c.quantite || 1);
+                        totaux.calories += cal;
+                        totaux.proteines += prot;
+                        totaux.glucides += gluc;
+                        totaux.lipides += lip;
+                        totaux.fibres += fib;
+                        totaux.sucre += sucre = suc;
+                        totaux.cout += prix;
 
                         return `
                             <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
                                 <div>
                                     <span class="font-bold text-slate-800">${nomItem}</span>
-                                    <span class="text-[10px] text-slate-400 block">${c.categorie} • Qte: ${c.quantite}</span>
+                                    <span class="text-[10px] text-slate-500 block">${c.categorie_repas} - ${c.quantite} ${c.unite} (~${Math.round(cal)} kcal)</span>
                                 </div>
-                                <button onclick="supprimerConsommation(${c.id})" class="text-red-500 hover:text-red-700 font-bold">Supprimer</button>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="preparerModificationConso(${c.id})" class="text-blue-500 hover:text-blue-700 font-bold px-2 py-1 bg-white border border-slate-200 rounded-lg">Modifier</button>
+                                    <button onclick="supprimerConsommation(${c.id})" class="text-red-500 hover:text-red-700 font-bold px-2 py-1 bg-white border border-slate-200 rounded-lg">Supprimer</button>
+                                </div>
                             </div>
                         `;
                     }).join('');
                 }
 
                 document.getElementById('stat-cal').innerText = Math.round(totaux.calories);
+                document.getElementById('stat-prot').innerText = Math.round(totaux.proteines);
+                document.getElementById('stat-gluc').innerText = Math.round(totaux.glucides);
+                document.getElementById('stat-lip').innerText = Math.round(totaux.lipides);
+                document.getElementById('stat-fibres').innerText = Math.round(totaux.fibres);
+                document.getElementById('stat-sucre').innerText = Math.round(totaux.sucre);
+                document.getElementById('stat-budget').innerText = `${totaux.cout.toFixed(2)}€`;
+
+                chargerBilanSemaine();
+                afficherRecommandations(totaux);
             } catch (e) {
-                console.error("Erreur chargement suivi", e);
+                console.error("Erreur chargement suivi jour", e);
             }
         }
 
-        async function ajouterConsommation(event) {
-            event.preventDefault();
-            if (!profilActif) {
-                alert("Veuillez sélectionner un profil.");
-                return;
-            }
+        async function chargerBilanSemaine() {
+            if (!profilActif) return;
+            try {
+                const res = await fetch(`/api/suivi-semaine?profil=${encodeURIComponent(profilActif)}`);
+                if (!res.ok) return;
+                const semData = await res.json();
+                
+                document.getElementById('suivi-semaine-cal-tot').innerText = `${Math.round(semData.calories || 0)} kcal`;
+                document.getElementById('suivi-semaine-prot').innerText = `${Math.round(semData.proteines || 0)}g`;
+                document.getElementById('suivi-semaine-gluc').innerText = `${Math.round(semData.glucides || 0)}g`;
+                document.getElementById('suivi-semaine-lip').innerText = `${Math.round(semData.lipides || 0)}g`;
+                document.getElementById('suivi-semaine-fibres').innerText = `${Math.round(semData.fibres || 0)}g`;
+                document.getElementById('suivi-semaine-sucre').innerText = `${Math.round(semData.sucre || 0)}g`;
+                document.getElementById('suivi-semaine-budget-reel').innerText = `${(semData.budget || 0).toFixed(2)}€`;
 
-            const categorie = document.getElementById('conso-cat').value;
+                const profilObj = profilsCache.find(p => p.nom === profilActif) || {};
+                document.getElementById('obj-semaine-cal').innerText = (profilObj.calories || 2000) * 7;
+                document.getElementById('obj-semaine-prot').innerText = (profilObj.proteines || 150) * 7;
+                document.getElementById('obj-semaine-gluc').innerText = (profilObj.glucides || 200) * 7;
+                document.getElementById('obj-semaine-lip').innerText = (profilObj.lipides || 70) * 7;
+                document.getElementById('obj-semaine-fibres').innerText = (profilObj.fibres || 30) * 7;
+                document.getElementById('obj-semaine-sucre').innerText = (profilObj.sucre || 50) * 7;
+                document.getElementById('objectif-budget-prevu').innerText = `${profilObj.budget || 100}€`;
+            } catch (e) {
+                console.error("Erreur bilan semaine", e);
+            }
+        }
+
+        async function soumettreConsommation(event) {
+            event.preventDefault();
+            const idEdit = document.getElementById('conso-id-edit').value;
+            const categorie_repas = document.getElementById('conso-cat').value;
             const nomSaisi = document.getElementById('recherche-recette-input').value.trim();
             const quantite = parseFloat(document.getElementById('conso-qte').value) || 1;
+            const unite = document.getElementById('conso-unite').value;
 
-            // Chercher si c'est une recette ou un ingrédient
             let type_element = 'recette';
             let element_id = null;
 
-            const recetteTrouvee = recettesCache.find(r => r.nom.toLowerCase() === nomSaisi.toLowerCase());
-            if (recetteTrouvee) {
-                element_id = recetteTrouvee.id;
+            const rec = recettesCache.find(r => r.nom.toLowerCase() === nomSaisi.toLowerCase());
+            if (rec) {
+                element_id = rec.id;
+                type_element = 'recette';
             } else {
-                const ingTrouve = ingredientsCache.find(i => i.nom.toLowerCase() === nomSaisi.toLowerCase());
-                if (ingTrouve) {
+                const ing = ingredientsCache.find(i => i.nom.toLowerCase() === nomSaisi.toLowerCase());
+                if (ing) {
+                    element_id = ing.id;
                     type_element = 'ingredient';
-                    element_id = ingTrouve.id;
                 }
             }
 
             if (!element_id) {
-                alert("⚠️ Élément introuvable. Veuillez choisir une recette ou un aliment existant dans la liste.");
+                alert("Veuillez sélectionner une recette ou un aliment valide dans la liste.");
                 return;
             }
 
-            // Construction de l'objet basé sur votre structure SQL : id, profil, jour, categorie, type_element, element_id, quantite
-            const payload = {
-                profil: profilActif,
-                jour: jourActif,
-                categorie: categorie,
-                type_element: type_element,
-                element_id: element_id,
-                quantite: quantite
-            };
+            const payload = { profil: profilActif, jour: jourActif, categorie_repas, type_element, element_id, quantite, unite, nom_element: nomSaisi };
 
             try {
-                const res = await fetch('/api/suivi', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                let res;
+                if (idEdit) {
+                    res = await fetch(`/api/suivi/${idEdit}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await fetch('/api/suivi', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
 
                 if (res.ok) {
-                    document.getElementById('recherche-recette-input').value = '';
-                    document.getElementById('conso-qte').value = '1';
+                    annulerEditionConso();
                     chargerSuiviJour();
-                    chargerBilanSemaine();
                 } else {
-                    alert("❌ Erreur lors de l'enregistrement de la consommation.");
+                    alert("Erreur lors de l'enregistrement.");
                 }
             } catch (e) {
-                console.error("Erreur ajout consommation", e);
+                console.error("Erreur requête consommation", e);
             }
         }
 
+        function preparerModificationConso(id) {
+            const item = suiviCache.find(c => c.id == id);
+            if (!item) return;
+
+            document.getElementById('conso-id-edit').value = item.id;
+            document.getElementById('conso-cat').value = item.categorie_repas;
+            document.getElementById('conso-qte').value = item.quantite;
+            document.getElementById('conso-unite').value = item.unite;
+
+            let nom = item.nom_element || '';
+            if (!nom) {
+                if (item.type_element === 'recette') {
+                    const r = recettesCache.find(x => x.id == item.element_id);
+                    if (r) nom = r.nom;
+                } else {
+                    const i = ingredientsCache.find(x => x.id == item.element_id);
+                    if (i) nom = i.nom;
+                }
+            }
+            document.getElementById('recherche-recette-input').value = nom;
+            document.getElementById('form-conso-title').innerText = "✏️ Modifier la consommation";
+            document.getElementById('btn-submit-conso').innerText = "Mettre à jour";
+            document.getElementById('btn-annuler-edit').classList.remove('hidden');
+        }
+
+        function annulerEditionConso() {
+            document.getElementById('conso-id-edit').value = '';
+            document.getElementById('form-conso').reset();
+            document.getElementById('form-conso-title').innerText = "➕ Enregistrer une consommation";
+            document.getElementById('btn-submit-conso').innerText = "Ajouter au suivi";
+            document.getElementById('btn-annuler-edit').classList.add('hidden');
+        }
+
         async function supprimerConsommation(id) {
+            if (!confirm("Voulez-vous supprimer cette consommation ?")) return;
             try {
                 const res = await fetch(`/api/suivi/${id}`, { method: 'DELETE' });
                 if (res.ok) {
                     chargerSuiviJour();
-                    chargerBilanSemaine();
+                } else {
+                    alert("Impossible de supprimer l'élément.");
                 }
             } catch (e) {
                 console.error("Erreur suppression", e);
             }
         }
 
-        async function chargerBilanSemaine() {
-            // Logique de chargement du bilan global de la semaine si nécessaire
-        }
+        async function modifierEau(delta) {
+            if (!profilActif) return;
+            const affEau = document.getElementById('aff-conso-eau');
+            let actuelle = parseFloat(affEau.innerText) || 0;
+            let nouvelle = Math.max(0, actuelle + delta);
 
-        function ouvrirModalPersonne(mode) {
-            document.getElementById('modal-personne').classList.remove('hidden');
-        }
-
-        function fermerModalPersonne() {
-            document.getElementById('modal-personne').classList.add('hidden');
-        }
-
-        function ouvrirModalCompte() {
-            document.getElementById('modal-compte').classList.remove('hidden');
-        }
-
-        function fermerModalCompte() {
-            document.getElementById('modal-compte').classList.add('hidden');
-        }
-
-        async function ajouterEau(val) {
-            // Gestion eau
+            try {
+                await fetch('/api/eau', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profil: profilActif, jour: jourActif, quantite: nouvelle })
+                });
+                chargerSuiviJour();
+            } catch (e) {
+                console.error("Erreur eau", e);
+            }
         }
 
         async function reinitialiserEau() {
-            // Reset eau
+            if (!profilActif) return;
+            try {
+                await fetch('/api/eau', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profil: profilActif, jour: jourActif, quantite: 0 })
+                });
+                chargerSuiviJour();
+            } catch (e) {
+                console.error("Erreur reset eau", e);
+            }
         }
+
+        function afficherRecommandations(totaux) {
+            const container = document.getElementById('container-recettes-recommandees');
+            if (!container || recettesCache.length === 0) return;
+            
+            const triees = [...recettesCache].sort((a, b) => (b.proteines || 0) - (a.proteines || 0));
+            container.innerHTML = triees.slice(0, 2).map(r => `
+                <div class="bg-slate-50 p-2 rounded-xl border border-slate-100 text-xs">
+                    <span class="font-bold text-slate-800">${r.nom}</span>
+                    <span class="text-[10px] text-slate-500 block">Prot: ${r.proteines || 0}g | ${r.calories || 0} kcal</span>
+                </div>
+            `).join('');
+        }
+
+        function ouvrirModalPersonne() { document.getElementById('modal-personne').classList.remove('hidden'); }
+        function fermerModalPersonne() { document.getElementById('modal-personne').classList.add('hidden'); }
+        function ouvrirModalCompte() { document.getElementById('modal-compte').classList.remove('hidden'); }
+        function fermerModalCompte() { document.getElementById('modal-compte').classList.add('hidden'); }
     </script>
 </body>
 </html>

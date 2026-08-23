@@ -74,29 +74,52 @@
             </div>
         </section>
 
-        <!-- Filtrage Avancé par Catégories -->
-        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3 text-xs">
-            <h3 class="font-bold text-slate-800 flex items-center gap-2">⚙️ Filtrage avancé des catégories (Génération & Sélection)</h3>
-            <div class="flex flex-wrap gap-4 items-center">
-                <label class="flex items-center gap-1.5 font-medium cursor-pointer">
-                    <input type="checkbox" id="filtre-cat-pt-dej" checked onchange="mettreAJourDatalists()" class="rounded border-slate-300"> Petit dej
-                </label>
-                <label class="flex items-center gap-1.5 font-medium cursor-pointer">
-                    <input type="checkbox" id="filtre-cat-midi" checked onchange="mettreAJourDatalists()" class="rounded border-slate-300"> Repas midi
-                </label>
-                <label class="flex items-center gap-1.5 font-medium cursor-pointer">
-                    <input type="checkbox" id="filtre-cat-soir" checked onchange="mettreAJourDatalists()" class="rounded border-slate-300"> Repas soir
-                </label>
-                <label class="flex items-center gap-1.5 font-medium cursor-pointer">
-                    <input type="checkbox" id="filtre-cat-collation" checked onchange="mettreAJourDatalists()" class="rounded border-slate-300"> Collation / Grignotage
-                </label>
+        <!-- Filtrage Avancé par Catégories (Accordéon 16 choix + 4 obligatoires) -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 text-xs overflow-hidden">
+            <button onclick="toggleAccordeonFiltres()" class="w-full p-4 flex justify-between items-center font-bold text-slate-800 bg-slate-50 hover:bg-slate-100 transition-all">
+                <span class="flex items-center gap-2">⚙️ Filtrage Avancé des Catégories (16 options & 4 types de repas obligatoires)</span>
+                <span id="accordeon-icon" class="text-sm font-bold text-slate-500">▼</span>
+            </button>
+            <div id="accordeon-content" class="p-4 space-y-4 hidden border-t border-slate-100">
+                <!-- 4 Choix Principaux Obligatoires -->
+                <div class="space-y-1.5">
+                    <span class="font-bold text-blue-900 block text-[11px]">Types de repas principaux (4 obligatoires) :</span>
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <label class="flex items-center gap-1.5 font-medium cursor-pointer"><input type="checkbox" id="filtre-cat-pt-dej" checked onchange="mettreAJourDatalists()" class="rounded border-slate-300"> Petit dej</label>
+                        <label class="flex items-center gap-1.5 font-medium cursor-pointer"><input type="checkbox" id="filtre-cat-midi" checked onchange="mettreAJourDatalists()" class="rounded border-slate-300"> Repas midi</label>
+                        <label class="flex items-center gap-1.5 font-medium cursor-pointer"><input type="checkbox" id="filtre-cat-soir" checked onchange="mettreAJourDatalists()" class="rounded border-slate-300"> Repas soir</label>
+                        <label class="flex items-center gap-1.5 font-medium cursor-pointer"><input type="checkbox" id="filtre-cat-collation" checked onchange="mettreAJourDatalists()" class="rounded border-slate-300"> Collation / Grignotage</label>
+                    </div>
+                </div>
+                <!-- 16 Sous-catégories détaillées additionnelles -->
+                <div class="space-y-1.5 pt-2 border-t border-slate-100">
+                    <span class="font-bold text-slate-600 block text-[11px]">Sous-catégories et régimes cibles (16 choix spécifiques) :</span>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Végétarien</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Végan</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Sans gluten</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Sans lactose</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Hypocalorique</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Hyperprotéiné</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Keto / Faible glucides</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Rapide (< 20 min)</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Économique</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Chaud / Cuisiné</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Froid / Salade</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Soupe / Velouté</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Poisson / Mer</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Viande blanche</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Viande rouge</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-16 rounded border-slate-300" checked onchange="mettreAJourDatalists()"> Snack / Divers</label>
+                    </div>
+                </div>
             </div>
         </section>
 
         <!-- Actions Avancées Planification -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-2 justify-between items-center text-xs print:hidden">
             <button onclick="genererSemaineAleatoire()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
-                🎲 Générer la semaine aléatoirement
+                🎲 Générer la semaine aléatoirement (4 repas/jour)
             </button>
             <button onclick="genererSemaineAleatoireOptimisee()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
                 ⚡ Génération Intelligente (Objectifs & Filtres)
@@ -117,11 +140,12 @@
         </div>
     </div>
 
-    <!-- Datalists séparées pour cibler chaque type de repas selon les filtres -->
+    <!-- Datalists séparées pour cibler chaque type de repas et les en-cas libres -->
     <datalist id="liste-recettes-pt-dej"></datalist>
     <datalist id="liste-recettes-midi"></datalist>
     <datalist id="liste-recettes-soir"></datalist>
     <datalist id="liste-recettes-collation"></datalist>
+    <datalist id="liste-ingredients-recettes-global"></datalist>
 
     <!-- MODALE GESTION PROFIL -->
     <div id="modal-personne" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
@@ -155,6 +179,7 @@
     <script>
         const socket = io();
         let recettesCache = [];
+        let ingredientsCache = [];
         let profilsCache = [];
         let menusCache = [];
         let saveTimeout = null;
@@ -185,12 +210,16 @@
 
         async function initPlanification() {
             try {
-                const [resProfils, resRecettes] = await Promise.all([
+                const [resProfils, resRecettes, resIngredients] = await Promise.all([
                     fetch('/api/personnes-objectifs'), 
-                    fetch('/api/recettes')
+                    fetch('/api/recettes'),
+                    fetch('/api/ingredients').catch(() => ({ ok: false }))
                 ]);
                 profilsCache = await resProfils.json();
                 recettesCache = await resRecettes.json();
+                if (resIngredients.ok) {
+                    ingredientsCache = await resIngredients.json();
+                }
                 
                 const select = document.getElementById('select-profil');
                 if (!select) return;
@@ -216,6 +245,18 @@
                 afficherSuggestionsVertes();
             } catch (err) {
                 console.error("Erreur d'initialisation de la planification", err);
+            }
+        }
+
+        function toggleAccordeonFiltres() {
+            const content = document.getElementById('accordeon-content');
+            const icon = document.getElementById('accordeon-icon');
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                icon.innerText = '▲';
+            } else {
+                content.classList.add('hidden');
+                icon.innerText = '▼';
             }
         }
 
@@ -291,7 +332,7 @@
                                 <span class="font-bold text-slate-800 text-sm">${jour}</span>
                                 <div id="totaux-${jour}" class="flex items-center gap-3 text-[11px] font-semibold text-slate-600"></div>
                             </div>
-                            <!-- Grille sur 5 colonnes incluant l'en-cas libre -->
+                            <!-- Grille sur 5 colonnes (4 repas obligatoires + en-cas libre multiple) -->
                             <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
                                 <div>
                                     <label class="block text-[10px] text-slate-400 font-bold mb-1">Petit dej</label>
@@ -310,8 +351,8 @@
                                     <input type="text" list="liste-recettes-collation" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'dessertcollation', this.value)" value="${getNomRecette(menuJour.dessertcollation)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] text-amber-600 font-bold mb-1">🍎 En-cas libre (Ex: banane, pomme)</label>
-                                    <input type="text" placeholder="Saisie libre..." onchange="sauvegarderRepasParNom('${jour}', 'encas_libre', this.value)" value="${menuJour.encas_libre || ''}" class="w-full bg-amber-50/50 border border-amber-200 p-2 rounded-xl outline-none font-medium">
+                                    <label class="block text-[10px] text-amber-600 font-bold mb-1">🍎 En-cas libre (Multiples, ex: banane, pomme)</label>
+                                    <input type="text" list="liste-ingredients-recettes-global" placeholder="Sélection multiple..." onchange="sauvegarderRepasParNom('${jour}', 'encas_libre', this.value)" value="${menuJour.encas_libre || ''}" class="w-full bg-amber-50/50 border border-amber-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                             </div>
                         </div>
@@ -330,26 +371,56 @@
             return r ? r.nom : '';
         }
 
+        function calculerCoutUnitaire(rec) {
+            if (!rec) return 0;
+            return rec.cout_par_part !== undefined ? parseFloat(rec.cout_par_part) || 0 : (parseFloat(rec.cout || rec.prix) || 0);
+        }
+
         function recalculTotauxJour(jour) {
             const profil = document.getElementById('select-profil')?.value;
             const profilObj = profilsCache.find(p => p.nom === profil) || { calories: 2000 };
             const menuJour = menusCache.find(m => m.jour === jour) || {};
 
             let calJour = 0, protJour = 0, glucJour = 0, lipJour = 0, coutJour = 0;
+            
+            // 1. Calcul via les 4 repas principaux
             ['petitdejeuner', 'repas1', 'repas2', 'dessertcollation'].forEach(champ => {
                 const recId = menuJour[champ];
                 if (recId) {
                     const rec = recettesCache.find(r => r.id == recId);
                     if (rec) {
-                        calJour += rec.calories || 0;
-                        protJour += rec.proteines || 0;
-                        glucJour += rec.glucides || 0;
-                        lipJour += rec.lipides || 0;
-                        const coutUnitaire = rec.cout_par_part !== undefined ? rec.cout_par_part : (rec.cout || rec.prix || 0);
-                        coutJour += coutUnitaire;
+                        calJour += parseFloat(rec.calories) || 0;
+                        protJour += parseFloat(rec.proteines) || 0;
+                        glucJour += parseFloat(rec.glucides) || 0;
+                        lipJour += parseFloat(rec.lipides) || 0;
+                        coutJour += calculerCoutUnitaire(rec);
                     }
                 }
             });
+
+            // 2. Intégration des en-cas libres multiples (séparés par des virgules)
+            if (menuJour.encas_libre) {
+                const elementsEncas = menuJour.encas_libre.split(',').map(e => e.trim()).filter(Boolean);
+                elementsEncas.forEach(nomEl => {
+                    const recMatch = recettesCache.find(r => r.nom.toLowerCase() === nomEl.toLowerCase());
+                    if (recMatch) {
+                        calJour += parseFloat(recMatch.calories) || 0;
+                        protJour += parseFloat(recMatch.proteines) || 0;
+                        glucJour += parseFloat(recMatch.glucides) || 0;
+                        lipJour += parseFloat(recMatch.lipides) || 0;
+                        coutJour += calculerCoutUnitaire(recMatch);
+                    } else {
+                        const ingMatch = ingredientsCache.find(i => i.nom && i.nom.toLowerCase() === nomEl.toLowerCase());
+                        if (ingMatch) {
+                            calJour += parseFloat(ingMatch.calories) || 50;
+                            protJour += parseFloat(ingMatch.proteines) || 2;
+                            glucJour += parseFloat(ingMatch.glucides) || 5;
+                            lipJour += parseFloat(ingMatch.lipides) || 1;
+                            coutJour += parseFloat(ingMatch.prix || ingMatch.cout) || 0.50;
+                        }
+                    }
+                });
+            }
 
             const containerTotaux = document.getElementById(`totaux-${jour}`);
             if (containerTotaux) {
@@ -363,7 +434,6 @@
             }
         }
 
-        // Met à jour chaque datalist selon les filtres avancés actifs
         function mettreAJourDatalists() {
             const okPtDej = document.getElementById('filtre-cat-pt-dej')?.checked;
             const okMidi = document.getElementById('filtre-cat-midi')?.checked;
@@ -385,8 +455,8 @@
 
             const genererOptionsHtml = (pool) => {
                 return pool.map(r => {
-                    const coutUnitaire = r.cout_par_part !== undefined ? r.cout_par_part : (r.cout || r.prix || 0);
-                    return `<option value="${r.nom}">[P: ${r.proteines || 0}g | ${coutUnitaire}€] - ${r.type_repas || 'Général'}</option>`;
+                    const coutUnitaire = calculerCoutUnitaire(r);
+                    return `<option value="${r.nom}">[P: ${r.proteines || 0}g | ${coutUnitaire.toFixed(2)}€] - ${r.type_repas || 'Général'}</option>`;
                 }).join('');
             };
 
@@ -394,6 +464,14 @@
             document.getElementById('liste-recettes-midi').innerHTML = okMidi ? genererOptionsHtml(poolMidi) : '';
             document.getElementById('liste-recettes-soir').innerHTML = okSoir ? genererOptionsHtml(poolSoir) : '';
             document.getElementById('liste-recettes-collation').innerHTML = okCollation ? genererOptionsHtml(poolCollation) : '';
+
+            // Datalist globale pour les en-cas libres (mélange ingrédients existants + recettes existantes)
+            let optionsGlobales = recettesCache.map(r => `<option value="${r.nom}">Recette : ${r.nom}</option>`).join('');
+            if (ingredientsCache.length > 0) {
+                optionsGlobales += ingredientsCache.map(i => `<option value="${i.nom}">Ingrédient : ${i.nom}</option>`).join('');
+            }
+            const dlEnc = document.getElementById('liste-ingredients-recettes-global');
+            if (dlEnc) dlEnc.innerHTML = optionsGlobales;
         }
 
         async function sauvegarderRepasParNom(jour, typeRepas, valeurSaisie) {
@@ -460,7 +538,7 @@
                 menuJour.repas1 = r2;
                 menuJour.repas2 = r3;
                 menuJour.dessertcollation = r4;
-                // La case 'encas_libre' n'est volontairement pas modifiée ici pour préserver la saisie utilisateur.
+                // La case 'encas_libre' est préservée.
 
                 await fetch('/api/menu-prevu', {
                     method: 'POST',
@@ -469,7 +547,7 @@
                 });
             }
             await chargerMenuSemaine();
-            alert("Semaine générée aléatoirement (les en-cas libres ont été préservés) !");
+            alert("Semaine générée aléatoirement (les 4 repas par jour sont remplis, en-cas libres préservés) !");
         }
 
         async function genererSemaineAleatoireOptimisee() {
@@ -477,10 +555,10 @@
             if (!profil || recettesCache.length === 0) return;
             
             const recettesOptimisees = [...recettesCache].sort((a, b) => {
-                const coutA = a.cout_par_part !== undefined ? a.cout_par_part : (a.cout || a.prix || 0);
-                const coutB = b.cout_par_part !== undefined ? b.cout_par_part : (b.cout || b.prix || 0);
-                const scoreA = (a.proteines || 0) * 2 + (a.fibres || 0) * 1.5 - coutA * 0.5;
-                const scoreB = (b.proteines || 0) * 2 + (b.fibres || 0) * 1.5 - coutB * 0.5;
+                const coutA = calculerCoutUnitaire(a);
+                const coutB = calculerCoutUnitaire(b);
+                const scoreA = (parseFloat(a.proteines) || 0) * 2 + (parseFloat(a.fibres) || 0) * 1.5 - coutA * 0.5;
+                const scoreB = (parseFloat(b.proteines) || 0) * 2 + (parseFloat(b.fibres) || 0) * 1.5 - coutB * 0.5;
                 return scoreB - scoreA;
             });
 
@@ -505,18 +583,18 @@
                 });
             }
             await chargerMenuSemaine();
-            alert("Génération intelligente axée sur vos objectifs effectuée !");
+            alert("Génération intelligente axée sur vos objectifs (4 repas par jour) effectuée !");
         }
 
         function afficherSuggestionsVertes() {
             const container = document.getElementById('container-suggestions-vertes');
             if (!container || recettesCache.length === 0) return;
             
-            const triees = [...recettesCache].sort((a, b) => (b.proteines || 0) - (a.proteines || 0));
+            const triees = [...recettesCache].sort((a, b) => (parseFloat(b.proteines) || 0) - (parseFloat(a.proteines) || 0));
             container.innerHTML = triees.slice(0, 3).map(r => `
                 <div class="bg-white p-2 rounded-xl border border-emerald-100 text-xs">
                     <span class="font-bold text-slate-800">${r.nom}</span>
-                    <span class="text-[10px] text-emerald-600 block">Prot: ${r.proteines || 0}g | ${r.cout_par_part || 0}€</span>
+                    <span class="text-[10px] text-emerald-600 block">Prot: ${r.proteines || 0}g | ${calculerCoutUnitaire(r).toFixed(2)}€/part</span>
                 </div>
             `).join('');
         }
