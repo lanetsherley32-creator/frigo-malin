@@ -267,13 +267,11 @@
 
                 if (Array.isArray(parsed)) {
                     return parsed.map(ing => {
-                        // Cherche l'ID par toutes les clés possibles selon la structure de la BDD
                         let targetId = ing.id || ing.ingredient_id || ing.ingredientId;
                         let qteVal = parseFloat(ing.quantite || ing.qte || ing.quantity || 0);
                         let uniteVal = ing.unite || ing.unit || 'g';
                         let nomIng = ing.nom || ing.name;
 
-                        // Si on a un ID, on essaie de retrouver l'ingrédient global pour l'harmoniser
                         if (targetId) {
                             const ingObj = ingredientsGlobal.find(i => i.id == targetId);
                             if (ingObj) {
@@ -281,7 +279,6 @@
                                 if (!nomIng) nomIng = ingObj.nom;
                             }
                         } else if (nomIng) {
-                            // Si pas d'ID mais un nom, on essaie de retrouver l'ID global correspondant
                             const ingObj = ingredientsGlobal.find(i => i.nom && i.nom.toLowerCase() === nomIng.toLowerCase());
                             if (ingObj) {
                                 targetId = ingObj.id;
@@ -308,6 +305,9 @@
             const profilId = getProfilActifId();
             const frigoBrut = (profilId && stockFrigoParProfil[profilId]) ? stockFrigoParProfil[profilId] : {};
 
+            console.log("Frigo brut pour profil", profilId, ":", frigoBrut);
+            console.log("Recettes globales chargées :", recettesGlobal.length);
+
             if (Object.keys(frigoBrut).length === 0) {
                 container.innerHTML = `<p class="text-xs text-slate-400 italic bg-white p-4 rounded-2xl border border-slate-200 text-center">Veuillez d'abord ajouter des ingrédients dans votre frigo !</p>`;
                 return;
@@ -325,21 +325,23 @@
 
             recettesGlobal.forEach(recette => {
                 const listeIngsParsed = analyserIngredientsRecette(recette.ingredients);
+                console.log(`Recette "${recette.nom}" - Ingrédients analysés :`, listeIngsParsed);
 
                 if (listeIngsParsed.length === 0) return;
 
                 let manquant = [];
 
                 listeIngsParsed.forEach(ingR => {
-                    // On cherche par ID ou par correspondance de nom si l'ID ne matche pas directement
                     let stockDispoBase = 0;
+                    
+                    // 1. Recherche par ID exact
                     if (ingR.id && frigoNormalise[ingR.id]) {
                         stockDispoBase = frigoNormalise[ingR.id];
                     } else {
-                        // Recherche alternative par nom au cas où l'ID diffère
+                        // 2. Recherche alternative par correspondance de nom d'ingrédient
                         const matchingFrigoId = Object.keys(frigoBrut).find(fId => {
                             const gIng = ingredientsGlobal.find(i => i.id == fId);
-                            return gIng && ingR.nom && gIng.nom.toLowerCase() === ingR.nom.toLowerCase();
+                            return gIng && ingR.nom && gIng.nom.toLowerCase().trim() === gIng.nom.toLowerCase().trim();
                         });
                         if (matchingFrigoId) {
                             stockDispoBase = frigoNormalise[matchingFrigoId];
@@ -347,7 +349,6 @@
                     }
 
                     if (stockDispoBase < ingR.quantiteBase) {
-                        const manquantBase = ingR.quantiteBase - stockDispoBase;
                         const ratio = ingR.quantiteBase > 0 ? (ingR.quantite / ingR.quantiteBase) : 1;
                         manquant.push({
                             nom: ingR.nom,
@@ -371,6 +372,7 @@
             });
 
             recettesAnalysees.sort((a, b) => a.nbAchats - b.nbAchats);
+            console.log("Recettes analysées retenues :", recettesAnalysees);
 
             if (recettesAnalysees.length === 0) {
                 container.innerHTML = `<p class="text-xs text-slate-400 italic bg-white p-4 rounded-2xl border border-slate-200 text-center">Aucune recette ne correspond (nécessite trop d'achats ou stock insuffisant).</p>`;
