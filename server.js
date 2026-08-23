@@ -74,7 +74,6 @@ app.use((req, res, next) => {
 // --- FICHIERS STATIQUES ---
 app.use(express.static('public'));
 
-// Redirection racine corrigée
 app.get('/', (req, res) => {
     if (req.session.user) {
         res.sendFile(__dirname + '/public/global.html');
@@ -316,6 +315,38 @@ app.post('/api/recettes', async (req, res) => {
     }
 });
 
+// Route PUT pour modifier une recette (Ajoutée)
+app.put('/api/recettes/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nom, categorie, parts, ingredients, etapes, cout, calories, proteines, glucides, lipides, fibres, sucre } = req.body;
+    let ingredientsToSave = Array.isArray(ingredients) ? JSON.stringify(ingredients) : (typeof ingredients === 'string' ? ingredients : JSON.stringify([]));
+
+    try {
+        const query = `
+            UPDATE recettes SET nom = $1, categorie = $2, parts = $3, ingredients = $4, etapes = $5, 
+                cout = $6, calories = $7, proteines = $8, glucides = $9, lipides = $10, fibres = $11, sucre = $12 
+            WHERE id = $13
+        `;
+        await pool.query(query, [nom, categorie, parts, ingredientsToSave, etapes, cout, calories, proteines, glucides, lipides, fibres || 0, sucre || 0, id]);
+        io.emit('data_updated');
+        res.json({ success: true, message: "Recette mise à jour avec succès !" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Route DELETE pour supprimer une recette (Ajoutée)
+app.delete('/api/recettes/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query("DELETE FROM recettes WHERE id = $1", [id]);
+        io.emit('data_updated');
+        res.json({ success: true, message: "Recette supprimée avec succès !" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/ingredients', async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM ingredients");
@@ -356,6 +387,18 @@ app.put('/api/ingredients/:id', async (req, res) => {
         await pool.query(query, [nom, rayon || 'Épicerie', calories || 0, proteines || 0, glucides || 0, lipides || 0, fibres || 0, sucre || 0, prix || 0, marquesStr, id]);
         io.emit('data_updated');
         res.json({ success: true, message: "Mis à jour avec succès !" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Route DELETE pour supprimer un ingrédient (Ajoutée)
+app.delete('/api/ingredients/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query("DELETE FROM ingredients WHERE id = $1", [id]);
+        io.emit('data_updated');
+        res.json({ success: true, message: "Ingrédient supprimé avec succès !" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
