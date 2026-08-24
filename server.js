@@ -351,109 +351,67 @@ app.delete('/api/recettes/:id', async (req, res) => {
 
 app.get('/api/ingredients', async (req, res) => {
     try {
-        const result = await pool.query("SELECT * FROM ingredients");
+        const result = await pool.query("SELECT * FROM ingredients ORDER BY id DESC");
         const rows = (result.rows || []).map(r => ({ 
             ...r, 
             marques: r.marques ? (typeof r.marques === 'string' ? JSON.parse(r.marques) : r.marques) : [] 
         }));
         res.json(rows);
     } catch (err) {
+        console.error("Erreur GET /api/ingredients:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
 app.post('/api/ingredients', async (req, res) => {
-    // Récupération des champs sans la notion de titre
-    const { 
-        nom,                  // correspond au "Nom de l'ingrédient / Référence"
-        rayon, 
-        portion_quantite, 
-        portion_unite, 
-        calories, 
-        proteines, 
-        glucides, 
-        lipides, 
-        fibres, 
-        sucre, 
-        prix, 
-        marques 
-    } = req.body;
-
+    const { nom, rayon, marques } = req.body;
     const marquesStr = Array.isArray(marques) ? JSON.stringify(marques) : (marques || '[]');
     
     try {
         const query = `
-            INSERT INTO ingredients (nom, rayon, portion_quantite, portion_unite, calories, proteines, glucides, lipides, fibres, sucre, prix, marques) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id
+            INSERT INTO ingredients (nom, rayon, marques) 
+            VALUES ($1, $2, $3) RETURNING id
         `;
-        const result = await pool.query(query, [
-            nom,                             // Nom de l'ingrédient / Référence
+        const values = [
+            nom || 'Sans nom',
             rayon || 'Épicerie', 
-            portion_quantite || 100,         // Valeur par défaut si vide
-            portion_unite || 'g',            // Unité par défaut (g ou ml)
-            calories || 0, 
-            proteines || 0, 
-            glucides || 0, 
-            lipides || 0, 
-            fibres || 0, 
-            sucre || 0, 
-            prix || 0, 
             marquesStr
-        ]);
+        ];
+
+        const result = await pool.query(query, values);
         
         io.emit('data_updated');
         res.json({ success: true, id: result.rows[0].id });
     } catch (err) {
+        console.error("Erreur POST /api/ingredients:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
 app.put('/api/ingredients/:id', async (req, res) => {
     const { id } = req.params;
-    const { 
-        nom, 
-        rayon, 
-        portion_quantite, 
-        portion_unite, 
-        calories, 
-        proteines, 
-        glucides, 
-        lipides, 
-        fibres, 
-        sucre, 
-        prix, 
-        marques 
-    } = req.body;
-
+    const { nom, rayon, marques } = req.body;
     const marquesStr = Array.isArray(marques) ? JSON.stringify(marques) : (marques || '[]');
     
     try {
         const query = `
             UPDATE ingredients 
-            SET nom = $1, rayon = $2, portion_quantite = $3, portion_unite = $4, 
-                calories = $5, proteines = $6, glucides = $7, lipides = $8, fibres = $9, 
-                sucre = $10, prix = $11, marques = $12 
-            WHERE id = $13
+            SET nom = $1, rayon = $2, marques = $3 
+            WHERE id = $4
         `;
-        await pool.query(query, [
-            nom, 
+        const values = [
+            nom || 'Sans nom', 
             rayon || 'Épicerie', 
-            portion_quantite || 100, 
-            portion_unite || 'g', 
-            calories || 0, 
-            proteines || 0, 
-            glucides || 0, 
-            lipides || 0, 
-            fibres || 0, 
-            sucre || 0, 
-            prix || 0, 
             marquesStr, 
             id
-        ]);
+        ];
+
+        await pool.query(query, values);
 
         io.emit('data_updated');
         res.json({ success: true, message: "Ingrédient mis à jour avec succès !" });
     } catch (err) {
+        console.error("Erreur PUT /api/ingredients:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
