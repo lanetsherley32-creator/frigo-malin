@@ -867,10 +867,23 @@ app.post('/api/courses/generer', async (req, res) => {
         
         let idsRecettes = [];
         menuRes.rows.forEach(row => {
-            if (row.petitdejeuner) idsRecettes.push(row.petitdejeuner);
-            if (row.repas1) idsRecettes.push(row.repas1);
-            if (row.repas2) idsRecettes.push(row.repas2);
-            if (row.dessertcollation) idsRecettes.push(row.dessertcollation);
+            // S'assurer qu'on ne récupère que des identifiants valides (convertis en nombres entiers)
+            if (row.petitdejeuner) {
+                const idNum = parseInt(row.petitdejeuner, 10);
+                if (!isNaN(idNum)) idsRecettes.push(idNum);
+            }
+            if (row.repas1) {
+                const idNum = parseInt(row.repas1, 10);
+                if (!isNaN(idNum)) idsRecettes.push(idNum);
+            }
+            if (row.repas2) {
+                const idNum = parseInt(row.repas2, 10);
+                if (!isNaN(idNum)) idsRecettes.push(idNum);
+            }
+            if (row.dessertcollation) {
+                const idNum = parseInt(row.dessertcollation, 10);
+                if (!isNaN(idNum)) idsRecettes.push(idNum);
+            }
         });
 
         if (idsRecettes.length === 0) {
@@ -951,10 +964,14 @@ app.post('/api/courses/generer', async (req, res) => {
         io.emit('data_updated');
         res.json({ success: true, message: "Liste de courses générée avec succès !" });
     } catch (err) {
-        console.error("Erreur génération courses :", err);
+        console.error("--- ERREUR GENERATION COURSES ---");
+        console.error("Message :", err.message);
+        console.error("Détail :", err.detail);
+        console.error("Indication de position :", err.position);
+        console.error("----------------------------------");
         res.status(500).json({ error: err.message });
     }
-});
+}); 
 // 3. Cocher / décocher un article
 app.post('/api/courses/cocher', async (req, res) => {
     const { id, coche } = req.body;
