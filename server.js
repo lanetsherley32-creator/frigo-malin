@@ -604,57 +604,35 @@ app.get('/api/menu-prevu-semaine', async (req, res) => {
     }
 });
 
-app.get('/api/menu-prevu-resume-jour', async (req, res) => {
-    const { profil, jour } = req.query;
-    if (!profil || !jour) return res.status(400).json({ error: "Paramètres manquants" });
-    
-    try {
-        const menuRes = await pool.query("SELECT petitdejeuner, repas1, repas2, dessertcollation FROM menu_prevu WHERE profil = $1 AND jour = $2", [profil, jour]);
-        const menu = menuRes.rows[0];
-        if (!menu) return res.json({ calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 });
-        
-        const idsRecettes = [menu.petitdejeuner, menu.repas1, menu.repas2, menu.dessertcollation].filter(Boolean);
-        if (idsRecettes.length === 0) return res.json({ calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 });
-        
-        const placeholders = idsRecettes.map((_, i) => `$${i + 1}`).join(',');
-        const recettesRes = await pool.query(`SELECT parts, calories, proteines, glucides, lipides, fibres, sucre, cout FROM recettes WHERE id IN (${placeholders})`, idsRecettes);
-        
-        let totaux = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 };
-        recettesRes.rows.forEach(r => {
-            const ratioPart = 1 / (parseFloat(r.parts) || 1);
-            totaux.calories += (parseFloat(r.calories) || 0) * ratioPart;
-            totaux.proteines += (parseFloat(r.proteines) || 0) * ratioPart;
-            totaux.glucides += (parseFloat(r.glucides) || 0) * ratioPart;
-            totaux.lipides += (parseFloat(r.lipides) || 0) * ratioPart;
-            totaux.fibres += (parseFloat(r.fibres) || 0) * ratioPart;
-            totaux.sucre += (parseFloat(r.sucre) || 0) * ratioPart;
-            totaux.cout += (parseFloat(r.cout) || 0) * ratioPart;
-        });
-        
-        res.json(totaux);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+app.post('/api/menu-prevu-semaine', async (req, res) => {
+    const { profil, jour, petitdejeuner, repas1, repas2, encas } = req.body;
+    if (!profil || !jour) return res.status(400).json({ error: "Profil ou jour manquant" });
 
-app.post('/api/menu-prevu', async (req, res) => {
-    const { profil, jour, petitDejeuner, repas1, repas2, dessertCollation } = req.body;
-    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+    // S'assure que encas est bien un tableau propre
+    const tableauEncas = Array.isArray(encas) ? encas : (encas ? [encas] : []);
 
     const q = `
-        INSERT INTO menu_prevu (profil, jour, petitdejeuner, repas1, repas2, dessertcollation) 
+        INSERT INTO menu_prevu (profil, jour, petitdejeuner, repas1, repas2, encas) 
         VALUES ($1, $2, $3, $4, $5, $6) 
         ON CONFLICT (profil, jour) DO UPDATE SET 
             petitdejeuner = EXCLUDED.petitdejeuner, 
             repas1 = EXCLUDED.repas1, 
             repas2 = EXCLUDED.repas2, 
-            dessertcollation = EXCLUDED.dessertcollation
+            encas = EXCLUDED.encas
     `;
     try {
-        await pool.query(q, [profil, jour, petitDejeuner || null, repas1 || null, repas2 || null, dessertCollation || null]);
+        await pool.query(q, [
+            profil, 
+            jour, 
+            petitdejeuner || null, 
+            repas1 || null, 
+            repas2 || null, 
+            tableauEncas
+        ]);
         io.emit('data_updated');
-        res.sendStatus(200);
+        res.json({ success: true });
     } catch (err) {
+        console.error("Erreur POST /api/menu-prevu-semaine :", err.message);
         res.status(500).json({ error: err.message });
     }
 });
