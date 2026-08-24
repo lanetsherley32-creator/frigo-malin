@@ -931,89 +931,105 @@
                 `;
             }
         }
+async function genererSemaineAleatoireOptimisee() {
+    const profil = document.getElementById('select-profil')?.value;
+    if (!profil) {
+        alert("Veuillez sélectionner un profil.");
+        return;
+    }
+    if (recettesCache.length === 0 && ingredientsCache.length === 0) {
+        alert("Aucun élément disponible.");
+        return;
+    }
+    const profilObj = profilsCache.find(p => p.nom === profil) || {
+        calories: 2000, budget: 100, proteines: 150, glucides: 200, lipides: 70, fibres: 30
+    };
+    const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+    
+    // Récupération correcte des états globaux et prise en compte des filtres par type
+    const genPtDej = document.getElementById('generer-pt-dej')?.checked ?? true;
+    const genMidi = document.getElementById('generer-midi')?.checked ?? true;
+    const genSoir = document.getElementById('generer-soir')?.checked ?? true;
+    const genCollation = document.getElementById('generer-collation')?.checked ?? true;
 
-        async function genererSemaineAleatoireOptimisee() {
-            const profil = document.getElementById('select-profil')?.value;
-            if (!profil) {
-                alert("Veuillez sélectionner un profil.");
-                return;
+    for (const jour of jours) {
+        let menuJour = menusCache.find(m => m.jour === jour) || { profil, jour };
+        
+        // 1. Collation / Encas
+        if (genCollation) {
+            const poolCollation = filtrerElementsParType('collation');
+            if (poolCollation.length > 0) {
+                const choisieCollation = selectionnerElementOptimise(poolCollation, profilObj);
+                menuJour.encas = [choisieCollation.titre || choisieCollation.nom || choisieCollation.nom_reference];
+            } else {
+                menuJour.encas = [];
             }
-            if (recettesCache.length === 0 && ingredientsCache.length === 0) {
-                alert("Aucun élément disponible.");
-                return;
-            }
-            const profilObj = profilsCache.find(p => p.nom === profil) || {
-                calories: 2000, budget: 100, proteines: 150, glucides: 200, lipides: 70, fibres: 30
-            };
-
-            const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-            const genPtDej = document.getElementById('generer-pt-dej')?.checked ?? true;
-            const genMidi = document.getElementById('generer-midi')?.checked ?? true;
-            const genSoir = document.getElementById('generer-soir')?.checked ?? true;
-            const genCollation = document.getElementById('generer-collation')?.checked ?? true;
-
-            for (const jour of jours) {
-                let menuJour = menusCache.find(m => m.jour === jour) || { profil, jour };
-
-                if (genCollation) {
-                    const poolCollation = filtrerElementsParType('collation');
-                    if (poolCollation.length > 0) {
-                        const choisieCollation = selectionnerElementOptimise(poolCollation, profilObj);
-                        menuJour.encas = [choisieCollation.titre || choisieCollation.nom || choisieCollation.nom_reference];
-                    } else {
-                        menuJour.encas = [];
-                    }
-                } else {
-                    menuJour.encas = [];
-                }
-
-                if (genPtDej) {
-                    const pool = filtrerElementsParType('petitdejeuner');
-                    if (pool.length > 0) {
-                        const choisie = selectionnerElementOptimise(pool, profilObj);
-                        menuJour.petitdejeuner = choisie.titre || choisie.nom || choisie.nom_reference;
-                    }
-                }
-                
-                if (genMidi) {
-                    const pool = filtrerElementsParType('repas1');
-                    if (pool.length > 0) {
-                        const choisie = selectionnerElementOptimise(pool, profilObj);
-                        menuJour.repas1 = choisie.titre || choisie.nom || choisie.nom_reference;
-                    }
-                }
-                
-                if (genSoir) {
-                    const pool = filtrerElementsParType('repas2');
-                    if (pool.length > 0) {
-                        const choisie = selectionnerElementOptimise(pool, profilObj);
-                        menuJour.repas2 = choisie.titre || choisie.nom || choisie.nom_reference;
-                    }
-                }
-
-                await fetch('/api/menu-prevu-semaine', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        profil,
-                        jour,
-                        petitdejeuner: menuJour.petitdejeuner || '',
-                        repas1: menuJour.repas1 || '',
-                        repas2: menuJour.repas2 || '',
-                        encas: menuJour.encas || [],
-                        grignotages: getGrignotagesList(menuJour),
-                        ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
-                        ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
-                        ingredients_repas2: getIngredientsList(menuJour, 'repas2'),
-                        ingredients_collation: getIngredientsList(menuJour, 'collation'),
-                        ingredients_grignotage: getIngredientsList(menuJour, 'grignotage')
-                    })
-                });
-            }
-            await chargerMenuSemaine();
-            alert("Génération aléatoire ultra-optimisée effectuée avec succès pour toute la semaine !");
+        } else {
+            menuJour.encas = [];
         }
 
+        // 2. Petit-déjeuner (Respecte l'interrupteur global + les sous-filtres de sa section)
+        if (genPtDej) {
+            const poolPtDej = filtrerElementsParType('petitdejeuner');
+            if (poolPtDej.length > 0) {
+                const choisiePtDej = selectionnerElementOptimise(poolPtDej, profilObj);
+                menuJour.petitdejeuner = choisiePtDej.titre || choisiePtDej.nom || choisiePtDej.nom_reference;
+            } else {
+                menuJour.petitdejeuner = '';
+            }
+        } else {
+            menuJour.petitdejeuner = '';
+        }
+        
+        // 3. Repas de Midi (Respecte l'interrupteur global + les sous-filtres de sa section)
+        if (genMidi) {
+            const poolMidi = filtrerElementsParType('repas1');
+            if (poolMidi.length > 0) {
+                const choisieMidi = selectionnerElementOptimise(poolMidi, profilObj);
+                menuJour.repas1 = choisieMidi.titre || choisieMidi.nom || choisieMidi.nom_reference;
+            } else {
+                menuJour.repas1 = '';
+            }
+        } else {
+            menuJour.repas1 = '';
+        }
+        
+        // 4. Repas du Soir (Respecte l'interrupteur global + les sous-filtres de sa section)
+        if (genSoir) {
+            const poolSoir = filtrerElementsParType('repas2');
+            if (poolSoir.length > 0) {
+                const choisieSoir = selectionnerElementOptimise(poolSoir, profilObj);
+                menuJour.repas2 = choisieSoir.titre || choisieSoir.nom || choisieSoir.nom_reference;
+            } else {
+                menuJour.repas2 = '';
+            }
+        } else {
+            menuJour.repas2 = '';
+        }
+
+        // Enregistrement des modifications pour chaque jour
+        await fetch('/api/menu-prevu-semaine', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                profil,
+                jour,
+                petitdejeuner: menuJour.petitdejeuner || '',
+                repas1: menuJour.repas1 || '',
+                repas2: menuJour.repas2 || '',
+                encas: menuJour.encas || [],
+                grignotages: getGrignotagesList(menuJour),
+                ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
+                ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
+                ingredients_repas2: getIngredientsList(menuJour, 'repas2'),
+                ingredients_collation: getIngredientsList(menuJour, 'collation'),
+                ingredients_grignotage: getIngredientsList(menuJour, 'grignotage')
+            })
+        });
+    }
+    await chargerMenuSemaine();
+    alert("Génération aléatoire ultra-optimisée effectuée avec succès en respectant vos filtres !");
+}
         function selectionnerElementOptimise(pool, obj) {
             const targetKcal = (Number(obj.calories) || 2000) / 3; 
             const targetProt = (Number(obj.proteines) || 150) / 3;
