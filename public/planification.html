@@ -497,7 +497,7 @@
                                         <input type="text" id="input-${jour}-collation" list="liste-recettes-collation" placeholder="Ajouter encas..." onchange="ajouterEncasJour('${jour}', this.value)" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                     </div>
                                     <div id="tags-encas-${jour}" class="flex flex-wrap gap-1 mt-1.5">
-                                        ${encasActuels.map(enc => `<span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${enc} <button onclick="supprimerEncasJour('${jour}', '${enc}')" class="text-blue-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
+                                        ${encasActuels.map(enc => `<span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${enc} <button type="button" onclick="supprimerEncasJour('${jour}', '${enc}')" class="text-blue-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
                                     </div>
                                 </div>
                             </div>
@@ -526,7 +526,7 @@
             else if (typeRepas === 'repas2') menuJour.repas2 = valeurNom;
 
             try {
-                await fetch('/api/menu-prevu', {
+                await fetch('/api/menu-prevu-semaine', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -562,7 +562,7 @@
             document.getElementById(`input-${jour}-collation`).value = '';
 
             try {
-                await fetch('/api/menu-prevu', {
+                await fetch('/api/menu-prevu-semaine', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -574,7 +574,7 @@
                         encas: menuJour.encas
                     })
                 });
-                chargerMenuSemaine();
+                await chargerMenuSemaine();
             } catch (e) {
                 console.error("Erreur ajout encas", e);
             }
@@ -591,7 +591,7 @@
             menuJour.encas = encas;
 
             try {
-                await fetch('/api/menu-prevu', {
+                await fetch('/api/menu-prevu-semaine', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -603,7 +603,7 @@
                         encas: menuJour.encas
                     })
                 });
-                chargerMenuSemaine();
+                await chargerMenuSemaine();
             } catch (e) {
                 console.error("Erreur suppression encas", e);
             }
@@ -714,7 +714,7 @@
                     if (pool.length > 0) menuJour.encas = [pool[Math.floor(Math.random() * pool.length)].nom];
                 }
 
-                await fetch('/api/menu-prevu', {
+                await fetch('/api/menu-prevu-semaine', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -731,7 +731,7 @@
             await chargerMenuSemaine();
         }
 
-        async function afficherSuggestionsVertes() {
+        function afficherSuggestionsVertes() {
             const container = document.getElementById('container-suggestions-vertes');
             if (!container) return;
             if (recettesCache.length === 0) {
