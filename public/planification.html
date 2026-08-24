@@ -6,7 +6,6 @@
     <title>Planification - Frigomalin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
-    <!-- Inclusion de jsPDF pour l'export du menu -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body class="bg-slate-50 min-h-screen pb-12 text-slate-800">
@@ -50,11 +49,11 @@
             <h3 class="font-bold text-slate-800 flex items-center gap-2">🎯 Modification directe des objectifs du profil actif</h3>
             <div id="form-objectifs-direct" class="grid grid-cols-2 sm:grid-cols-6 gap-2">
                 <div>
-                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Calories (kcal)</label>
+                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Calories/jour (kcal)</label>
                     <input type="number" id="dir-cal" oninput="sauvegarderProfilDirect()" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl font-medium outline-none">
                 </div>
                 <div>
-                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Budget (€)</label>
+                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Budget Semaine (€)</label>
                     <input type="number" id="dir-budget" oninput="sauvegarderProfilDirect()" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl font-medium outline-none">
                 </div>
                 <div>
@@ -85,12 +84,10 @@
             <div id="accordeon-content" class="p-4 space-y-4 hidden border-t border-slate-100">
                 <!-- Petit Déjeuner -->
                 <div class="space-y-2 pb-3 border-b border-slate-100">
-                    <div class="flex items-center justify-between">
-                        <label class="flex items-center gap-2 font-bold text-blue-900 cursor-pointer text-[11px]">
-                            <input type="checkbox" id="generer-pt-dej" checked onchange="sauvegarderFiltresEtMettreAJour()" class="rounded border-slate-300 w-4 h-4 text-blue-600">
-                            ☕ Inclure/Générer le Petit-déjeuner
-                        </label>
-                    </div>
+                    <label class="flex items-center gap-2 font-bold text-blue-900 cursor-pointer text-[11px]">
+                        <input type="checkbox" id="generer-pt-dej" checked onchange="sauvegarderFiltresEtMettreAJour()" class="rounded border-slate-300 w-4 h-4 text-blue-600">
+                        ☕ Inclure/Générer le Petit-déjeuner
+                    </label>
                     <div class="flex flex-wrap gap-4 items-center pl-6">
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-pt-dej-sub rounded border-slate-300" value="petitdej" checked onchange="sauvegarderFiltresEtMettreAJour()"> petitdej</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-pt-dej-sub rounded border-slate-300" value="repas chaud" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas chaud</label>
@@ -102,12 +99,10 @@
 
                 <!-- Repas Midi -->
                 <div class="space-y-2 pb-3 border-b border-slate-100">
-                    <div class="flex items-center justify-between">
-                        <label class="flex items-center gap-2 font-bold text-blue-900 cursor-pointer text-[11px]">
-                            <input type="checkbox" id="generer-midi" checked onchange="sauvegarderFiltresEtMettreAJour()" class="rounded border-slate-300 w-4 h-4 text-blue-600">
-                            🍽️ Inclure/Générer le Repas de Midi
-                        </label>
-                    </div>
+                    <label class="flex items-center gap-2 font-bold text-blue-900 cursor-pointer text-[11px]">
+                        <input type="checkbox" id="generer-midi" checked onchange="sauvegarderFiltresEtMettreAJour()" class="rounded border-slate-300 w-4 h-4 text-blue-600">
+                        🍽️ Inclure/Générer le Repas de Midi
+                    </label>
                     <div class="flex flex-wrap gap-4 items-center pl-6">
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-midi-sub rounded border-slate-300" value="petitdej" checked onchange="sauvegarderFiltresEtMettreAJour()"> petitdej</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-midi-sub rounded border-slate-300" value="repas chaud" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas chaud</label>
@@ -119,12 +114,10 @@
 
                 <!-- Repas Soir -->
                 <div class="space-y-2 pb-3 border-b border-slate-100">
-                    <div class="flex items-center justify-between">
-                        <label class="flex items-center gap-2 font-bold text-blue-900 cursor-pointer text-[11px]">
-                            <input type="checkbox" id="generer-soir" checked onchange="sauvegarderFiltresEtMettreAJour()" class="rounded border-slate-300 w-4 h-4 text-blue-600">
-                            🌙 Inclure/Générer le Repas du Soir
-                        </label>
-                    </div>
+                    <label class="flex items-center gap-2 font-bold text-blue-900 cursor-pointer text-[11px]">
+                        <input type="checkbox" id="generer-soir" checked onchange="sauvegarderFiltresEtMettreAJour()" class="rounded border-slate-300 w-4 h-4 text-blue-600">
+                        🌙 Inclure/Générer le Repas du Soir
+                    </label>
                     <div class="flex flex-wrap gap-4 items-center pl-6">
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-soir-sub rounded border-slate-300" value="petitdej" checked onchange="sauvegarderFiltresEtMettreAJour()"> petitdej</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-soir-sub rounded border-slate-300" value="repas chaud" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas chaud</label>
@@ -136,12 +129,10 @@
 
                 <!-- Collation -->
                 <div class="space-y-2">
-                    <div class="flex items-center justify-between">
-                        <label class="flex items-center gap-2 font-bold text-blue-900 cursor-pointer text-[11px]">
-                            <input type="checkbox" id="generer-collation" checked onchange="sauvegarderFiltresEtMettreAJour()" class="rounded border-slate-300 w-4 h-4 text-blue-600">
-                            🍏 Inclure/Générer la Collation
-                        </label>
-                    </div>
+                    <label class="flex items-center gap-2 font-bold text-blue-900 cursor-pointer text-[11px]">
+                        <input type="checkbox" id="generer-collation" checked onchange="sauvegarderFiltresEtMettreAJour()" class="rounded border-slate-300 w-4 h-4 text-blue-600">
+                        🍏 Inclure/Générer la Collation
+                    </label>
                     <div class="flex flex-wrap gap-4 items-center pl-6">
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="petitdej" checked onchange="sauvegarderFiltresEtMettreAJour()"> petitdej</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="repas chaud" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas chaud</label>
@@ -157,10 +148,7 @@
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-2 justify-between items-center text-xs print:hidden">
             <div class="flex flex-wrap gap-2">
                 <button onclick="genererSemaineAleatoire()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
-                    🎲 Générer la semaine aléatoirement (selon sélection)
-                </button>
-                <button onclick="genererSemaineAleatoireOptimisee()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
-                    ⚡ Génération Intelligente (Objectifs & Filtres)
+                    🎲 Générer la semaine aléatoirement
                 </button>
             </div>
             <button onclick="exporterMenuPDF()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
@@ -185,7 +173,6 @@
     <datalist id="liste-recettes-midi"></datalist>
     <datalist id="liste-recettes-soir"></datalist>
     <datalist id="liste-recettes-collation"></datalist>
-    <datalist id="liste-ingredients-recettes-global"></datalist>
 
     <!-- MODALE GESTION PROFIL -->
     <div id="modal-personne" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
@@ -199,11 +186,11 @@
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="block font-bold text-slate-500 mb-1">Calories (kcal)</label>
+                        <label class="block font-bold text-slate-500 mb-1">Calories/jour (kcal)</label>
                         <input type="number" id="personne-cal" value="2000" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
                     </div>
                     <div>
-                        <label class="block font-bold text-slate-500 mb-1">Budget (€)</label>
+                        <label class="block font-bold text-slate-500 mb-1">Budget Semaine (€)</label>
                         <input type="number" id="personne-budget" value="100" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
                     </div>
                 </div>
@@ -418,7 +405,6 @@
             checkboxes.forEach(cb => {
                 if (cb.checked) selectionnes.push(cb.value.toLowerCase());
             });
-            // Sécurité anti-liste vide pour éviter les blocages de génération aléatoire
             if (selectionnes.length === 0) {
                 return ['petitdej', 'repas chaud', 'repas froid', 'dessert', 'encas'];
             }
@@ -432,7 +418,7 @@
                 return categoriesAcceptees.some(c => catRec.includes(c));
             });
             if (result.length === 0) {
-                result = recettesCache; // Fallback si aucune recette ne correspond strictement
+                result = recettesCache;
             }
             return result;
         }
@@ -451,15 +437,6 @@
                 const recettesFiltrees = filtrerRecettesParType(t.typeRepas);
                 datalist.innerHTML = recettesFiltrees.map(r => `<option value="${r.nom}">`).join('');
             });
-
-            const datalistGlobal = document.getElementById('liste-ingredients-recettes-global');
-            if (datalistGlobal) {
-                let optionsHtml = recettesCache.map(r => `<option value="${r.nom}">`).join('');
-                if (ingredientsCache.length > 0) {
-                    optionsHtml += ingredientsCache.map(i => `<option value="${i.nom}">`).join('');
-                }
-                datalistGlobal.innerHTML = optionsHtml;
-            }
         }
 
         function getNomRecette(val) {
@@ -515,7 +492,7 @@
                                     <input type="text" id="input-${jour}-repas2" list="liste-recettes-soir" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'repas2', this.value)" value="${getNomRecette(menuJour.repas2)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Collation / Encas</label>
+                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Collation / Encas (multiples)</label>
                                     <div class="flex gap-1 items-center">
                                         <input type="text" id="input-${jour}-collation" list="liste-recettes-collation" placeholder="Ajouter encas..." onchange="ajouterEncasJour('${jour}', this.value)" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                     </div>
@@ -549,7 +526,7 @@
             else if (typeRepas === 'repas2') menuJour.repas2 = valeurNom;
 
             try {
-                await fetch('/api/menu-prevu-semaine', {
+                await fetch('/api/menu-prevu', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -585,7 +562,7 @@
             document.getElementById(`input-${jour}-collation`).value = '';
 
             try {
-                await fetch('/api/menu-prevu-semaine', {
+                await fetch('/api/menu-prevu', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -614,7 +591,7 @@
             menuJour.encas = encas;
 
             try {
-                await fetch('/api/menu-prevu-semaine', {
+                await fetch('/api/menu-prevu', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -642,8 +619,10 @@
             const profilObj = profilsCache.find(p => p.nom === profilNom) || { calories: 2000, budget: 100, proteines: 150, glucides: 200, lipides: 70 };
             
             let totalCalSemaine = 0, totalBudgetSemaine = 0, totalProtSemaine = 0, totalGlucSemaine = 0, totalLipSemaine = 0;
-            const objectifCalSemaine = (Number(profilObj.calories) || 2000) * 7;
-            const objectifBudgetSemaine = (Number(profilObj.budget) || 100);
+            
+            const objCalJour = Number(profilObj.calories) || 2000;
+            const objBudgetSemaine = Number(profilObj.budget) || 100;
+            const objBudgetJour = objBudgetSemaine / 7;
 
             const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
@@ -677,9 +656,12 @@
 
                 const containerTotauxJour = document.getElementById(`totaux-${jour}`);
                 if (containerTotauxJour) {
+                    const couleurCal = calJour > objCalJour * 1.05 ? 'text-red-600' : 'text-slate-600';
+                    const couleurBudget = budgetJour > objBudgetJour * 1.05 ? 'text-red-600' : 'text-slate-600';
+
                     containerTotauxJour.innerHTML = `
-                        <span class="text-slate-600">🔥 ${Math.round(calJour)} kcal</span>
-                        <span class="text-slate-600">💰 ${budgetJour.toFixed(2)} €</span>
+                        <span class="${couleurCal}">🔥 ${Math.round(calJour)}/${objCalJour} kcal</span>
+                        <span class="${couleurBudget}">💰 ${budgetJour.toFixed(2)}/${objBudgetJour.toFixed(2)} €</span>
                         <span class="text-blue-600">P:${Math.round(protJour)}g</span>
                         <span class="text-emerald-600">G:${Math.round(glucJour)}g</span>
                         <span class="text-amber-600">L:${Math.round(lipJour)}g</span>
@@ -689,10 +671,11 @@
 
             const bilanGlobalDiv = document.getElementById('bilan-global-semaine');
             if (bilanGlobalDiv) {
+                const objCalSemaine = objCalJour * 7;
                 bilanGlobalDiv.innerHTML = `
-                    <span class="font-bold text-blue-900">📊 Bilan Global Semaine :</span>
-                    <span>🔥 ${Math.round(totalCalSemaine)} / ${objectifCalSemaine} kcal</span>
-                    <span>💰 ${totalBudgetSemaine.toFixed(2)} / ${objectifBudgetSemaine} €</span>
+                    <span class="font-bold text-blue-900">📊 Bilan Semaine :</span>
+                    <span>🔥 ${Math.round(totalCalSemaine)} / ${objCalSemaine} kcal</span>
+                    <span>💰 ${totalBudgetSemaine.toFixed(2)} / ${objBudgetSemaine.toFixed(2)} €</span>
                     <span>🥩 P: ${Math.round(totalProtSemaine)}g</span>
                     <span>🍞 G: ${Math.round(totalGlucSemaine)}g</span>
                     <span>🥑 L: ${Math.round(totalLipSemaine)}g</span>
@@ -716,30 +699,22 @@
 
                 if (genPtDej) {
                     const pool = filtrerRecettesParType('petitdejeuner');
-                    if (pool.length > 0) {
-                        menuJour.petitdejeuner = pool[Math.floor(Math.random() * pool.length)].nom;
-                    }
+                    if (pool.length > 0) menuJour.petitdejeuner = pool[Math.floor(Math.random() * pool.length)].nom;
                 }
                 if (genMidi) {
                     const pool = filtrerRecettesParType('repas1');
-                    if (pool.length > 0) {
-                        menuJour.repas1 = pool[Math.floor(Math.random() * pool.length)].nom;
-                    }
+                    if (pool.length > 0) menuJour.repas1 = pool[Math.floor(Math.random() * pool.length)].nom;
                 }
                 if (genSoir) {
                     const pool = filtrerRecettesParType('repas2');
-                    if (pool.length > 0) {
-                        menuJour.repas2 = pool[Math.floor(Math.random() * pool.length)].nom;
-                    }
+                    if (pool.length > 0) menuJour.repas2 = pool[Math.floor(Math.random() * pool.length)].nom;
                 }
                 if (genCollation) {
                     const pool = filtrerRecettesParType('dessertcollation');
-                    if (pool.length > 0) {
-                        menuJour.encas = [pool[Math.floor(Math.random() * pool.length)].nom];
-                    }
+                    if (pool.length > 0) menuJour.encas = [pool[Math.floor(Math.random() * pool.length)].nom];
                 }
 
-                await fetch('/api/menu-prevu-semaine', {
+                await fetch('/api/menu-prevu', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -754,11 +729,6 @@
             }
 
             await chargerMenuSemaine();
-        }
-
-        async function genererSemaineAleatoireOptimisee() {
-            // Utilise la même logique robuste filtrée par sélection
-            await genererSemaineAleatoire();
         }
 
         async function afficherSuggestionsVertes() {
@@ -823,7 +793,6 @@
             }
         }
 
-        // Export du Menu en PDF avec jsPDF
         function exporterMenuPDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
