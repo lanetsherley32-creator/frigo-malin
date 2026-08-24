@@ -857,7 +857,7 @@ app.get('/api/courses', async (req, res) => {
     }
 });
 
-// 2. Générer la liste de courses à partir du menu prévu (avec prix au paquet / marque la moins chère)
+/// 2. Générer la liste de courses à partir du menu prévu (avec prix au paquet / marque la moins chère)
 app.post('/api/courses/generer', async (req, res) => {
     const { profil } = req.body;
     if (!profil) return res.status(400).json({ error: "Profil manquant" });
@@ -897,7 +897,11 @@ app.post('/api/courses/generer', async (req, res) => {
             if (Array.isArray(ingredientsList)) {
                 for (const ingItem of ingredientsList) {
                     const nomIng = ingItem.nom || ingItem.ingredient || 'Ingrédient';
-                    const qte = ingItem.quantite || 1;
+                    
+                    // Sécurisation stricte de la quantité pour qu'elle soit toujours un nombre (numeric)
+                    let qteNum = parseFloat(ingItem.quantite);
+                    const qte = isNaN(qteNum) ? 1.0 : qteNum;
+                    
                     const unite = ingItem.unite || '';
                     
                     // Chercher l'ingrédient de référence pour récupérer son vrai rayon et ses marques/prix disponibles
@@ -922,17 +926,28 @@ app.post('/api/courses/generer', async (req, res) => {
                         // Sélectionner par défaut la marque la moins chère si disponible
                         if (Array.isArray(marquesDispos) && marquesDispos.length > 0) {
                             marquesDispos.sort((a, b) => parseFloat(a.prix) - parseFloat(b.prix));
-                            prixRetenu = parseFloat(marquesDispos[0].prix);
-                            marqueRetenue = marquesDispos[0].nom;
+                            prixRetenu = parseFloat(marquesDispos[0].prix) || 0;
+                            marqueRetenue = marquesDispos[0].nom || 'Standard';
                         } else if (ref.prix) {
-                            prixRetenu = parseFloat(ref.prix);
+                            prixRetenu = parseFloat(ref.prix) || 0;
                         }
                     }
 
+                    // Insertion sécurisée avec des types explicites
                     await pool.query(
                         `INSERT INTO courses (profil, nom, quantite_necessaire, unite, rayon, prix, marque, marques_disponibles, coche) 
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0)`,
-                        [profil, nomIng, qte, unite, rayonFinal, prixRetenu, marqueRetenue, JSON.stringify(marquesDispos)]
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                        [
+                            profil,                               // $1: text
+                            nomIng,                               // $2: text
+                            qte,                                  // $3: numeric
+                            unite,                                // $4: text
+                            rayonFinal,                           // $5: text
+                            prixRetenu,                           // $6: numeric
+                            marqueRetenue,                        // $7: text
+                            JSON.stringify(marquesDispos),        // $8: jsonb
+                            0                                     // $9: integer (coche)
+                        ]
                     );
                 }
             }
@@ -945,7 +960,6 @@ app.post('/api/courses/generer', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
 // 3. Cocher / décocher un article
 app.post('/api/courses/cocher', async (req, res) => {
     const { id, coche } = req.body;
