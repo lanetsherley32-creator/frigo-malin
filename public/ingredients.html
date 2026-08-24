@@ -201,11 +201,9 @@
             
             document.getElementById('marques-container').innerHTML = '';
             
-            // Si l'ingrédient contient des marques sous forme de tableau
             if (i.marques && Array.isArray(i.marques) && i.marques.length > 0) {
                 i.marques.forEach(m => ajouterBlocMarque(m));
             } else {
-                // S'il n'y a pas de tableau de marques, on reconstruit une marque par défaut avec les données globales de l'ingrédient
                 ajouterBlocMarque({
                     nom: i.nom || i.titre || '',
                     calories: i.calories || 0,
@@ -567,8 +565,8 @@
                 });
             });
 
+            // CORRECTION : Suppression de "titre" qui causait l'erreur SQL
             const payload = {
-                titre: nom,
                 nom: nom,
                 rayon,
                 portion_quantite: marquesData[0]?.quantite_portion || 100,
