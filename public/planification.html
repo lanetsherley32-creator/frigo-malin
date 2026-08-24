@@ -162,14 +162,14 @@
         <div id="planification-container" class="space-y-3"></div>
     </div>
 
-    <!-- Datalists de sélection sécurisée (interdit la saisie arbitraire hors ingrédients/recettes) -->
+    <!-- Datalists de sélection sécurisée -->
     <datalist id="liste-recettes-pt-dej"></datalist>
     <datalist id="liste-recettes-midi"></datalist>
     <datalist id="liste-recettes-soir"></datalist>
     <datalist id="liste-recettes-collation"></datalist>
     <datalist id="liste-ingredients-globale"></datalist>
 
-    <!-- MODALE GESTION PROFIL (TOUS LES OBJECTIFS) -->
+    <!-- MODALE GESTION PROFIL -->
     <div id="modal-personne" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
         <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4">
             <h3 id="modal-personne-title" class="font-bold text-sm text-slate-800">👤 Gestion du Profil</h3>
@@ -438,7 +438,7 @@
                 { id: 'liste-recettes-pt-dej', typeRepas: 'petitdejeuner' },
                 { id: 'liste-recettes-midi', typeRepas: 'repas1' },
                 { id: 'liste-recettes-soir', typeRepas: 'repas2' },
-                { id: 'liste-recettes-collation', typeRepas: 'petitdejeuner' } // collation pioche dans le global/ptdej filtré
+                { id: 'liste-recettes-collation', typeRepas: 'petitdejeuner' }
             ];
             types.forEach(t => {
                 const datalist = document.getElementById(t.id);
@@ -460,7 +460,6 @@
         function getNomRecette(val) {
             if (!val) return '';
             if (typeof val === 'string') {
-                // S'assurer que ce n'est pas un ID numérique brut déguisé en string
                 if (!isNaN(val) && recettesCache.some(r => String(r.id) === String(val))) {
                     const rec = recettesCache.find(r => String(r.id) === String(val));
                     return rec ? (rec.titre || rec.nom || rec.nom_reference || '') : val;
@@ -572,19 +571,19 @@
                                         </div>
                                     </div>
                                 </div>
-                                <!-- Collation / Encas (Optionnel / Aléatoire) -->
-                                <div>
-                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Collation / Encas (aléatoire)</label>
+                                <!-- Collation / Encas -->
+                                <div class="space-y-1 bg-blue-50/40 p-2 rounded-xl border border-blue-100">
+                                    <label class="block text-[10px] text-blue-800 font-bold mb-1">🍎 Collation / Encas</label>
                                     <div class="flex gap-1 items-center">
-                                        <input type="text" id="input-${jour}-collation" list="liste-recettes-collation" placeholder="Ajouter encas..." onchange="ajouterEncasJour('${jour}', this.value)" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                        <input type="text" id="input-${jour}-collation" list="liste-recettes-collation" placeholder="Ajouter encas..." onchange="ajouterEncasJour('${jour}', this.value)" class="w-full bg-white border border-blue-200 p-1.5 rounded-xl outline-none font-medium text-[11px]">
                                     </div>
                                     <div id="tags-encas-${jour}" class="flex flex-wrap gap-1 mt-1.5">
-                                        ${encasActuels.map(enc => `<span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${enc} <button type="button" onclick="supprimerEncasJour('${jour}', '${enc}')" class="text-blue-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
+                                        ${encasActuels.map(enc => `<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${enc} <button type="button" onclick="supprimerEncasJour('${jour}', '${enc}')" class="text-blue-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
                                     </div>
                                 </div>
-                                <!-- Grignotages (Manuel Uniquement) -->
+                                <!-- Grignotages -->
                                 <div class="bg-purple-50/50 p-2 rounded-xl border border-purple-100">
-                                    <label class="block text-[10px] text-purple-700 font-bold mb-1">🍫 Grignotages (Manuel)</label>
+                                    <label class="block text-[10px] text-purple-700 font-bold mb-1">🍫 Grignotages</label>
                                     <div class="flex gap-1 items-center">
                                         <input type="text" id="input-${jour}-grignotage" list="liste-recettes-collation" placeholder="Ajouter grignotage..." onchange="ajouterGrignotageJour('${jour}', this.value)" class="w-full bg-white border border-purple-200 p-1.5 rounded-xl outline-none font-medium text-[11px]">
                                     </div>
@@ -607,7 +606,6 @@
                 sauvegarderRepasParNom(jour, typeRepas, '');
                 return;
             }
-            // Vérification stricte : doit correspondre à une recette existante dans la base
             const rec = trouverRecetteParNom(valeurNom);
             if (!rec) {
                 alert(`⚠️ " ${valeurNom} " n'existe pas dans vos recettes. Vous devez obligatoirement choisir une recette existante dans la liste.`);
@@ -661,7 +659,6 @@
 
         async function ajouterIngredientJour(jour, typeRepas, valeurNom) {
             if (!valeurNom.trim()) return;
-            // Vérifier ingrédient
             const ing = trouverIngredientParNom(valeurNom);
             if (!ing) {
                 alert(`⚠️ L'ingrédient "${valeurNom}" n'existe pas dans votre base. Choisissez un ingrédient valide.`);
@@ -1020,8 +1017,8 @@
 
             for (const jour of jours) {
                 let menuJour = menusCache.find(m => m.jour === jour) || { profil, jour };
-                
-                // Gestion Collation optionnelle
+
+                // Gestion Collation / Encas aléatoire
                 if (genCollation) {
                     const poolCollation = filtrerRecettesParType('petitdejeuner');
                     if (poolCollation.length > 0) {
@@ -1034,6 +1031,7 @@
                     menuJour.encas = [];
                 }
 
+                // Petit-déjeuner aléatoire
                 if (genPtDej) {
                     const pool = filtrerRecettesParType('petitdejeuner');
                     if (pool.length > 0) {
@@ -1041,6 +1039,8 @@
                         menuJour.petitdejeuner = choisie.titre || choisie.nom || choisie.nom_reference;
                     }
                 }
+                
+                // Repas Midi aléatoire
                 if (genMidi) {
                     const pool = filtrerRecettesParType('repas1');
                     if (pool.length > 0) {
@@ -1048,6 +1048,8 @@
                         menuJour.repas1 = choisie.titre || choisie.nom || choisie.nom_reference;
                     }
                 }
+                
+                // Repas Soir aléatoire (corrigé pour tous les jours, y compris le Lundi)
                 if (genSoir) {
                     const pool = filtrerRecettesParType('repas2');
                     if (pool.length > 0) {
@@ -1074,16 +1076,16 @@
                 });
             }
             await chargerMenuSemaine();
-            alert("Génération aléatoire ultra-optimisée effectuée avec succès !");
+            alert("Génération aléatoire ultra-optimisée effectuée avec succès pour toute la semaine !");
         }
 
         function selectionnerRecetteOptimisee(pool, obj) {
-            const targetKcal = (Number(obj.calories) || 2000) / 3; // Répartition sur 3 grands repas
+            const targetKcal = (Number(obj.calories) || 2000) / 3; 
             const targetProt = (Number(obj.proteines) || 150) / 3;
             const targetGluc = (Number(obj.glucides) || 200) / 3;
             const targetLip = (Number(obj.lipides) || 70) / 3;
             const targetFibres = (Number(obj.fibres) || 30) / 3;
-            const targetBudget = (Number(obj.budget) || 100) / 21; // 3 repas * 7 jours
+            const targetBudget = (Number(obj.budget) || 100) / 21;
 
             let notes = pool.map(r => {
                 const prot = parseFloat(r.proteines || r.prot || 0);
@@ -1094,19 +1096,17 @@
                 const budget = parseFloat(r.cout || r.prix || r.budget || 3);
                 const kcal = parseFloat(r.calories || r.kcal || 500);
 
-                // Écarts par rapport aux objectifs (plus l'écart est faible, meilleur est le score)
                 let penaliteKcal = Math.abs(kcal - targetKcal) * 0.8;
-                let penaliteBudget = Math.max(0, budget - targetBudget) * 2.0; // Éviter de dépasser le budget
-                let penaliteSucre = sucre * 1.5; // En dessous du sucre max (minimiser)
+                let penaliteBudget = Math.max(0, budget - targetBudget) * 2.0;
+                let penaliteSucre = sucre * 1.5;
                 let penaliteGlucides = Math.abs(glucides - targetGluc) * 0.5;
                 let penaliteLipides = Math.abs(lipides - targetLip) * 0.5;
                 
-                // Bonus pour ce qui doit être au-dessus (Protéines et Fibres)
                 let bonusProteines = Math.max(0, prot - targetProt) * 1.5 + prot * 0.5;
                 let bonusFibres = Math.max(0, fibres - targetFibres) * 2.0 + fibres * 0.5;
 
                 let score = bonusProteines + bonusFibres - penaliteKcal - penaliteBudget - penaliteSucre - penaliteGlucides - penaliteLipides;
-                score += Math.random() * 4; // Légère part d'aléa pour diversifier
+                score += Math.random() * 4; 
                 return { recette: r, score };
             });
 
