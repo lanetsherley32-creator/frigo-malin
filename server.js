@@ -347,16 +347,64 @@ app.delete('/api/recettes/:id', async (req, res) => {
     }
 });
 
-// --- API INGREDIENTS ---
+// --- API INGREDIENTS (Structure Relationnelle 4 Tables) ---
 
 app.get('/api/ingredients', async (req, res) => {
     try {
-        const result = await pool.query("SELECT * FROM ingredients ORDER BY id DESC");
-        const rows = (result.rows || []).map(r => ({ 
-            ...r, 
-            marques: r.marques ? (typeof r.marques === 'string' ? JSON.parse(r.marques) : r.marques) : [] 
-        }));
-        res.json(rows);
+        // 1. Récupérer tous les ingrédients
+        const ingResult = await pool.query("SELECT * FROM ingredients ORDER BY id DESC");
+        const ingredients = ingResult.rows;
+
+        // 2. Pour chaque ingrédient, récupérer ses marques, formats et prix
+        const ingredientsComplets = [];
+        for (const ing of ingredients) {
+            const marquesResult = await pool.query("SELECT * FROM marques WHERE ingredient_id = $1", [ing.id]);
+            const marques = [];
+
+            for (const marq of marquesResult.rows) {
+                const formatsResult = await pool.query("SELECT * FROM formats WHERE marque_id = $1", [marq.id]);
+                const formats = [];
+
+                for (const fmt of formatsResult.rows) {
+                    const prixResult = await pool.query("SELECT * FROM prix_enseignes WHERE format_id = $1", [fmt.id]);
+                    const prix_enseignes = {};
+                    prixResult.rows.forEach(p => {
+                        prix_enseignes[p.enseigne] = p.prix;
+                    });
+
+                    formats.push({
+                        id: fmt.id,
+                        qte: fmt.quantite,
+                        unite: fmt.unite,
+                        prix_enseignes: prix_enseignes
+                    });
+                }
+
+                marques.push({
+                    id: marq.id,
+                    nom: marq.nom_marque,
+                    calories: marq.calories_kcal,
+                    proteines: marq.proteines_g,
+                    glucides: marq.glucides_g,
+                    sucres: marq.sucres_g,
+                    lipides: marq.lipides_g,
+                    fibres: marq.fibres_g,
+                    formats: formats
+                });
+            }
+
+            ingredientsComplets.push({
+                id: ing.id,
+                titre: ing.titre,
+                nom: ing.nom_reference, // Mappe nom_reference vers nom pour le front-end
+                rayon: ing.rayon,
+                portion_quantite: ing.portion_quantite,
+                portion_unite: ing.portion_unite,
+                marques: marques
+            });
+        }
+
+        res.json(ingredientsComplets);
     } catch (err) {
         console.error("Erreur GET /api/ingredients:", err.message);
         res.status(500).json({ error: err.message });
@@ -365,64 +413,181 @@ app.get('/api/ingredients', async (req, res) => {
 
 app.post('/api/ingredients', async (req, res) => {
     const { nom, rayon, marques } = req.body;
-    const marquesStr = Array.isArray(marques) ? JSON.stringify(marques) : (marques || '[]');
-    
+    const client = await pool.connect();
+
     try {
-        const query = `
-            INSERT INTO ingredients (nom, rayon, marques) 
+        await client.query('BEGIN'); // Début de la transaction sécurisée
+
+        // 1. Insertion dans ingredients (on met nom et titre identiques par défaut)
+        const ingQuery = `
+            INSERT INTO ingredients (titre, nom_reference, rayon) 
             VALUES ($1, $2, $3) RETURNING id
         `;
-        const values = [
-            nom || 'Sans nom',
-            rayon || 'Épicerie', 
-            marquesStr
-        ];
+        const ingRes = await client.query(ingQuery, [nom || 'Sans nom', nom || 'Sans nom', rayon || 'Épicerie']);
+        const ingredientId = ingRes.rows[0].id;
 
-        const result = await pool.query(query, values);
-        
+        // 2. Insertion des marques, formats et prix
+        if (Array.isArray(marques)) {
+            for (const m of marques) {
+                const marqQuery = `
+                    INSERT INTO marques (ingredient_id, nom_marque, calories_kcal, proteines_g, glucides_g, sucres_g, lipides_g, fibres_g)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
+                `;
+                const marqRes = await client.query(marqQuery, [
+                    ingredientId,
+                    m.nom || 'Générique',
+                    m.calories || 0,
+                    m.proteines || 0,
+                    m.glucides || 0,
+                    m.sucres || 0,
+                    m.lipides || 0,
+                    m.fibres || 0
+                ]);
+                const marqueId = marqRes.rows[0].id;
+
+                // Mise à jour optionnelle de la portion standard sur l'ingrédient si présente dans la première marque
+                if (m.quantite_portion) {
+                    await client.query(
+                        "UPDATE ingredients SET portion_quantite = $1, portion_unite = $2 WHERE id = $3",
+                        [m.quantite_portion, m.unite_portion || 'g', ingredientId]
+                    );
+                }
+
+                if (Array.isArray(m.formats)) {
+                    for (const f of m.formats) {
+                        const fmtQuery = `
+                            INSERT INTO formats (marque_id, quantite, unite)
+                            VALUES ($1, $2, $3) RETURNING id
+                        `;
+                        const fmtRes = await client.query(fmtQuery, [
+                            marqueId,
+                            f.qte || 1,
+                            f.unite || 'g'
+                        ]);
+                        const formatId = fmtRes.rows[0].id;
+
+                        if (f.prix_enseignes && typeof f.prix_enseignes === 'object') {
+                            for (const [enseigne, prix] of Object.entries(f.prix_enseignes)) {
+                                if (enseigne && !isNaN(prix)) {
+                                    await client.query(
+                                        "INSERT INTO prix_enseignes (format_id, enseigne, prix) VALUES ($1, $2, $3)",
+                                        [formatId, enseigne, prix]
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        await client.query('COMMIT'); // Validation de la transaction
         io.emit('data_updated');
-        res.json({ success: true, id: result.rows[0].id });
+        res.json({ success: true, id: ingredientId });
     } catch (err) {
+        await client.query('ROLLBACK'); // Annulation en cas d'erreur
         console.error("Erreur POST /api/ingredients:", err.message);
         res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 
 app.put('/api/ingredients/:id', async (req, res) => {
     const { id } = req.params;
     const { nom, rayon, marques } = req.body;
-    const marquesStr = Array.isArray(marques) ? JSON.stringify(marques) : (marques || '[]');
-    
+    const client = await pool.connect();
+
     try {
-        const query = `
+        await client.query('BEGIN');
+
+        // 1. Mettre à jour l'ingrédient de base
+        const updateIngQuery = `
             UPDATE ingredients 
-            SET nom = $1, rayon = $2, marques = $3 
+            SET titre = $1, nom_reference = $2, rayon = $3 
             WHERE id = $4
         `;
-        const values = [
-            nom || 'Sans nom', 
-            rayon || 'Épicerie', 
-            marquesStr, 
-            id
-        ];
+        await client.query(updateIngQuery, [nom || 'Sans nom', nom || 'Sans nom', rayon || 'Épicerie', id]);
 
-        await pool.query(query, values);
+        // 2. Pour une mise à jour propre, on supprime les anciennes marques liées (les cascades supprimeront formats et prix automatiquement)
+        await client.query("DELETE FROM marques WHERE ingredient_id = $1", [id]);
 
+        // 3. On réinsère les nouvelles marques reçues du formulaire
+        if (Array.isArray(marques)) {
+            for (const m of marques) {
+                const marqQuery = `
+                    INSERT INTO marques (ingredient_id, nom_marque, calories_kcal, proteines_g, glucides_g, sucres_g, lipides_g, fibres_g)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
+                `;
+                const marqRes = await client.query(marqQuery, [
+                    id,
+                    m.nom || 'Générique',
+                    m.calories || 0,
+                    m.proteines || 0,
+                    m.glucides || 0,
+                    m.sucres || 0,
+                    m.lipides || 0,
+                    m.fibres || 0
+                ]);
+                const marqueId = marqRes.rows[0].id;
+
+                if (m.quantite_portion) {
+                    await client.query(
+                        "UPDATE ingredients SET portion_quantite = $1, portion_unite = $2 WHERE id = $3",
+                        [m.quantite_portion, m.unite_portion || 'g', id]
+                    );
+                }
+
+                if (Array.isArray(m.formats)) {
+                    for (const f of m.formats) {
+                        const fmtQuery = `
+                            INSERT INTO formats (marque_id, quantite, unite)
+                            VALUES ($1, $2, $3) RETURNING id
+                        `;
+                        const fmtRes = await client.query(fmtQuery, [
+                            marqueId,
+                            f.qte || 1,
+                            f.unite || 'g'
+                        ]);
+                        const formatId = fmtRes.rows[0].id;
+
+                        if (f.prix_enseignes && typeof f.prix_enseignes === 'object') {
+                            for (const [enseigne, prix] of Object.entries(f.prix_enseignes)) {
+                                if (enseigne && !isNaN(prix)) {
+                                    await client.query(
+                                        "INSERT INTO prix_enseignes (format_id, enseigne, prix) VALUES ($1, $2, $3)",
+                                        [formatId, enseigne, prix]
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        await client.query('COMMIT');
         io.emit('data_updated');
         res.json({ success: true, message: "Ingrédient mis à jour avec succès !" });
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error("Erreur PUT /api/ingredients:", err.message);
         res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 
 app.delete('/api/ingredients/:id', async (req, res) => {
     const { id } = req.params;
     try {
+        // Grâce aux "ON DELETE CASCADE" dans vos tables SQL, supprimer l'ingrédient 
+        // va automatiquement supprimer ses marques, formats et prix associés !
         await pool.query("DELETE FROM ingredients WHERE id = $1", [id]);
         io.emit('data_updated');
-        res.json({ success: true, message: "Ingrédient supprimé avec succès !" });
+        res.json({ success: true, message: "Ingrédient supprimé" });
     } catch (err) {
+        console.error("Erreur DELETE /api/ingredients:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
