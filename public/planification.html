@@ -77,7 +77,7 @@
         <!-- Filtrage Avancé & Choix des repas à générer -->
         <section class="bg-white rounded-2xl shadow-sm border border-slate-200 text-xs overflow-hidden">
             <button onclick="toggleAccordeonFiltres()" class="w-full p-4 flex justify-between items-center font-bold text-slate-800 bg-slate-50 hover:bg-slate-100 transition-all">
-                <span class="flex items-center gap-2">⚙️ Filtrage Avancé & Choix des Repas à Générer (Avec Collations optionnelles)</span>
+                <span class="flex items-center gap-2">⚙️ Filtrage Avancé & Choix des Repas à Générer</span>
                 <span id="accordeon-icon" class="text-sm font-bold text-slate-500">▼</span>
             </button>
             <div id="accordeon-content" class="p-4 space-y-4 hidden border-t border-slate-100">
@@ -128,12 +128,18 @@
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-soir-sub rounded border-slate-300" value="dessert" checked onchange="sauvegarderFiltresEtMettreAJour()"> Dessert</label>
                     </div>
                 </div>
-                <!-- Collation / En-cas -->
+                <!-- Collation -->
                 <div class="space-y-2">
                     <label class="flex items-center gap-2 font-bold text-blue-900 cursor-pointer text-[11px]">
                         <input type="checkbox" id="generer-collation" checked onchange="sauvegarderFiltresEtMettreAJour()" class="rounded border-slate-300 w-4 h-4 text-blue-600">
-                        🍎 Inclure/Générer la Collation / En-cas dans l'aléatoire
+                        🍎 Inclure/Générer la Collation dans l'aléatoire
                     </label>
+                    <div class="flex flex-wrap gap-4 items-center pl-6">
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="petitdej" checked onchange="sauvegarderFiltresEtMettreAJour()"> petitdej</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="repas chaud" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas chaud</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="repas froid" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas froid</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="dessert" checked onchange="sauvegarderFiltresEtMettreAJour()"> Dessert</label>
+                    </div>
                 </div>
             </div>
         </section>
@@ -167,7 +173,7 @@
     <datalist id="liste-recettes-midi"></datalist>
     <datalist id="liste-recettes-soir"></datalist>
     <datalist id="liste-recettes-collation"></datalist>
-    <datalist id="liste-ingredients-globale"></datalist>
+    <datalist id="liste-base-universelle"></datalist>
 
     <!-- MODALE GESTION PROFIL -->
     <div id="modal-personne" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
@@ -275,7 +281,7 @@
                 select.value = savedProfil;
                 remplirChampsObjectifsDirects(savedProfil);
                 chargerFiltresSauvegardes();
-                mettreAJourDatalistIngredients();
+                mettreAJourDatalistUniverselle();
                 await chargerMenuSemaine();
                 mettreAJourDatalists();
                 afficherSuggestionsVertes();
@@ -357,7 +363,8 @@
                 genCollation: document.getElementById('generer-collation')?.checked ?? true,
                 ptDej: Array.from(document.querySelectorAll('.filtre-pt-dej-sub')).map(cb => ({ val: cb.value, checked: cb.checked })),
                 midi: Array.from(document.querySelectorAll('.filtre-midi-sub')).map(cb => ({ val: cb.value, checked: cb.checked })),
-                soir: Array.from(document.querySelectorAll('.filtre-soir-sub')).map(cb => ({ val: cb.value, checked: cb.checked }))
+                soir: Array.from(document.querySelectorAll('.filtre-soir-sub')).map(cb => ({ val: cb.value, checked: cb.checked })),
+                collation: Array.from(document.querySelectorAll('.filtre-collation-sub')).map(cb => ({ val: cb.value, checked: cb.checked }))
             };
             localStorage.setItem('filtresAvancesSemaine', JSON.stringify(filtres));
             mettreAJourDatalists();
@@ -374,24 +381,19 @@
                 if (document.getElementById('generer-midi')) document.getElementById('generer-midi').checked = filtres.genMidi ?? true;
                 if (document.getElementById('generer-soir')) document.getElementById('generer-soir').checked = filtres.genSoir ?? true;
                 if (document.getElementById('generer-collation')) document.getElementById('generer-collation').checked = filtres.genCollation ?? true;
-                if (filtres.ptDej) {
-                    document.querySelectorAll('.filtre-pt-dej-sub').forEach(cb => {
-                        const found = filtres.ptDej.find(f => f.val === cb.value);
-                        if (found) cb.checked = found.checked;
-                    });
-                }
-                if (filtres.midi) {
-                    document.querySelectorAll('.filtre-midi-sub').forEach(cb => {
-                        const found = filtres.midi.find(f => f.val === cb.value);
-                        if (found) cb.checked = found.checked;
-                    });
-                }
-                if (filtres.soir) {
-                    document.querySelectorAll('.filtre-soir-sub').forEach(cb => {
-                        const found = filtres.soir.find(f => f.val === cb.value);
-                        if (found) cb.checked = found.checked;
-                    });
-                }
+                
+                const chargerSub = (selector, savedArray) => {
+                    if (savedArray) {
+                        document.querySelectorAll(selector).forEach(cb => {
+                            const found = savedArray.find(f => f.val === cb.value);
+                            if (found) cb.checked = found.checked;
+                        });
+                    }
+                };
+                chargerSub('.filtre-pt-dej-sub', filtres.ptDej);
+                chargerSub('.filtre-midi-sub', filtres.midi);
+                chargerSub('.filtre-soir-sub', filtres.soir);
+                chargerSub('.filtre-collation-sub', filtres.collation);
             } catch(e) {
                 console.error("Erreur chargement filtres", e);
             }
@@ -402,6 +404,8 @@
             if (typeRepas === 'petitdejeuner') selector = '.filtre-pt-dej-sub';
             else if (typeRepas === 'repas1') selector = '.filtre-midi-sub';
             else if (typeRepas === 'repas2') selector = '.filtre-soir-sub';
+            else if (typeRepas === 'collation') selector = '.filtre-collation-sub';
+            
             const checkboxes = document.querySelectorAll(selector);
             const selectionnes = [];
             checkboxes.forEach(cb => {
@@ -438,7 +442,7 @@
                 { id: 'liste-recettes-pt-dej', typeRepas: 'petitdejeuner' },
                 { id: 'liste-recettes-midi', typeRepas: 'repas1' },
                 { id: 'liste-recettes-soir', typeRepas: 'repas2' },
-                { id: 'liste-recettes-collation', typeRepas: 'petitdejeuner' }
+                { id: 'liste-recettes-collation', typeRepas: 'collation' }
             ];
             types.forEach(t => {
                 const datalist = document.getElementById(t.id);
@@ -451,10 +455,13 @@
             });
         }
 
-        function mettreAJourDatalistIngredients() {
-            const datalist = document.getElementById('liste-ingredients-globale');
+        function mettreAJourDatalistUniverselle() {
+            const datalist = document.getElementById('liste-base-universelle');
             if (!datalist) return;
-            datalist.innerHTML = ingredientsCache.map(i => `<option value="${i.nom || i.titre}">`).join('');
+            const nomsRecettes = recettesCache.map(r => r.titre || r.nom || r.nom_reference).filter(Boolean);
+            const nomsIngredients = ingredientsCache.map(i => i.nom || i.titre).filter(Boolean);
+            const combiné = [...new Set([...nomsRecettes, ...nomsIngredients])];
+            datalist.innerHTML = combiné.map(item => `<option value="${item}">`).join('');
         }
 
         function getNomRecette(val) {
@@ -502,7 +509,12 @@
 
         function getIngredientsList(menuJour, typeRepas) {
             if (!menuJour) return [];
-            let key = typeRepas === 'petitdejeuner' ? 'ingredients_petitdejeuner' : (typeRepas === 'repas1' ? 'ingredients_repas1' : 'ingredients_repas2');
+            let key = '';
+            if (typeRepas === 'petitdejeuner') key = 'ingredients_petitdejeuner';
+            else if (typeRepas === 'repas1') key = 'ingredients_repas1';
+            else if (typeRepas === 'repas2') key = 'ingredients_repas2';
+            else if (typeRepas === 'collation') key = 'ingredients_collation';
+
             let ing = menuJour[key] || [];
             if (typeof ing === 'string') {
                 try { ing = JSON.parse(ing); } catch(e) { ing = ing ? [ing] : []; }
@@ -528,6 +540,7 @@
                     const ingPtDej = getIngredientsList(menuJour, 'petitdejeuner');
                     const ingMidi = getIngredientsList(menuJour, 'repas1');
                     const ingSoir = getIngredientsList(menuJour, 'repas2');
+                    const ingCollation = getIngredientsList(menuJour, 'collation');
                     return `
                         <div id="row-${jour}" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
                             <div class="flex justify-between items-center border-b border-slate-100 pb-2">
@@ -541,7 +554,7 @@
                                     <input type="text" id="input-${jour}-petitdejeuner" list="liste-recettes-pt-dej" placeholder="Recette existante..." onchange="verifierEtSauvegarderRepas('${jour}', 'petitdejeuner', this.value)" value="${getNomRecette(menuJour.petitdejeuner)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                    
                                     <div class="pt-1">
-                                        <input type="text" id="input-ing-${jour}-petitdejeuner" list="liste-ingredients-globale" placeholder="+ Ingrédient..." onchange="ajouterIngredientJour('${jour}', 'petitdejeuner', this.value)" class="w-full bg-slate-50 border border-slate-100 p-1.5 rounded-xl outline-none text-[11px]">
+                                        <input type="text" id="input-ing-${jour}-petitdejeuner" list="liste-base-universelle" placeholder="+ Ingrédient ou recette..." onchange="ajouterIngredientJour('${jour}', 'petitdejeuner', this.value)" class="w-full bg-slate-50 border border-slate-100 p-1.5 rounded-xl outline-none text-[11px]">
                                         <div id="tags-ing-${jour}-petitdejeuner" class="flex flex-wrap gap-1 mt-1">
                                             ${ingPtDej.map(i => `<span class="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${i} <button type="button" onclick="supprimerIngredientJour('${jour}', 'petitdejeuner', '${i}')" class="text-amber-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
                                         </div>
@@ -553,7 +566,7 @@
                                     <input type="text" id="input-${jour}-repas1" list="liste-recettes-midi" placeholder="Recette existante..." onchange="verifierEtSauvegarderRepas('${jour}', 'repas1', this.value)" value="${getNomRecette(menuJour.repas1)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                    
                                     <div class="pt-1">
-                                        <input type="text" id="input-ing-${jour}-repas1" list="liste-ingredients-globale" placeholder="+ Ingrédient..." onchange="ajouterIngredientJour('${jour}', 'repas1', this.value)" class="w-full bg-slate-50 border border-slate-100 p-1.5 rounded-xl outline-none text-[11px]">
+                                        <input type="text" id="input-ing-${jour}-repas1" list="liste-base-universelle" placeholder="+ Ingrédient ou recette..." onchange="ajouterIngredientJour('${jour}', 'repas1', this.value)" class="w-full bg-slate-50 border border-slate-100 p-1.5 rounded-xl outline-none text-[11px]">
                                         <div id="tags-ing-${jour}-repas1" class="flex flex-wrap gap-1 mt-1">
                                             ${ingMidi.map(i => `<span class="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${i} <button type="button" onclick="supprimerIngredientJour('${jour}', 'repas1', '${i}')" class="text-amber-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
                                         </div>
@@ -565,27 +578,29 @@
                                     <input type="text" id="input-${jour}-repas2" list="liste-recettes-soir" placeholder="Recette existante..." onchange="verifierEtSauvegarderRepas('${jour}', 'repas2', this.value)" value="${getNomRecette(menuJour.repas2)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                    
                                     <div class="pt-1">
-                                        <input type="text" id="input-ing-${jour}-repas2" list="liste-ingredients-globale" placeholder="+ Ingrédient..." onchange="ajouterIngredientJour('${jour}', 'repas2', this.value)" class="w-full bg-slate-50 border border-slate-100 p-1.5 rounded-xl outline-none text-[11px]">
+                                        <input type="text" id="input-ing-${jour}-repas2" list="liste-base-universelle" placeholder="+ Ingrédient ou recette..." onchange="ajouterIngredientJour('${jour}', 'repas2', this.value)" class="w-full bg-slate-50 border border-slate-100 p-1.5 rounded-xl outline-none text-[11px]">
                                         <div id="tags-ing-${jour}-repas2" class="flex flex-wrap gap-1 mt-1">
                                             ${ingSoir.map(i => `<span class="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${i} <button type="button" onclick="supprimerIngredientJour('${jour}', 'repas2', '${i}')" class="text-amber-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
                                         </div>
                                     </div>
                                 </div>
                                 <!-- Collation / Encas -->
-                                <div class="space-y-1 bg-blue-50/40 p-2 rounded-xl border border-blue-100">
+                                <div class="space-y-1">
                                     <label class="block text-[10px] text-blue-800 font-bold mb-1">🍎 Collation / Encas</label>
-                                    <div class="flex gap-1 items-center">
-                                        <input type="text" id="input-${jour}-collation" list="liste-recettes-collation" placeholder="Ajouter encas..." onchange="ajouterEncasJour('${jour}', this.value)" class="w-full bg-white border border-blue-200 p-1.5 rounded-xl outline-none font-medium text-[11px]">
-                                    </div>
-                                    <div id="tags-encas-${jour}" class="flex flex-wrap gap-1 mt-1.5">
-                                        ${encasActuels.map(enc => `<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${enc} <button type="button" onclick="supprimerEncasJour('${jour}', '${enc}')" class="text-blue-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
+                                    <input type="text" id="input-${jour}-collation" list="liste-recettes-collation" placeholder="Recette existante..." onchange="verifierEtSauvegarderRepas('${jour}', 'collation', this.value)" value="${encasActuels[0] || ''}" class="w-full bg-blue-50/40 border border-blue-200 p-2 rounded-xl outline-none font-medium">
+                                   
+                                    <div class="pt-1">
+                                        <input type="text" id="input-ing-${jour}-collation" list="liste-base-universelle" placeholder="+ Ingrédient ou recette..." onchange="ajouterIngredientJour('${jour}', 'collation', this.value)" class="w-full bg-slate-50 border border-slate-100 p-1.5 rounded-xl outline-none text-[11px]">
+                                        <div id="tags-ing-${jour}-collation" class="flex flex-wrap gap-1 mt-1">
+                                            ${ingCollation.map(i => `<span class="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${i} <button type="button" onclick="supprimerIngredientJour('${jour}', 'collation', '${i}')" class="text-amber-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
+                                        </div>
                                     </div>
                                 </div>
                                 <!-- Grignotages -->
                                 <div class="bg-purple-50/50 p-2 rounded-xl border border-purple-100">
                                     <label class="block text-[10px] text-purple-700 font-bold mb-1">🍫 Grignotages</label>
                                     <div class="flex gap-1 items-center">
-                                        <input type="text" id="input-${jour}-grignotage" list="liste-recettes-collation" placeholder="Ajouter grignotage..." onchange="ajouterGrignotageJour('${jour}', this.value)" class="w-full bg-white border border-purple-200 p-1.5 rounded-xl outline-none font-medium text-[11px]">
+                                        <input type="text" id="input-${jour}-grignotage" list="liste-base-universelle" placeholder="Ajouter grignotage..." onchange="ajouterGrignotageJour('${jour}', this.value)" class="w-full bg-white border border-purple-200 p-1.5 rounded-xl outline-none font-medium text-[11px]">
                                     </div>
                                     <div id="tags-grignotages-${jour}" class="flex flex-wrap gap-1 mt-1.5">
                                         ${grignotagesActuels.map(gri => `<span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${gri} <button type="button" onclick="supprimerGrignotageJour('${jour}', '${gri}')" class="text-purple-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
@@ -612,7 +627,12 @@
                 const menuJour = menusCache.find(m => m.jour === jour) || {};
                 const inputEl = document.getElementById(`input-${jour}-${typeRepas}`);
                 if (inputEl) {
-                    inputEl.value = getNomRecette(menuJour[typeRepas === 'petitdejeuner' ? 'petitdejeuner' : typeRepas]);
+                    if (typeRepas === 'collation') {
+                        const encasActuels = getEncasList(menuJour);
+                        inputEl.value = encasActuels[0] || '';
+                    } else {
+                        inputEl.value = getNomRecette(menuJour[typeRepas]);
+                    }
                 }
                 return;
             }
@@ -627,12 +647,21 @@
             if (!profil) return;
             let menuJour = menusCache.find(m => m.jour === jour);
             if (!menuJour) {
-                menuJour = { jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [], grignotages: [], ingredients_petitdejeuner: [], ingredients_repas1: [], ingredients_repas2: [] };
+                menuJour = { jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [], grignotages: [], ingredients_petitdejeuner: [], ingredients_repas1: [], ingredients_repas2: [], ingredients_collation: [] };
                 menusCache.push(menuJour);
             }
             if (typeRepas === 'petitdejeuner') menuJour.petitdejeuner = valeurNom;
             else if (typeRepas === 'repas1') menuJour.repas1 = valeurNom;
             else if (typeRepas === 'repas2') menuJour.repas2 = valeurNom;
+            else if (typeRepas === 'collation') {
+                let encas = getEncasList(menuJour);
+                if (valeurNom) {
+                    encas[0] = valeurNom;
+                } else {
+                    encas.shift();
+                }
+                menuJour.encas = encas;
+            }
 
             try {
                 await fetch('/api/menu-prevu-semaine', {
@@ -648,7 +677,8 @@
                         grignotages: getGrignotagesList(menuJour),
                         ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
                         ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
-                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
+                        ingredients_repas2: getIngredientsList(menuJour, 'repas2'),
+                        ingredients_collation: getIngredientsList(menuJour, 'collation')
                     })
                 });
                 calculerEtAfficherTotauxSemaine();
@@ -659,18 +689,18 @@
 
         async function ajouterIngredientJour(jour, typeRepas, valeurNom) {
             if (!valeurNom.trim()) return;
-            const ing = trouverIngredientParNom(valeurNom);
-            if (!ing) {
-                alert(`⚠️ L'ingrédient "${valeurNom}" n'existe pas dans votre base. Choisissez un ingrédient valide.`);
+            const itemTrouve = trouverRecetteParNom(valeurNom) || trouverIngredientParNom(valeurNom);
+            if (!itemTrouve) {
+                alert(`⚠️ L'élément "${valeurNom}" n'existe pas dans vos bases (recettes ou ingrédients).`);
                 document.getElementById(`input-ing-${jour}-${typeRepas}`).value = '';
                 return;
             }
-            const nomValide = ing.nom || ing.titre;
+            const nomValide = itemTrouve.titre || itemTrouve.nom || itemTrouve.nom_reference;
             const profil = document.getElementById('select-profil')?.value;
             if (!profil) return;
             let menuJour = menusCache.find(m => m.jour === jour);
             if (!menuJour) {
-                menuJour = { jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [], grignotages: [], ingredients_petitdejeuner: [], ingredients_repas1: [], ingredients_repas2: [] };
+                menuJour = { jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [], grignotages: [], ingredients_petitdejeuner: [], ingredients_repas1: [], ingredients_repas2: [], ingredients_collation: [] };
                 menusCache.push(menuJour);
             }
             let liste = getIngredientsList(menuJour, typeRepas);
@@ -680,6 +710,8 @@
             if (typeRepas === 'petitdejeuner') menuJour.ingredients_petitdejeuner = liste;
             else if (typeRepas === 'repas1') menuJour.ingredients_repas1 = liste;
             else if (typeRepas === 'repas2') menuJour.ingredients_repas2 = liste;
+            else if (typeRepas === 'collation') menuJour.ingredients_collation = liste;
+
             document.getElementById(`input-ing-${jour}-${typeRepas}`).value = '';
             try {
                 await fetch('/api/menu-prevu-semaine', {
@@ -695,12 +727,13 @@
                         grignotages: getGrignotagesList(menuJour),
                         ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
                         ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
-                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
+                        ingredients_repas2: getIngredientsList(menuJour, 'repas2'),
+                        ingredients_collation: getIngredientsList(menuJour, 'collation')
                     })
                 });
                 await chargerMenuSemaine();
             } catch (e) {
-                console.error("Erreur ajout ingrédient", e);
+                console.error("Erreur ajout ingrédient/recette additionnelle", e);
             }
         }
 
@@ -713,6 +746,8 @@
             if (typeRepas === 'petitdejeuner') menuJour.ingredients_petitdejeuner = liste;
             else if (typeRepas === 'repas1') menuJour.ingredients_repas1 = liste;
             else if (typeRepas === 'repas2') menuJour.ingredients_repas2 = liste;
+            else if (typeRepas === 'collation') menuJour.ingredients_collation = liste;
+
             try {
                 await fetch('/api/menu-prevu-semaine', {
                     method: 'POST',
@@ -727,7 +762,8 @@
                         grignotages: getGrignotagesList(menuJour),
                         ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
                         ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
-                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
+                        ingredients_repas2: getIngredientsList(menuJour, 'repas2'),
+                        ingredients_collation: getIngredientsList(menuJour, 'collation')
                     })
                 });
                 await chargerMenuSemaine();
@@ -736,88 +772,15 @@
             }
         }
 
-        async function ajouterEncasJour(jour, valeurNom) {
-            if (!valeurNom.trim()) return;
-            const rec = trouverRecetteParNom(valeurNom);
-            if (!rec) {
-                alert(`⚠️ La collation/encas "${valeurNom}" doit être une recette valide.`);
-                document.getElementById(`input-${jour}-collation`).value = '';
-                return;
-            }
-            const nomValide = rec.titre || rec.nom || rec.nom_reference;
-            const profil = document.getElementById('select-profil')?.value;
-            if (!profil) return;
-            let menuJour = menusCache.find(m => m.jour === jour);
-            if (!menuJour) {
-                menuJour = { jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [], grignotages: [] };
-                menusCache.push(menuJour);
-            }
-            let encas = getEncasList(menuJour);
-            encas.push(nomValide);
-            menuJour.encas = encas;
-            document.getElementById(`input-${jour}-collation`).value = '';
-            try {
-                await fetch('/api/menu-prevu-semaine', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        profil,
-                        jour,
-                        petitdejeuner: menuJour.petitdejeuner || '',
-                        repas1: menuJour.repas1 || '',
-                        repas2: menuJour.repas2 || '',
-                        encas: menuJour.encas,
-                        grignotages: getGrignotagesList(menuJour),
-                        ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
-                        ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
-                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
-                    })
-                });
-                await chargerMenuSemaine();
-            } catch (e) {
-                console.error("Erreur ajout encas", e);
-            }
-        }
-
-        async function supprimerEncasJour(jour, nomEncas) {
-            const profil = document.getElementById('select-profil')?.value;
-            if (!profil) return;
-            let menuJour = menusCache.find(m => m.jour === jour);
-            if (!menuJour) return;
-            let encas = getEncasList(menuJour).filter(e => e !== nomEncas);
-            menuJour.encas = encas;
-            try {
-                await fetch('/api/menu-prevu-semaine', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        profil,
-                        jour,
-                        petitdejeuner: menuJour.petitdejeuner || '',
-                        repas1: menuJour.repas1 || '',
-                        repas2: menuJour.repas2 || '',
-                        encas: menuJour.encas,
-                        grignotages: getGrignotagesList(menuJour),
-                        ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
-                        ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
-                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
-                    })
-                });
-                await chargerMenuSemaine();
-            } catch (e) {
-                console.error("Erreur suppression encas", e);
-            }
-        }
-
         async function ajouterGrignotageJour(jour, valeurNom) {
             if (!valeurNom.trim()) return;
-            const rec = trouverRecetteParNom(valeurNom);
-            if (!rec) {
-                alert(`⚠️ Le grignotage "${valeurNom}" doit être une recette valide.`);
+            const itemTrouve = trouverRecetteParNom(valeurNom) || trouverIngredientParNom(valeurNom);
+            if (!itemTrouve) {
+                alert(`⚠️ Le grignotage "${valeurNom}" doit être une recette ou un ingrédient valide.`);
                 document.getElementById(`input-${jour}-grignotage`).value = '';
                 return;
             }
-            const nomValide = rec.titre || rec.nom || rec.nom_reference;
+            const nomValide = itemTrouve.titre || itemTrouve.nom || itemTrouve.nom_reference;
             const profil = document.getElementById('select-profil')?.value;
             if (!profil) return;
             let menuJour = menusCache.find(m => m.jour === jour);
@@ -843,7 +806,8 @@
                         grignotages: menuJour.grignotages,
                         ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
                         ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
-                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
+                        ingredients_repas2: getIngredientsList(menuJour, 'repas2'),
+                        ingredients_collation: getIngredientsList(menuJour, 'collation')
                     })
                 });
                 await chargerMenuSemaine();
@@ -873,7 +837,8 @@
                         grignotages: menuJour.grignotages,
                         ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
                         ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
-                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
+                        ingredients_repas2: getIngredientsList(menuJour, 'repas2'),
+                        ingredients_collation: getIngredientsList(menuJour, 'collation')
                     })
                 });
                 await chargerMenuSemaine();
@@ -928,7 +893,8 @@
                     ...getGrignotagesList(menuJour),
                     ...getIngredientsList(menuJour, 'petitdejeuner'),
                     ...getIngredientsList(menuJour, 'repas1'),
-                    ...getIngredientsList(menuJour, 'repas2')
+                    ...getIngredientsList(menuJour, 'repas2'),
+                    ...getIngredientsList(menuJour, 'collation')
                 ];
                 nomsElements.forEach(nom => {
                     const r = trouverRecetteParNom(nom);
@@ -1018,9 +984,9 @@
             for (const jour of jours) {
                 let menuJour = menusCache.find(m => m.jour === jour) || { profil, jour };
 
-                // Gestion Collation / Encas aléatoire
+                // Gestion Collation aléatoire
                 if (genCollation) {
-                    const poolCollation = filtrerRecettesParType('petitdejeuner');
+                    const poolCollation = filtrerRecettesParType('collation');
                     if (poolCollation.length > 0) {
                         const choisieCollation = selectionnerRecetteOptimisee(poolCollation, profilObj);
                         menuJour.encas = [choisieCollation.titre || choisieCollation.nom || choisieCollation.nom_reference];
@@ -1049,7 +1015,7 @@
                     }
                 }
                 
-                // Repas Soir aléatoire (corrigé pour tous les jours, y compris le Lundi)
+                // Repas Soir aléatoire
                 if (genSoir) {
                     const pool = filtrerRecettesParType('repas2');
                     if (pool.length > 0) {
@@ -1068,10 +1034,11 @@
                         repas1: menuJour.repas1 || '',
                         repas2: menuJour.repas2 || '',
                         encas: menuJour.encas || [],
-                        grignotages: getGrignotagesList(menuJour), // Préservés (manuel uniquement)
+                        grignotages: getGrignotagesList(menuJour),
                         ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
                         ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
-                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
+                        ingredients_repas2: getIngredientsList(menuJour, 'repas2'),
+                        ingredients_collation: getIngredientsList(menuJour, 'collation')
                     })
                 });
             }
@@ -1213,6 +1180,7 @@
                 const ingPtDej = getIngredientsList(menuJour, 'petitdejeuner').join(', ');
                 const ingMidi = getIngredientsList(menuJour, 'repas1').join(', ');
                 const ingSoir = getIngredientsList(menuJour, 'repas2').join(', ');
+                const ingCollation = getIngredientsList(menuJour, 'collation').join(', ');
                 if (y > 250) {
                     doc.addPage();
                     y = 20;
@@ -1224,7 +1192,7 @@
                 doc.text(`- Petit-déjeuner : ${ptDej} ${ingPtDej ? '(' + ingPtDej + ')' : ''}`, 18, y); y += 5;
                 doc.text(`- Midi : ${midi} ${ingMidi ? '(' + ingMidi + ')' : ''}`, 18, y); y += 5;
                 doc.text(`- Soir : ${soir} ${ingSoir ? '(' + ingSoir + ')' : ''}`, 18, y); y += 5;
-                doc.text(`- Collation : ${encas}`, 18, y); y += 5;
+                doc.text(`- Collation : ${encas} ${ingCollation ? '(' + ingCollation + ')' : ''}`, 18, y); y += 5;
                 doc.text(`- Grignotages : ${grignotages}`, 18, y); y += 8;
             });
             doc.save(`menu-semaine-${profilActif.toLowerCase()}.pdf`);
