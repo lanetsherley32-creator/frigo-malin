@@ -69,7 +69,7 @@
                             <option value="kg">kg</option>
                             <option value="ml">ml</option>
                             <option value="L">L</option>
-                            <option value="pièce">pièce</option>
+                            <option value="unité">unité(s)</option>
                             <option value="c.à.s">c.à.s</option>
                             <option value="c.à.c">c.à.c</option>
                         </select>
@@ -201,7 +201,10 @@
             const select = document.getElementById('select-ingredient');
             select.innerHTML = ingredientsGlobal.length === 0 
                 ? `<option value="">-- Aucun ingrédient disponible --</option>` 
-                : `<option value="">-- Choisir un ingrédient --</option>` + ingredientsGlobal.map(i => `<option value="${i.id}">${i.nom}</option>`).join('');
+                : `<option value="">-- Choisir un ingrédient --</option>` + ingredientsGlobal.map(i => {
+                    const libelle = i.titre || i.nom_reference || i.nom || `Ingrédient #${i.id}`;
+                    return `<option value="${i.id}">${libelle} (${i.rayon || 'Divers'})</option>`;
+                }).join('');
         }
 
         function convertirEnGrammeOuUnite(valeur, unite) {
@@ -278,7 +281,7 @@
 
             container.innerHTML = ids.map(id => {
                 const ing = ingredientsGlobal.find(i => i.id == id);
-                const nom = ing ? ing.nom : "Inconnu";
+                const nom = ing ? (ing.titre || ing.nom_reference || ing.nom) : "Inconnu";
                 const itemStock = frigoActuel[id];
                 const qte = typeof itemStock === 'object' ? itemStock.qte : itemStock;
                 const unite = typeof itemStock === 'object' ? itemStock.unite : 'g';
@@ -314,7 +317,7 @@
                         if (typeof val === 'object' && val !== null) {
                             tempArray.push({
                                 id: val.id || key,
-                                nom: val.nom || key,
+                                nom: val.titre || val.nom_reference || val.nom || key,
                                 quantite: val.quantite || val.qte || 1,
                                 unite: val.unite || val.unit || 'g'
                             });
@@ -341,7 +344,7 @@
                             targetId = item.id || item.ingredient_id || item.ingredientId;
                             qteVal = parseFloat(item.quantite || item.qte || item.quantity || 1);
                             uniteVal = item.unite || item.unit || 'g';
-                            nomIng = item.nom || item.name;
+                            nomIng = item.titre || item.nom_reference || item.nom || item.name;
                         } else {
                             targetId = item;
                         }
@@ -349,7 +352,7 @@
                         const ingObj = ingredientsGlobal.find(i => i.id == targetId);
                         if (ingObj) {
                             targetId = ingObj.id;
-                            if (!nomIng) nomIng = ingObj.nom;
+                            if (!nomIng) nomIng = ingObj.titre || ingObj.nom_reference || ingObj.nom;
                         }
 
                         return {
@@ -368,15 +371,16 @@
         }
 
         function calculerCoutPaquetManquant(ingId, nomIng) {
-            // 1. Recherche par ID ou par nom dans la liste globale
             let ingObj = ingredientsGlobal.find(i => i.id == ingId);
             if (!ingObj && nomIng) {
-                ingObj = ingredientsGlobal.find(i => i.nom && i.nom.toLowerCase().trim() === nomIng.toLowerCase().trim());
+                ingObj = ingredientsGlobal.find(i => {
+                    const lib = (i.titre || i.nom_reference || i.nom || '').toLowerCase().trim();
+                    return lib === nomIng.toLowerCase().trim();
+                });
             }
 
-            if (!ingObj) return 2.00; // Valeur de repli par défaut
+            if (!ingObj) return 2.00; 
 
-            // 2. Si l'ingrédient possède des marques et des formats avec des prix par enseigne
             if (ingObj.marques && Array.isArray(ingObj.marques) && ingObj.marques.length > 0) {
                 let prixTotalFormats = 0;
                 let nbFormatsTotal = 0;
@@ -402,7 +406,6 @@
                 }
             }
 
-            // 3. Solution de repli si aucun prix n'est renseigné
             return 2.00; 
         }
 
@@ -441,9 +444,9 @@
                     } else {
                         const matchingFrigoId = Object.keys(frigoBrut).find(fId => {
                             const gIng = ingredientsGlobal.find(i => i.id == fId);
-                            if (!gIng || !gIng.nom || !ingR.nom) return false;
-                            const nomFrigo = gIng.nom.toLowerCase().trim().replace(/s$/, '');
-                            const nomRecette = ingR.nom.toLowerCase().trim().replace(/s$/, '');
+                            if (!gIng) return false;
+                            const nomFrigo = (gIng.titre || gIng.nom_reference || gIng.nom || '').toLowerCase().trim().replace(/s$/, '');
+                            const nomRecette = (ingR.nom || '').toLowerCase().trim().replace(/s$/, '');
                             return nomFrigo === nomRecette;
                         });
                         if (matchingFrigoId) {
