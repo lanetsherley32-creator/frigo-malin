@@ -12,19 +12,15 @@
         
         <!-- En-tête & Navigation -->
         <header class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
-            
-            <!-- Compte Connecté et Déconnexion en haut -->
             <div class="flex justify-between items-center text-xs pb-3 border-b border-slate-100">
                 <span id="nom-utilisateur-connecte" class="font-bold text-slate-700">👤 Chargement du compte...</span>
                 <button onclick="deconnexion()" class="text-red-500 hover:text-red-700 font-bold">Se déconnecter</button>
             </div>
 
-            <!-- Titre de la page -->
             <div class="flex justify-between items-center flex-wrap gap-2">
                 <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">🥕 Gestion des Ingrédients</h1>
             </div>
 
-            <!-- Navigation harmonisée sur 7 liens -->
             <nav class="grid grid-cols-7 gap-1 text-center text-[11px] font-medium pt-1">
                 <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Mon compte</a>
                 <a href="planification.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Planification</a>
@@ -36,50 +32,20 @@
             </nav>
         </header>
 
-        <!-- Script pour charger le compte et gérer la déconnexion -->
-        <script>
-            document.addEventListener("DOMContentLoaded", () => {
-                chargerInfosUtilisateur();
-            });
-
-            async function chargerInfosUtilisateur() {
-                try {
-                    const res = await fetch('/api/current-user');
-                    if (res.ok) {
-                        const user = await res.json();
-                        const element = document.getElementById('nom-utilisateur-connecte');
-                        if (element) element.innerText = `👤 Compte : ${user.nom} (${user.email})`;
-                    } else {
-                        window.location.href = '/login.html';
-                    }
-                } catch (e) {
-                    console.error("Erreur chargement utilisateur", e);
-                }
-            }
-
-            async function deconnexion() {
-                await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login.html';
-            }
-        </script>
-
-        <!-- 1. Barre de recherche globale d'aliments -->
+        <!-- 1. Recherche globale -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-2">
             <label class="font-bold text-slate-700 text-sm block">🔍 Recherche d'un aliment :</label>
             <input type="text" id="input-recherche-globale" oninput="rechercherAlimentGlobal()" placeholder="Tapez le nom d'un aliment existant..." class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium">
         </section>
 
-        <!-- 2. Catégories / Rayons (Visibles par défaut) -->
+        <!-- 2. Catégories / Rayons -->
         <section class="space-y-3">
             <h2 class="font-bold text-slate-700 text-sm">📂 Catégories (Rayons)</h2>
-            <div id="categories-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                <!-- Les cartes de rayons s'injectent ici -->
-            </div>
-            <!-- Conteneur pour afficher les aliments du rayon sélectionné ou le résultat de recherche -->
+            <div id="categories-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5"></div>
             <div id="conteneur-affichage-dynamique" class="space-y-2 pt-2"></div>
         </section>
 
-        <!-- 3. Formulaire d'ajout ou modification (Fermé par défaut) -->
+        <!-- 3. Formulaire d'ajout ou modification -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
             <button type="button" onclick="toggleFormulaire()" class="w-full flex justify-between items-center text-left font-bold text-slate-700 text-sm py-1 focus:outline-none">
                 <span id="form-toggle-title">➕ Ajouter ou modifier un ingrédient (cliquer pour ouvrir)</span>
@@ -88,7 +54,7 @@
 
             <div id="form-content-container" class="hidden space-y-4 pt-2 border-t border-slate-100">
                 
-                <!-- Recherche Open Food Facts à l'intérieur du formulaire -->
+                <!-- Open Food Facts -->
                 <div class="bg-indigo-50 p-3 rounded-xl border border-indigo-200 space-y-2">
                     <h3 class="font-bold text-indigo-900 text-xs flex items-center gap-1.5">🔍 Importer depuis Open Food Facts</h3>
                     <div class="flex gap-2">
@@ -141,6 +107,7 @@
         </section>
     </div>
 
+    <!-- Scripts JavaScript complets -->
     <script>
         let socket;
         let listeGlobaleIngredients = [];
@@ -159,8 +126,29 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
+            chargerInfosUtilisateur();
             init();
         });
+
+        async function chargerInfosUtilisateur() {
+            try {
+                const res = await fetch('/api/current-user');
+                if (res.ok) {
+                    const user = await res.json();
+                    const element = document.getElementById('nom-utilisateur-connecte');
+                    if (element) element.innerText = `👤 Compte : ${user.nom} (${user.email})`;
+                } else {
+                    window.location.href = '/login.html';
+                }
+            } catch (e) {
+                console.error("Erreur chargement utilisateur", e);
+            }
+        }
+
+        async function deconnexion() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login.html';
+        }
 
         async function init() {
             try {
@@ -189,7 +177,8 @@
                 arrow.innerText = "▼";
             }
         }
-function ouvrirFormulaireModification(i) {
+
+        function ouvrirFormulaireModification(i) {
             const container = document.getElementById('form-content-container');
             container.classList.remove('hidden');
             document.getElementById('form-toggle-arrow').innerText = "▲";
@@ -306,36 +295,6 @@ function ouvrirFormulaireModification(i) {
                         }).join('');
                     }
 
-                    const portionStr = m.quantite_portion ? ` | 🥣 Portion type : ${m.quantite_portion} ${m.unite_portion || 'g'}` : '';
-
-                    return `
-                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-                            <div class="flex justify-between items-center flex-wrap gap-1">
-                                <span class="font-bold text-slate-700 text-xs">🏷️ ${m.nom || 'Marque générique'}</span>
-                                <span class="text-emerald-700 text-[11px]">🔥 ${m.calories || 0} kcal | P: ${m.proteines || 0}g | G: ${m.glucides || 0}g (sucres: ${m.sucres || 0}g) | L: ${m.lipides || 0}g | Fibres: ${m.fibres || 0}g${portionStr}</span>
-                            </div>
-                            <div class="space-y-1.5 pl-2 border-l-2 border-indigo-200">${formatsHtml}</div>
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            return `
-                <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-3 text-xs">
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <h4 class="font-bold text-slate-800 text-sm">🥗 ${nomAffichage}</h4>
-                            <span class="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-xl text-[10px] font-bold">${i.rayon || 'Épicerie salée'}</span>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick='ouvrirFormulaireModification(${JSON.stringify(i).replace(/'/g, "&#39;")})' class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-xl font-bold">Modifier</button>
-                            <button onclick="supprimerIngredient(${i.id})" class="bg-rose-100 hover:bg-rose-200 text-rose-600 px-3 py-1.5 rounded-xl font-bold">Supprimer</button>
-                        </div>
-                    </div>
-                    <div class="space-y-2">${marquesHtml}</div>
-                </div>
-            `;
-        }
                     const portionStr = m.quantite_portion ? ` | 🥣 Portion type : ${m.quantite_portion} ${m.unite_portion || 'g'}` : '';
 
                     return `
@@ -558,7 +517,7 @@ function ouvrirFormulaireModification(i) {
                 const lip = parseFloat(mEl.querySelector('.input-lip')?.value) || 0;
                 const fibres = parseFloat(mEl.querySelector('.input-fibres')?.value) || 0;
 
-                const fElements = mEl.querySelectorAll('.formats-container > div');
+                const fElements = mEl.querySelector('.formats-container')?.querySelectorAll(':scope > div') || [];
                 const formats = Array.from(fElements).map(fEl => {
                     const qte = parseFloat(fEl.querySelector('.input-format-qte')?.value) || 1;
                     const unite = fEl.querySelector('.select-format-unite')?.value || 'g';
