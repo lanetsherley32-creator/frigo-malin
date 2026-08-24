@@ -785,6 +785,55 @@ app.post('/api/eau', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+// --- API FAVORIS ---
+app.get('/api/favoris', async (req, res) => {
+    const compteEmail = req.session.user;
+    const profil = req.query.profil;
+    
+    if (!compteEmail) return res.status(401).json({ error: "Non connecté" });
+    if (!profil) return res.status(400).json({ error: "Profil manquant" });
+
+    try {
+        const result = await pool.query(
+            "SELECT favoris_data FROM favoris WHERE compte_email = $1 AND profil = $2",
+            [compteEmail, profil]
+        );
+
+        if (result.rows.length > 0) {
+            res.json(result.rows[0].favoris_data);
+        } else {
+            // Retourne une structure vide par défaut si aucun favori n'est encore enregistré
+            res.json({ recettes: [], ingredients: [] });
+        }
+    } catch (err) {
+        console.error("Erreur GET /api/favoris:", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/favoris', async (req, res) => {
+    const compteEmail = req.session.user;
+    const { profil, favoris } = req.body;
+
+    if (!compteEmail) return res.status(401).json({ error: "Non connecté" });
+    if (!profil || !favoris) return res.status(400).json({ error: "Données incomplètes" });
+
+    try {
+        const query = `
+            INSERT INTO favoris (compte_email, profil, favoris_data) 
+            VALUES ($1, $2, $3)
+            ON CONFLICT (compte_email, profil) 
+            DO UPDATE SET favoris_data = EXCLUDED.favoris_data
+        `;
+        
+        await pool.query(query, [compteEmail, profil, JSON.stringify(favoris)]);
+        io.emit('data_updated');
+        res.json({ success: true, message: "Favoris mis à jour avec succès !" });
+    } catch (err) {
+        console.error("Erreur POST /api/favoris:", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
 // --- API LISTE DE COURSES ---
 
 // 1. Récupérer la liste des courses

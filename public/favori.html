@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Favoris - Frigomalin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-slate-50 min-h-screen pb-12 text-slate-800">
+    <div class="max-w-4xl mx-auto p-4 space-y-4">
+        
+        <!-- En-tête & Navigation -->
+        <header class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3 print:hidden">
+            <div class="flex justify-between items-center text-xs pb-3 border-b border-slate-100">
+                <span id="nom-utilisateur-connecte" class="font-bold text-slate-700">👤 Chargement du compte...</span>
+                <button onclick="deconnexion()" class="text-red-500 hover:text-red-700 font-bold">Se déconnecter</button>
+            </div>
+
+            <div class="flex justify-between items-center flex-wrap gap-2">
+                <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">❤️ Mes Favoris</h1>
+                <div class="flex items-center gap-2">
+                    <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 outline-none">
+                        <option value="">Chargement...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Navigation élargie pour inclure la page Favoris -->
+            <nav class="grid grid-cols-8 gap-1 text-center text-[11px] font-medium pt-1">
+                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
+                <a href="planification.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Planification</a>
+                <a href="suivi.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Suivi</a>
+                <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
+                <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
+                <a href="favoris.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Favoris</a>
+                <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
+                <a href="courses.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Courses</a>
+            </nav>
+        </header>
+
+        <!-- Onglets de sélection (Recettes / Ingrédients) -->
+        <div class="flex gap-2 border-b border-slate-200 pb-2">
+            <button onclick="changerOnglet('recettes')" id="btn-tab-recettes" class="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-sm transition-all">
+                🍳 Recettes favorites
+            </button>
+            <button onclick="changerOnglet('ingredients')" id="btn-tab-ingredients" class="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition-all">
+                🥕 Ingrédients favoris
+            </button>
+        </div>
+
+        <!-- Contenu dynamique des listes -->
+        <main class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
+            <div id="container-favoris" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <p class="text-xs text-slate-400 italic col-span-2 text-center py-8">Chargement des favoris...</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        const socket = io();
+        let ongletActif = 'recettes';
+        let recettesCache = [];
+        let ingredientsCache = [];
+        let favorisCache = { recettes: [], ingredients: [] };
+
+        document.addEventListener("DOMContentLoaded", () => {
+            chargerInfosUtilisateur();
+            init();
+        });
+
+        async function chargerInfosUtilisateur() {
+            try {
+                const res = await fetch('/api/current-user');
+                if (res.ok) {
+                    const user = await res.json();
+                    const element = document.getElementById('nom-utilisateur-connecte');
+                    if (element) element.innerText = `👤 Compte : ${user.nom} (${user.email})`;
+                } else {
+                    window.location.href = '/login.html';
+                }
+            } catch (e) {
+                console.error("Erreur chargement utilisateur", e);
+            }
+        }
+
+        async function deconnexion() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login.html';
+        }
+
+        async function init() {
+            try {
+                const [resProfils, resRecettes, resIngs] = await Promise.all([
+                    fetch('/api/personnes-objectifs'),
+                    fetch('/api/recettes'),
+                    fetch('/api/ingredients').catch(() => ({ ok: false }))
+                ]);
+                
+                const profils = await resProfils.json();
+                recettesCache = await resRecettes.json();
+                if (resIngs.ok) ingredientsCache = await resIngs.json();
+
+                const select = document.getElementById('select-profil');
+                if (!select) return;
+
+                select.innerHTML = '';
+                if (profils.length === 0) {
+                    select.innerHTML = '<option value="">Aucun profil disponible</option>';
+                    return;
+                }
+
+                select.innerHTML = profils.map(p => `<option value="${p.nom}">${p.nom}</option>`).join('');
+                
+                const savedProfil = localStorage.getItem('profilActif') || localStorage.getItem('profil_actif');
+                if (savedProfil && profils.some(p => p.nom === savedProfil)) {
+                    select.value = savedProfil;
+                } else if (profils.length > 0) {
+                    select.value = profils[0].nom;
+                    localStorage.setItem('profilActif', profils[0].nom);
+                }
+
+                await chargerFavoris();
+            } catch (err) {
+                console.error("Erreur d'initialisation de la page favoris", err);
+            }
+        }
+
+        function changerProfil() {
+            const select = document.getElementById('select-profil');
+            if (select) {
+                localStorage.setItem('profilActif', select.value);
+                chargerFavoris();
+            }
+        }
+
+        function changerOnglet(type) {
+            ongletActif = type;
+            const btnRecettes = document.getElementById('btn-tab-recettes');
+            const btnIngredients = document.getElementById('btn-tab-ingredients');
+
+            if (type === 'recettes') {
+                btnRecettes.className = "px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-sm transition-all";
+                btnIngredients.className = "px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition-all";
+            } else {
+                btnIngredients.className = "px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-sm transition-all";
+                btnRecettes.className = "px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition-all";
+            }
+            renderFavoris();
+        }
+
+        async function chargerFavoris() {
+            const profil = document.getElementById('select-profil')?.value;
+            if (!profil) return;
+
+            try {
+                const res = await fetch(`/api/favoris?profil=${encodeURIComponent(profil)}`);
+                if (res.ok) {
+                    favorisCache = await res.json();
+                } else {
+                    const localData = localStorage.getItem(`favoris_${profil}`);
+                    favorisCache = localData ? JSON.parse(localData) : { recettes: [], ingredients: [] };
+                }
+                renderFavoris();
+            } catch (e) {
+                console.error("Erreur chargement favoris", e);
+                const localData = localStorage.getItem(`favoris_${profil}`);
+                favorisCache = localData ? JSON.parse(localData) : { recettes: [], ingredients: [] };
+                renderFavoris();
+            }
+        }
+
+        function renderFavoris() {
+            const container = document.getElementById('container-favoris');
+            if (!container) return;
+
+            if (ongletActif === 'recettes') {
+                const liste = favorisCache.recettes || [];
+                if (liste.length === 0) {
+                    container.innerHTML = `<p class="text-xs text-slate-400 italic col-span-2 text-center py-8">Aucune recette enregistrée en favori.</p>`;
+                    return;
+                }
+
+                container.innerHTML = liste.map(item => {
+                    const nom = item.titre || item.nom || item;
+                    // Échappement propre pour éviter les bugs si le nom contient des guillemets ou apostrophes
+                    const nomSecurise = String(nom).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    return `
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex justify-between items-center text-xs">
+                            <div>
+                                <strong class="text-slate-800 text-sm block">${nom}</strong>
+                                <span class="text-[10px] text-slate-500">🔥 ${item.calories || item.kcal || '0'} kcal | 💰 ${item.budget || item.prix || '0'} €</span>
+                            </div>
+                            <button onclick="retirerFavori('recettes', '${nomSecurise}')" class="text-rose-500 hover:text-rose-700 p-1.5 font-bold bg-rose-50 rounded-lg">❤️ Retirer</button>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                const liste = favorisCache.ingredients || [];
+                if (liste.length === 0) {
+                    container.innerHTML = `<p class="text-xs text-slate-400 italic col-span-2 text-center py-8">Aucun ingrédient enregistré en favori.</p>`;
+                    return;
+                }
+
+                container.innerHTML = liste.map(item => {
+                    const nom = item.nom || item.titre || item;
+                    const nomSecurise = String(nom).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    return `
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex justify-between items-center text-xs">
+                            <div>
+                                <strong class="text-slate-800 text-sm block">${nom}</strong>
+                                <span class="text-[10px] text-slate-500">Rayon : ${item.rayon || 'Épicerie'}</span>
+                            </div>
+                            <button onclick="retirerFavori('ingredients', '${nomSecurise}')" class="text-rose-500 hover:text-rose-700 p-1.5 font-bold bg-rose-50 rounded-lg">❤️ Retirer</button>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        async function retirerFavori(type, nom) {
+            const profil = document.getElementById('select-profil')?.value;
+            if (!profil) return;
+
+            if (type === 'recettes') {
+                favorisCache.recettes = favorisCache.recettes.filter(r => (r.titre || r.nom || r) !== nom);
+            } else {
+                favorisCache.ingredients = favorisCache.ingredients.filter(i => (i.nom || i.titre || i) !== nom);
+            }
+
+            renderFavoris();
+
+            // Sauvegarde locale systématique de secours
+            localStorage.setItem(`favoris_${profil}`, JSON.stringify(favorisCache));
+
+            try {
+                await fetch('/api/favoris', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profil, favoris: favorisCache })
+                });
+            } catch (e) {
+                console.error("Erreur de synchronisation avec le serveur", e);
+            }
+        }
+
+        socket.on('data_updated', chargerFavoris);
+    </script>
+</body>
+</html>

@@ -37,13 +37,14 @@
             </div>
 
             <nav class="grid grid-cols-7 gap-1 text-center text-[11px] font-medium pt-1">
-                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
+                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Mon compte</a>
                 <a href="planification.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Planification</a>
                 <a href="suivi.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Suivi</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
                 <a href="ingredients.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Ingrédients</a>
                 <a href="vider-frigo.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Frigo</a>
                 <a href="courses.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Courses</a>
+                <a href="favori.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Favori</a>
             </nav>
         </header>
 
@@ -147,6 +148,8 @@
                     <h3 id="form-conso-title" class="font-bold text-xs text-slate-700 uppercase tracking-wider">➕ Enregistrer une consommation</h3>
                     <form id="form-conso" onsubmit="soumettreConsommation(event)" class="space-y-3">
                         <input type="hidden" id="conso-id-edit">
+                        <input type="hidden" id="conso-element-id">
+                        <input type="hidden" id="conso-element-type">
                         <div>
                             <label class="block text-[11px] font-bold text-slate-500 mb-1">Type de repas</label>
                             <select id="conso-cat" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium">
@@ -157,11 +160,24 @@
                                 <option value="Grignotage">Grignotage</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-500 mb-1">Recette ou aliment</label>
-                            <input type="text" id="recherche-recette-input" list="liste-recettes-options" placeholder="-- Choisir ou taper --" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium" required>
-                            <datalist id="liste-recettes-options"></datalist>
+                        
+                        <!-- Sélecteur strict avec recherche & favoris -->
+                        <div class="relative">
+                            <label class="block text-[11px] font-bold text-slate-500 mb-1">Recette ou aliment (Recherche)</label>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium cursor-pointer">
+                                    <input type="checkbox" id="filtre-favoris-checkbox" onchange="filtrerListeRecherche()" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5">
+                                    ⭐ Parmi mes favoris
+                                </label>
+                            </div>
+                            <input type="text" id="recherche-recette-input" oninput="gererSaisieRecherche()" onfocus="ouvrirListeDropdown()" placeholder="Tapez pour filtrer..." class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl p-2.5 outline-none font-medium" autocomplete="off" required>
+                            
+                            <!-- Dropdown personnalisé pour mobile & ordi -->
+                            <div id="dropdown-suggestions" class="hidden absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto text-xs">
+                                <!-- Rempli dynamiquement -->
+                            </div>
                         </div>
+
                         <div class="grid grid-cols-2 gap-2">
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-500 mb-1">Quantité (parts/unités)</label>
@@ -201,14 +217,25 @@
                     </div>
                 </div>
 
-                <!-- Historique journalier réel -->
-                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4 lg:col-span-2 flex flex-col justify-between">
+                <!-- Historique journalier réel & Recettes Recommandées -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-6 lg:col-span-2 flex flex-col justify-between">
                     <div>
                         <div class="flex justify-between items-center mb-3">
                             <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">📋 Historique & Consommations du jour</h3>
                         </div>
-                        <div id="liste-conso-container" class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                        <div id="liste-conso-container" class="space-y-2 max-h-56 overflow-y-auto pr-1">
                             <p class="text-xs text-slate-400 italic">Chargement...</p>
+                        </div>
+                    </div>
+
+                    <!-- SECTION RECETTES RECOMMANDÉES -->
+                    <div class="pt-4 border-t border-slate-100 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">💡 Recettes recommandées (Optimisation Objectifs)</h3>
+                            <span class="text-[10px] text-slate-400">Basé sur vos manques du jour</span>
+                        </div>
+                        <div id="liste-recommandations-container" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                            <p class="text-xs text-slate-400 italic">Calcul des recommandations...</p>
                         </div>
                     </div>
                 </div>
@@ -216,9 +243,9 @@
         </div>
     </div>
 
-    <!-- MODALE GESTION PROFIL -->
+    <!-- MODALE GESTION PROFIL (TOUS LES OBJECTIFS MODIFIABLES) -->
     <div id="modal-personne" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <h3 id="modal-personne-title" class="font-bold text-sm text-slate-800">👤 Gestion du Profil</h3>
             <form id="form-personne" onsubmit="sauvegarderPersonne(event)" class="space-y-3 text-xs">
                 <input type="hidden" id="personne-ancien-nom">
@@ -226,7 +253,7 @@
                     <label class="block font-bold text-slate-500 mb-1">Nom / Profil</label>
                     <input type="text" id="personne-nom" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
                 </div>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block font-bold text-slate-500 mb-1">Calories (kcal)</label>
                         <input type="number" id="personne-cal" value="2000" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
@@ -235,8 +262,32 @@
                         <label class="block font-bold text-slate-500 mb-1">Budget Semaine (€)</label>
                         <input type="number" id="personne-budget" value="100" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
                     </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Protéines (g)</label>
+                        <input type="number" id="personne-prot" value="150" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Glucides (g)</label>
+                        <input type="number" id="personne-gluc" value="200" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Lipides (g)</label>
+                        <input type="number" id="personne-lip" value="70" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Fibres (g)</label>
+                        <input type="number" id="personne-fibres" value="30" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Sucre max (g)</label>
+                        <input type="number" id="personne-sucre" value="50" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Eau (L)</label>
+                        <input type="number" id="personne-eau" step="0.1" value="2.0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
                 </div>
-                <div class="flex justify-end gap-2 pt-2">
+                <div class="flex justify-end gap-2 pt-3">
                     <button type="button" onclick="fermerModalPersonne()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Annuler</button>
                     <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl">Sauvegarder</button>
                 </div>
@@ -258,6 +309,15 @@
         document.addEventListener("DOMContentLoaded", () => {
             chargerInfosUtilisateur();
             initDonnees();
+
+            // Fermer le dropdown de recherche si on clique ailleurs sur la page
+            document.addEventListener('click', (e) => {
+                const dropdown = document.getElementById('dropdown-suggestions');
+                const input = document.getElementById('recherche-recette-input');
+                if (dropdown && input && !dropdown.contains(e.target) && !input.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
         });
 
         async function chargerInfosUtilisateur() {
@@ -289,7 +349,6 @@
                 ingredientsCache = await resIngs.json();
 
                 remplirSelectProfils();
-                remplirDatalistRecettes();
                 await chargerSuiviJour();
                 await chargerBilanSemaine();
             } catch (e) { console.error("Erreur init", e); }
@@ -324,12 +383,72 @@
             }
         }
 
-        function remplirDatalistRecettes() {
-            const datalist = document.getElementById('liste-recettes-options');
-            if (!datalist) return;
-            const optionsRecettes = recettesCache.map(r => `<option value="${r.nom}">Recette : ${r.nom}</option>`).join('');
-            const optionsIngs = ingredientsCache.map(i => `<option value="${i.nom}">Aliment : ${i.nom}</option>`).join('');
-            datalist.innerHTML = optionsRecettes + optionsIngs;
+        // --- GESTION DU SÉLECTEUR STRICT RECHERCHE / FAVORIS ---
+        function obtenirListeElementsFiltree(filtreTexte = '') {
+            const uniquementFavoris = document.getElementById('filtre-favoris-checkbox')?.checked || false;
+            let liste = [];
+
+            recettesCache.forEach(r => {
+                if (!uniquementFavoris || r.favori || r.is_favorite || r.est_favori) {
+                    liste.push({ id: r.id, nom: r.nom, type: 'recette', objet: r });
+                }
+            });
+
+            ingredientsCache.forEach(i => {
+                if (!uniquementFavoris || i.favori || i.is_favorite || i.est_favori) {
+                    liste.push({ id: i.id, nom: i.nom, type: 'ingredient', objet: i });
+                }
+            });
+
+            if (filtreTexte.trim() !== '') {
+                const terme = filtreTexte.toLowerCase();
+                liste = liste.filter(item => item.nom.toLowerCase().includes(terme));
+            }
+
+            return liste;
+        }
+
+        function ouvrirListeDropdown() {
+            const input = document.getElementById('recherche-recette-input');
+            afficherDropdown(input.value);
+        }
+
+        function gererSaisieRecherche() {
+            const input = document.getElementById('recherche-recette-input');
+            // Si l'utilisateur tape, on vide l'ID caché pour obliger à resélectionner un choix valide
+            document.getElementById('conso-element-id').value = '';
+            document.getElementById('conso-element-type').value = '';
+            afficherDropdown(input.value);
+        }
+
+        function filtrerListeRecherche() {
+            const input = document.getElementById('recherche-recette-input');
+            afficherDropdown(input.value);
+        }
+
+        function afficherDropdown(termeRecherche) {
+            const dropdown = document.getElementById('dropdown-suggestions');
+            const elements = obtenirListeElementsFiltree(termeRecherche);
+
+            if (elements.length === 0) {
+                dropdown.innerHTML = `<div class="p-3 text-slate-400 italic">Aucun ingrédient ou recette trouvé</div>`;
+            } else {
+                dropdown.innerHTML = elements.map(el => {
+                    const badge = el.type === 'recette' ? '<span class="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold ml-1">Recette</span>' : '<span class="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold ml-1">Aliment</span>';
+                    return `<div onclick="selectionnerElement('${el.id}', '${el.type}', '${el.nom.replace(/'/g, "\\'")}')" class="p-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-100 flex items-center justify-between">
+                        <span class="font-medium text-slate-700">${el.nom}</span>
+                        ${badge}
+                    </div>`;
+                }).join('');
+            }
+            dropdown.classList.remove('hidden');
+        }
+
+        function selectionnerElement(id, type, nom) {
+            document.getElementById('recherche-recette-input').value = nom;
+            document.getElementById('conso-element-id').value = id;
+            document.getElementById('conso-element-type').value = type;
+            document.getElementById('dropdown-suggestions').classList.add('hidden');
         }
 
         function changerJourConso(jour) {
@@ -438,8 +557,94 @@
                 document.getElementById('stat-budget').innerText = `${totaux.cout.toFixed(2)}€`;
 
                 chargerBilanSemaine();
+                afficherRecommandationsRecettes(totaux, profilObj);
 
             } catch (e) { console.error("Erreur chargement suivi", e); }
+        }
+
+        // --- GESTION DES RECOMMANDATIONS DE RECETTES OPTIMISÉES ---
+        function afficherRecommandationsRecettes(totauxJour, profilObj) {
+            const container = document.getElementById('liste-recommandations-container');
+            if (!container) return;
+
+            const objCal = parseFloat(profilObj.calories) || 2000;
+            const objProt = parseFloat(profilObj.proteines) || 150;
+            const objGluc = parseFloat(profilObj.glucides) || 200;
+            const objLip = parseFloat(profilObj.lipides) || 70;
+            const objFibres = parseFloat(profilObj.fibres) || 30;
+            const objSucre = parseFloat(profilObj.sucre) || 50;
+
+            // Calcul des manques / excès (priorités demandées : en dessous sucre, en dessous budget, en dessous kcal, en dessous glucides, en dessous lipides, au dessus protéines, au dessus fibres + prise en compte des favoris)
+            const recettesNotees = recettesCache.map(rec => {
+                let score = 0;
+                const recCal = parseFloat(rec.calories) || 0;
+                const recProt = parseFloat(rec.proteines) || 0;
+                const recGluc = parseFloat(rec.glucides) || 0;
+                const recLip = parseFloat(rec.lipides) || 0;
+                const recFib = parseFloat(rec.fibres) || 0;
+                const recSuc = parseFloat(rec.sucre) || 0;
+                const recCout = calculerCoutUnitaire(rec);
+
+                // 1. En dessous sucre (on pénalise si le sucre dépasse ou s'approche trop du max restant)
+                const resteSucre = objSucre - totauxJour.sucre;
+                if (recSuc <= resteSucre) score += 25;
+
+                // 2. En dessous budget (on valorise si le coût est bas)
+                if (recCout < 5) score += 20;
+
+                // 3. En dessous kcal (si on a encore de la marge en calories)
+                const resteCal = objCal - totauxJour.calories;
+                if (recCal <= resteCal && recCal > 0) score += 20;
+
+                // 4. En dessous glucides
+                const resteGluc = objGluc - totauxJour.glucides;
+                if (recGluc <= resteGluc) score += 15;
+
+                // 5. En dessous lipides
+                const resteLip = objLip - totauxJour.lipides;
+                if (recLip <= resteLip) score += 10;
+
+                // 6. Au dessus protéines (on valorise si riche en protéines si on est en dessous de l'objectif)
+                if (totauxJour.proteines < objProt && recProt > 20) score += 25;
+
+                // 7. Au dessus fibres
+                if (totauxJour.fibres < objFibres && recFib > 5) score += 15;
+
+                // Bonus Favoris
+                if (rec.favori || rec.is_favorite || rec.est_favori) score += 30;
+
+                return { recette: rec, score: score, cout: recCout };
+            });
+
+            recettesNotees.sort((a, b) => b.score - a.score);
+            const topRecommandations = recettesNotees.slice(0, 4);
+
+            if (topRecommandations.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 italic">Aucune recette disponible.</p>`;
+                return;
+            }
+
+            container.innerHTML = topRecommandations.map(item => {
+                const r = item.recette;
+                const isFav = r.favori || r.is_favorite || r.est_favori ? '⭐ ' : '';
+                return `
+                    <div onclick="selectionnerRecetteRecommandee('${r.id}', '${r.nom.replace(/'/g, "\\'")}')" class="p-3 bg-slate-50 hover:bg-blue-50/50 border border-slate-100 rounded-xl cursor-pointer transition-all flex items-center justify-between">
+                        <div>
+                            <span class="font-bold text-slate-700 block">${isFav}${r.nom}</span>
+                            <span class="text-[10px] text-slate-400">${Math.round(r.calories || 0)} kcal • ${item.cout.toFixed(2)}€ • P:${Math.round(r.proteines || 0)}g</span>
+                        </div>
+                        <span class="text-xs font-bold text-blue-600 bg-white px-2 py-1 rounded-lg border border-slate-200">+ Ajouter</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectionnerRecetteRecommandee(id, nom) {
+            document.getElementById('recherche-recette-input').value = nom;
+            document.getElementById('conso-element-id').value = id;
+            document.getElementById('conso-element-type').value = 'recette';
+            // Scroll en douceur vers le formulaire d'ajout
+            document.getElementById('form-conso').scrollIntoView({ behavior: 'smooth' });
         }
 
         async function chargerBilanSemaine() {
@@ -470,80 +675,115 @@
                 }
 
                 const profilObj = profilsCache.find(p => p.nom === profilActif) || {};
-                const objCalJour = profilObj.calories || 2000;
-                const objProtJour = profilObj.proteines || 150;
-                const objGlucJour = profilObj.glucides || 200;
-                const objLipJour = profilObj.lipides || 70;
-                const objFibresJour = profilObj.fibres || 30;
-                const objSucreJour = profilObj.sucre || 50;
-                const objBudgetSemaine = profilObj.budget || 100;
+                const objSemaineCal = (profilObj.calories || 2000) * 7;
+                const objSemaineProt = (profilObj.proteines || 150) * 7;
+                const objSemaineGluc = (profilObj.glucides || 200) * 7;
+                const objSemaineLip = (profilObj.lipides || 70) * 7;
+                const objSemaineFibres = (profilObj.fibres || 30) * 7;
+                const objSemaineSucre = (profilObj.sucre || 50) * 7;
+                const objSemaineBudget = parseFloat(profilObj.budget) || 100;
 
                 document.getElementById('suivi-semaine-cal-tot').innerText = `${Math.round(cumulSemaine.calories)} kcal`;
-                document.getElementById('obj-semaine-cal').innerText = `${objCalJour * 7}`;
+                document.getElementById('obj-semaine-cal').innerText = `${objSemaineCal}`;
                 document.getElementById('suivi-semaine-prot').innerText = `${Math.round(cumulSemaine.proteines)}g`;
-                document.getElementById('obj-semaine-prot').innerText = `${objProtJour * 7}g`;
+                document.getElementById('obj-semaine-prot').innerText = `${objSemaineProt}g`;
                 document.getElementById('suivi-semaine-gluc').innerText = `${Math.round(cumulSemaine.glucides)}g`;
-                document.getElementById('obj-semaine-gluc').innerText = `${objGlucJour * 7}g`;
+                document.getElementById('obj-semaine-gluc').innerText = `${objSemaineGluc}g`;
                 document.getElementById('suivi-semaine-lip').innerText = `${Math.round(cumulSemaine.lipides)}g`;
-                document.getElementById('obj-semaine-lip').innerText = `${objLipJour * 7}g`;
+                document.getElementById('obj-semaine-lip').innerText = `${objSemaineLip}g`;
                 document.getElementById('suivi-semaine-fibres').innerText = `${Math.round(cumulSemaine.fibres)}g`;
-                document.getElementById('obj-semaine-fibres').innerText = `${objFibresJour * 7}g`;
+                document.getElementById('obj-semaine-fibres').innerText = `${objSemaineFibres}g`;
                 document.getElementById('suivi-semaine-sucre').innerText = `${Math.round(cumulSemaine.sucre)}g`;
-                document.getElementById('obj-semaine-sucre').innerText = `${objSucreJour * 7}g`;
-
+                document.getElementById('obj-semaine-sucre').innerText = `${objSemaineSucre}g`;
+                
                 document.getElementById('suivi-semaine-budget-reel').innerText = `${cumulSemaine.cout.toFixed(2)}€`;
-                document.getElementById('objectif-budget-prevu').innerText = `${objBudgetSemaine}€`;
+                document.getElementById('objectif-budget-prevu').innerText = `${objSemaineBudget}€`;
 
             } catch (e) { console.error("Erreur bilan semaine", e); }
         }
 
         async function soumettreConsommation(event) {
             event.preventDefault();
-            if (!profilActif) return;
+            const elementId = document.getElementById('conso-element-id').value;
+            const elementType = document.getElementById('conso-element-type').value;
+            const nomSaisi = document.getElementById('recherche-recette-input').value;
+
+            // Vérification stricte que l'élément provient bien de la liste (recette ou ingrédient existant)
+            const recTrouvee = recettesCache.find(r => r.id == elementId || r.nom.toLowerCase() === nomSaisi.toLowerCase());
+            const ingTrouve = ingredientsCache.find(i => i.id == elementId || i.nom.toLowerCase() === nomSaisi.toLowerCase());
+
+            if (!recTrouvee && !ingTrouve) {
+                alert("Veuillez impérativement sélectionner un ingrédient ou une recette valide dans la liste déroulante.");
+                return;
+            }
+
+            const idFinal = recTrouvee ? recTrouvee.id : ingTrouve.id;
+            const typeFinal = recTrouvee ? 'recette' : 'ingredient';
+            const nomFinal = recTrouvee ? recTrouvee.nom : ingTrouve.nom;
+
             const idEdit = document.getElementById('conso-id-edit').value;
             const categorie = document.getElementById('conso-cat').value;
-            const nomElement = document.getElementById('recherche-recette-input').value;
-            const quantite = document.getElementById('conso-qte').value;
+            const quantite = parseFloat(document.getElementById('conso-qte').value) || 1;
             const unite = document.getElementById('conso-unite').value;
 
-            const payload = { profil: profilActif, jour: jourActif, categorie, nom_element: nomElement, quantite, unite };
+            const payload = {
+                profil: profilActif,
+                jour: jourActif,
+                categorie: categorie,
+                element_id: idFinal,
+                element_type: typeFinal,
+                nom_element: nomFinal,
+                quantite: quantite,
+                unite: unite
+            };
 
             try {
-                let url = '/api/suivi';
-                let method = 'POST';
+                let res;
                 if (idEdit) {
-                    url = `/api/suivi/${idEdit}`;
-                    method = 'PUT';
+                    res = await fetch(`/api/suivi/${idEdit}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await fetch('/api/suivi', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
                 }
-                const res = await fetch(url, {
-                    method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+
                 if (res.ok) {
                     annulerEditionConso();
                     await chargerSuiviJour();
+                } else {
+                    alert("Erreur lors de l'enregistrement");
                 }
-            } catch (e) { console.error("Erreur soumission conso", e); }
+            } catch (e) { console.error("Erreur soumission", e); }
         }
 
         function preparerModificationConso(id) {
-            const item = suiviCache.find(c => c.id == id);
-            if (!item) return;
-            document.getElementById('conso-id-edit').value = item.id;
-            document.getElementById('conso-cat').value = item.categorie || 'Déjeuner';
-            document.getElementById('recherche-recette-input').value = item.nom_element || '';
-            document.getElementById('conso-qte').value = item.quantite || 1;
-            document.getElementById('conso-unite').value = item.unite || 'portion';
-            
+            const conso = suiviCache.find(c => c.id == id);
+            if (!conso) return;
+
+            document.getElementById('conso-id-edit').value = conso.id;
+            document.getElementById('conso-cat').value = conso.categorie || 'Petit-déjeuner';
+            document.getElementById('recherche-recette-input').value = conso.nom_element || '';
+            document.getElementById('conso-element-id').value = conso.element_id || '';
+            document.getElementById('conso-element-type').value = conso.element_type || '';
+            document.getElementById('conso-qte').value = conso.quantite || 1;
+            document.getElementById('conso-unite').value = conso.unite || 'portion';
+
             document.getElementById('form-conso-title').innerText = "✏️ Modifier la consommation";
-            document.getElementById('btn-submit-conso').innerText = "Mettre à jour";
+            document.getElementById('btn-submit-conso').innerText = "Modifier";
             document.getElementById('btn-annuler-edit').classList.remove('hidden');
         }
 
         function annulerEditionConso() {
-            document.getElementById('conso-id-edit').value = '';
             document.getElementById('form-conso').reset();
+            document.getElementById('conso-id-edit').value = '';
+            document.getElementById('conso-element-id').value = '';
+            document.getElementById('conso-element-type').value = '';
             document.getElementById('form-conso-title').innerText = "➕ Enregistrer une consommation";
             document.getElementById('btn-submit-conso').innerText = "Ajouter au suivi";
             document.getElementById('btn-annuler-edit').classList.add('hidden');
@@ -556,51 +796,60 @@
                 if (res.ok) {
                     await chargerSuiviJour();
                 }
-            } catch (e) { console.error("Erreur suppression conso", e); }
+            } catch (e) { console.error("Erreur suppression", e); }
         }
 
-        async function modifierEau(delta) {
+        // --- GESTION EAU ---
+        async function modifierEau(val) {
             if (!profilActif) return;
             try {
-                const res = await fetch(`/api/eau?profil=${encodeURIComponent(profilActif)}&jour=${encodeURIComponent(jourActif)}`);
-                const data = await res.json();
-                let nouvelleQte = Math.max(0, (parseFloat(data.quantite) || 0) + delta);
-
-                await fetch('/api/eau', {
+                const res = await fetch('/api/eau', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ profil: profilActif, jour: jourActif, quantite: nouvelleQte })
+                    body: JSON.stringify({ profil: profilActif, jour: jourActif, delta: val })
                 });
-                await chargerSuiviJour();
-            } catch (e) { console.error("Erreur modification eau", e); }
+                if (res.ok) {
+                    await chargerSuiviJour();
+                }
+            } catch (e) { console.error("Erreur eau", e); }
         }
 
         async function reinitialiserEau() {
             if (!profilActif) return;
             try {
-                await fetch('/api/eau', {
+                const res = await fetch('/api/eau', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ profil: profilActif, jour: jourActif, quantite: 0 })
                 });
-                await chargerSuiviJour();
+                if (res.ok) {
+                    await chargerSuiviJour();
+                }
             } catch (e) { console.error("Erreur reset eau", e); }
         }
 
+        // --- MODALE PROFIL (TOUS OBJECTIFS) ---
         function ouvrirModalPersonne(mode) {
             const modal = document.getElementById('modal-personne');
             const title = document.getElementById('modal-personne-title');
+            
             if (mode === 'modifier') {
-                title.innerText = "⚙️ Modifier le Profil";
-                const p = profilsCache.find(x => x.nom === profilActif) || {};
+                const p = profilsCache.find(item => item.nom === profilActif) || {};
+                title.innerText = `⚙️ Modifier le profil : ${profilActif}`;
                 document.getElementById('personne-ancien-nom').value = p.nom || '';
                 document.getElementById('personne-nom').value = p.nom || '';
                 document.getElementById('personne-cal').value = p.calories || 2000;
                 document.getElementById('personne-budget').value = p.budget || 100;
+                document.getElementById('personne-prot').value = p.proteines || 150;
+                document.getElementById('personne-gluc').value = p.glucides || 200;
+                document.getElementById('personne-lip').value = p.lipides || 70;
+                document.getElementById('personne-fibres').value = p.fibres || 30;
+                document.getElementById('personne-sucre').value = p.sucre || 50;
+                document.getElementById('personne-eau').value = p.eau || 2.0;
             } else {
-                title.innerText = "➕ Ajouter un Profil";
-                document.getElementById('personne-ancien-nom').value = '';
+                title.innerText = "➕ Ajouter un nouveau profil";
                 document.getElementById('form-personne').reset();
+                document.getElementById('personne-ancien-nom').value = '';
             }
             modal.classList.remove('hidden');
         }
@@ -612,28 +861,43 @@
         async function sauvegarderPersonne(event) {
             event.preventDefault();
             const ancienNom = document.getElementById('personne-ancien-nom').value;
-            const nom = document.getElementById('personne-nom').value;
-            const calories = document.getElementById('personne-cal').value;
-            const budget = document.getElementById('personne-budget').value;
+            const nouveauNom = document.getElementById('personne-nom').value;
+            
+            const payload = {
+                nom: nouveauNom,
+                calories: parseFloat(document.getElementById('personne-cal').value) || 2000,
+                budget: parseFloat(document.getElementById('personne-budget').value) || 100,
+                proteines: parseFloat(document.getElementById('personne-prot').value) || 150,
+                glucides: parseFloat(document.getElementById('personne-gluc').value) || 200,
+                lipides: parseFloat(document.getElementById('personne-lip').value) || 70,
+                fibres: parseFloat(document.getElementById('personne-fibres').value) || 30,
+                sucre: parseFloat(document.getElementById('personne-sucre').value) || 50,
+                eau: parseFloat(document.getElementById('personne-eau').value) || 2.0
+            };
 
-            const payload = { nom, calories, budget };
             try {
-                let url = '/api/personnes-objectifs';
-                let method = 'POST';
+                let res;
                 if (ancienNom) {
-                    url = `/api/personnes-objectifs/${encodeURIComponent(ancienNom)}`;
-                    method = 'PUT';
+                    res = await fetch(`/api/personnes-objectifs/${encodeURIComponent(ancienNom)}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await fetch('/api/personnes-objectifs', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
                 }
-                const res = await fetch(url, {
-                    method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+
                 if (res.ok) {
-                    profilActif = nom;
+                    profilActif = nouveauNom;
                     localStorage.setItem('profilActif', profilActif);
                     fermerModalPersonne();
                     await initDonnees();
+                } else {
+                    alert("Erreur lors de la sauvegarde du profil");
                 }
             } catch (e) { console.error("Erreur sauvegarde profil", e); }
         }
