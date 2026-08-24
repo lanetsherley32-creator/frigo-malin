@@ -78,7 +78,7 @@
         <!-- Filtrage Avancé & Choix des repas à générer -->
         <section class="bg-white rounded-2xl shadow-sm border border-slate-200 text-xs overflow-hidden">
             <button onclick="toggleAccordeonFiltres()" class="w-full p-4 flex justify-between items-center font-bold text-slate-800 bg-slate-50 hover:bg-slate-100 transition-all">
-                <span class="flex items-center gap-2">⚙️ Filtrage Avancé & Choix des Repas à Générer</span>
+                <span class="flex items-center gap-2">⚙️ Filtrage Avancé & Choix des Repas à Générer (Sans En-cas)</span>
                 <span id="accordeon-icon" class="text-sm font-bold text-slate-500">▼</span>
             </button>
             <div id="accordeon-content" class="p-4 space-y-4 hidden border-t border-slate-100">
@@ -93,7 +93,6 @@
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-pt-dej-sub rounded border-slate-300" value="repas chaud" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas chaud</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-pt-dej-sub rounded border-slate-300" value="repas froid" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas froid</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-pt-dej-sub rounded border-slate-300" value="dessert" checked onchange="sauvegarderFiltresEtMettreAJour()"> Dessert</label>
-                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-pt-dej-sub rounded border-slate-300" value="encas" checked onchange="sauvegarderFiltresEtMettreAJour()"> Encas</label>
                     </div>
                 </div>
 
@@ -108,12 +107,11 @@
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-midi-sub rounded border-slate-300" value="repas chaud" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas chaud</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-midi-sub rounded border-slate-300" value="repas froid" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas froid</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-midi-sub rounded border-slate-300" value="dessert" checked onchange="sauvegarderFiltresEtMettreAJour()"> Dessert</label>
-                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-midi-sub rounded border-slate-300" value="encas" checked onchange="sauvegarderFiltresEtMettreAJour()"> Encas</label>
                     </div>
                 </div>
 
                 <!-- Repas Soir -->
-                <div class="space-y-2 pb-3 border-b border-slate-100">
+                <div class="space-y-2">
                     <label class="flex items-center gap-2 font-bold text-blue-900 cursor-pointer text-[11px]">
                         <input type="checkbox" id="generer-soir" checked onchange="sauvegarderFiltresEtMettreAJour()" class="rounded border-slate-300 w-4 h-4 text-blue-600">
                         🌙 Inclure/Générer le Repas du Soir
@@ -123,22 +121,6 @@
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-soir-sub rounded border-slate-300" value="repas chaud" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas chaud</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-soir-sub rounded border-slate-300" value="repas froid" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas froid</label>
                         <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-soir-sub rounded border-slate-300" value="dessert" checked onchange="sauvegarderFiltresEtMettreAJour()"> Dessert</label>
-                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-soir-sub rounded border-slate-300" value="encas" checked onchange="sauvegarderFiltresEtMettreAJour()"> Encas</label>
-                    </div>
-                </div>
-
-                <!-- Collation -->
-                <div class="space-y-2">
-                    <label class="flex items-center gap-2 font-bold text-blue-900 cursor-pointer text-[11px]">
-                        <input type="checkbox" id="generer-collation" checked onchange="sauvegarderFiltresEtMettreAJour()" class="rounded border-slate-300 w-4 h-4 text-blue-600">
-                        🍏 Inclure/Générer la Collation
-                    </label>
-                    <div class="flex flex-wrap gap-4 items-center pl-6">
-                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="petitdej" checked onchange="sauvegarderFiltresEtMettreAJour()"> petitdej</label>
-                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="repas chaud" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas chaud</label>
-                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="repas froid" checked onchange="sauvegarderFiltresEtMettreAJour()"> Repas froid</label>
-                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="dessert" checked onchange="sauvegarderFiltresEtMettreAJour()"> Dessert</label>
-                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="filtre-collation-sub rounded border-slate-300" value="encas" checked onchange="sauvegarderFiltresEtMettreAJour()"> Encas</label>
                     </div>
                 </div>
             </div>
@@ -147,8 +129,8 @@
         <!-- Actions Avancées Planification -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-2 justify-between items-center text-xs print:hidden">
             <div class="flex flex-wrap gap-2">
-                <button onclick="genererSemaineAleatoire()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
-                    🎲 Générer la semaine aléatoirement
+                <button onclick="genererSemaineAleatoireOptimisee()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
+                    🎲 Générer la semaine (Optimisée & Sans En-cas)
                 </button>
             </div>
             <button onclick="exporterMenuPDF()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
@@ -172,7 +154,6 @@
     <datalist id="liste-recettes-pt-dej"></datalist>
     <datalist id="liste-recettes-midi"></datalist>
     <datalist id="liste-recettes-soir"></datalist>
-    <datalist id="liste-recettes-collation"></datalist>
     <datalist id="liste-ingredients-globale"></datalist>
 
     <!-- MODALE GESTION PROFIL -->
@@ -346,11 +327,9 @@
                 genPtDej: document.getElementById('generer-pt-dej')?.checked ?? true,
                 genMidi: document.getElementById('generer-midi')?.checked ?? true,
                 genSoir: document.getElementById('generer-soir')?.checked ?? true,
-                genCollation: document.getElementById('generer-collation')?.checked ?? true,
                 ptDej: Array.from(document.querySelectorAll('.filtre-pt-dej-sub')).map(cb => ({ val: cb.value, checked: cb.checked })),
                 midi: Array.from(document.querySelectorAll('.filtre-midi-sub')).map(cb => ({ val: cb.value, checked: cb.checked })),
-                soir: Array.from(document.querySelectorAll('.filtre-soir-sub')).map(cb => ({ val: cb.value, checked: cb.checked })),
-                collation: Array.from(document.querySelectorAll('.filtre-collation-sub')).map(cb => ({ val: cb.value, checked: cb.checked }))
+                soir: Array.from(document.querySelectorAll('.filtre-soir-sub')).map(cb => ({ val: cb.value, checked: cb.checked }))
             };
             localStorage.setItem('filtresAvancesSemaine', JSON.stringify(filtres));
             mettreAJourDatalists();
@@ -364,7 +343,6 @@
                 if (document.getElementById('generer-pt-dej')) document.getElementById('generer-pt-dej').checked = filtres.genPtDej ?? true;
                 if (document.getElementById('generer-midi')) document.getElementById('generer-midi').checked = filtres.genMidi ?? true;
                 if (document.getElementById('generer-soir')) document.getElementById('generer-soir').checked = filtres.genSoir ?? true;
-                if (document.getElementById('generer-collation')) document.getElementById('generer-collation').checked = filtres.genCollation ?? true;
 
                 if (filtres.ptDej) {
                     document.querySelectorAll('.filtre-pt-dej-sub').forEach(cb => {
@@ -384,12 +362,6 @@
                         if (found) cb.checked = found.checked;
                     });
                 }
-                if (filtres.collation) {
-                    document.querySelectorAll('.filtre-collation-sub').forEach(cb => {
-                        const found = filtres.collation.find(f => f.val === cb.value);
-                        if (found) cb.checked = found.checked;
-                    });
-                }
             } catch(e) {
                 console.error("Erreur chargement filtres", e);
             }
@@ -400,7 +372,6 @@
             if (typeRepas === 'petitdejeuner') selector = '.filtre-pt-dej-sub';
             else if (typeRepas === 'repas1') selector = '.filtre-midi-sub';
             else if (typeRepas === 'repas2') selector = '.filtre-soir-sub';
-            else if (typeRepas === 'dessertcollation') selector = '.filtre-collation-sub';
 
             const checkboxes = document.querySelectorAll(selector);
             const selectionnes = [];
@@ -408,7 +379,7 @@
                 if (cb.checked) selectionnes.push(cb.value.toLowerCase());
             });
             if (selectionnes.length === 0) {
-                return ['petitdej', 'repas chaud', 'repas froid', 'dessert', 'encas'];
+                return ['petitdej', 'repas chaud', 'repas froid', 'dessert'];
             }
             return selectionnes;
         }
@@ -429,15 +400,17 @@
             const types = [
                 { id: 'liste-recettes-pt-dej', typeRepas: 'petitdejeuner' },
                 { id: 'liste-recettes-midi', typeRepas: 'repas1' },
-                { id: 'liste-recettes-soir', typeRepas: 'repas2' },
-                { id: 'liste-recettes-collation', typeRepas: 'dessertcollation' }
+                { id: 'liste-recettes-soir', typeRepas: 'repas2' }
             ];
 
             types.forEach(t => {
                 const datalist = document.getElementById(t.id);
                 if (!datalist) return;
                 const recettesFiltrees = filtrerRecettesParType(t.typeRepas);
-                datalist.innerHTML = recettesFiltrees.map(r => `<option value="${r.nom}">`).join('');
+                datalist.innerHTML = recettesFiltrees.map(r => {
+                    const nomRec = r.titre || r.nom || r.nom_reference || '';
+                    return `<option value="${nomRec}">`;
+                }).join('');
             });
         }
 
@@ -450,8 +423,14 @@
         function getNomRecette(val) {
             if (!val) return '';
             if (typeof val === 'string') return val;
-            if (typeof val === 'object' && val.nom) return val.nom;
-            return '';
+            if (typeof val === 'object') {
+                return val.titre || val.nom || val.nom_reference || '';
+            }
+            const rec = recettesCache.find(r => r.id == val || (r.titre && r.titre.toLowerCase() === String(val).toLowerCase()));
+            if (rec) {
+                return rec.titre || rec.nom || rec.nom_reference || '';
+            }
+            return String(val);
         }
 
         function getEncasList(menuJour) {
@@ -750,12 +729,20 @@
 
         function trouverRecetteParNom(nom) {
             if (!nom) return null;
-            return recettesCache.find(r => r.nom.toLowerCase() === nom.toLowerCase()) || null;
+            const cleanNom = String(nom).trim().toLowerCase();
+            return recettesCache.find(r => {
+                const rNom = (r.titre || r.nom || r.nom_reference || '').trim().toLowerCase();
+                return rNom === cleanNom || String(r.id) === String(nom);
+            }) || null;
         }
 
         function trouverIngredientParNom(nom) {
             if (!nom) return null;
-            return ingredientsCache.find(i => (i.nom || i.titre || '').toLowerCase() === nom.toLowerCase()) || null;
+            const cleanNom = String(nom).trim().toLowerCase();
+            return ingredientsCache.find(i => {
+                const iNom = (i.nom || i.titre || '').trim().toLowerCase();
+                return iNom === cleanNom || String(i.id) === String(nom);
+            }) || null;
         }
 
         function calculerEtAfficherTotauxSemaine() {
@@ -780,7 +767,6 @@
                 const menuJour = menusCache.find(m => m.jour === jour) || {};
                 let calJour = 0, budgetJour = 0, protJour = 0, glucJour = 0, lipJour = 0, fibresJour = 0;
 
-                // Récupération de tous les éléments du jour (Recettes principales + Encas + Ingrédients additionnels)
                 const nomsElements = [
                     getNomRecette(menuJour.petitdejeuner),
                     getNomRecette(menuJour.repas1),
@@ -792,14 +778,13 @@
                 ];
 
                 nomsElements.forEach(nom => {
-                    // On cherche d'abord dans les recettes, sinon dans les ingrédients
                     const r = trouverRecetteParNom(nom);
                     if (r) {
                         calJour += Number(r.calories || r.kcal || 0);
                         budgetJour += Number(r.budget || r.prix || 0);
-                        protJour += Number(r.proteines || 0);
-                        glucJour += Number(r.glucides || 0);
-                        lipJour += Number(r.lipides || 0);
+                        protJour += Number(r.proteines || r.prot || 0);
+                        glucJour += Number(r.glucides || r.gluc || 0);
+                        lipJour += Number(r.lipides || r.lip || 0);
                         fibresJour += Number(r.fibres || 0);
                     } else {
                         const ing = trouverIngredientParNom(nom);
@@ -860,44 +845,46 @@
             }
         }
 
-        async function genererSemaineAleatoire() {
+        async function genererSemaineAleatoireOptimisee() {
             const profil = document.getElementById('select-profil')?.value;
-            if (!profil) return;
+            if (!profil) {
+                alert("Veuillez sélectionner un profil.");
+                return;
+            }
+            if (recettesCache.length === 0) {
+                alert("Aucune recette disponible.");
+                return;
+            }
 
+            const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
             const genPtDej = document.getElementById('generer-pt-dej')?.checked ?? true;
             const genMidi = document.getElementById('generer-midi')?.checked ?? true;
             const genSoir = document.getElementById('generer-soir')?.checked ?? true;
-            const genCollation = document.getElementById('generer-collation')?.checked ?? true;
-
-            const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
             for (const jour of jours) {
-                let menuJour = menusCache.find(m => m.jour === jour) || { 
-                    jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [], 
-                    ingredients_petitdejeuner: [], ingredients_repas1: [], ingredients_repas2: [] 
-                };
+                let menuJour = menusCache.find(m => m.jour === jour) || { profil, jour };
+                menuJour.encas = [];
+                menuJour.collation = [];
 
                 if (genPtDej) {
                     const pool = filtrerRecettesParType('petitdejeuner');
-                    if (pool.length > 0) menuJour.petitdejeuner = pool[Math.floor(Math.random() * pool.length)].nom;
+                    if (pool.length > 0) {
+                        const choisie = selectionnerRecetteOptimisee(pool);
+                        menuJour.petitdejeuner = choisie.titre || choisie.nom || choisie.nom_reference;
+                    }
                 }
                 if (genMidi) {
                     const pool = filtrerRecettesParType('repas1');
-                    if (pool.length > 0) menuJour.repas1 = pool[Math.floor(Math.random() * pool.length)].nom;
+                    if (pool.length > 0) {
+                        const choisie = selectionnerRecetteOptimisee(pool);
+                        menuJour.repas1 = choisie.titre || choisie.nom || choisie.nom_reference;
+                    }
                 }
                 if (genSoir) {
                     const pool = filtrerRecettesParType('repas2');
-                    if (pool.length > 0) menuJour.repas2 = pool[Math.floor(Math.random() * pool.length)].nom;
-                }
-                if (genCollation) {
-                    const pool = filtrerRecettesParType('dessertcollation');
                     if (pool.length > 0) {
-                        const randomEncas = pool[Math.floor(Math.random() * pool.length)].nom;
-                        let encasActuels = getEncasList(menuJour);
-                        if (!encasActuels.includes(randomEncas)) {
-                            encasActuels.push(randomEncas);
-                        }
-                        menuJour.encas = encasActuels;
+                        const choisie = selectionnerRecetteOptimisee(pool);
+                        menuJour.repas2 = choisie.titre || choisie.nom || choisie.nom_reference;
                     }
                 }
 
@@ -910,7 +897,7 @@
                         petitdejeuner: menuJour.petitdejeuner || '',
                         repas1: menuJour.repas1 || '',
                         repas2: menuJour.repas2 || '',
-                        encas: menuJour.encas || [],
+                        encas: [],
                         ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
                         ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
                         ingredients_repas2: getIngredientsList(menuJour, 'repas2')
@@ -919,6 +906,29 @@
             }
 
             await chargerMenuSemaine();
+            alert("Génération aléatoire optimisée effectuée avec succès (sans en-cas) !");
+        }
+
+        function selectionnerRecetteOptimisee(pool) {
+            let notes = pool.map(r => {
+                const prot = parseFloat(r.proteines || r.prot || 0);
+                const fibres = parseFloat(r.fibres || 0);
+                const glucides = parseFloat(r.glucides || r.gluc || 0);
+                const lipides = parseFloat(r.lipides || r.lip || 0);
+                const sucre = parseFloat(r.sucre || 0);
+                const budget = parseFloat(r.cout || r.prix || 3);
+                const kcal = parseFloat(r.calories || r.kcal || 500);
+
+                let score = (fibres * 3.5) + (prot * 2.5) - (glucides * 0.4) - (lipides * 0.4) - (sucre * 0.8) - (budget * 0.5) - (kcal * 0.001);
+                score += Math.random() * 6;
+
+                return { recette: r, score };
+            });
+
+            notes.sort((a, b) => b.score - a.score);
+            const topOptions = notes.slice(0, Math.min(5, notes.length));
+            const selection = topOptions[Math.floor(Math.random() * topOptions.length)];
+            return selection ? selection.recette : pool[0];
         }
 
         function afficherSuggestionsVertes() {
@@ -931,7 +941,7 @@
             const shuffle = [...recettesCache].sort(() => 0.5 - Math.random()).slice(0, 3);
             container.innerHTML = shuffle.map(r => `
                 <div class="bg-white/80 p-2.5 rounded-xl border border-emerald-100 text-xs shadow-sm">
-                    <span class="font-bold text-emerald-900 block">${r.nom}</span>
+                    <span class="font-bold text-emerald-900 block">${r.titre || r.nom || r.nom_reference}</span>
                     <span class="text-[10px] text-emerald-600">🔥 ${r.calories || r.kcal || 0} kcal | 💰 ${r.budget || r.prix || 0} €</span>
                 </div>
             `).join('');

@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
-<body class="bg-slate-50 min-h-screen pb-12">
+<body class="bg-slate-50 min-h-screen pb-12 text-slate-800">
     <div class="max-w-4xl mx-auto p-4 space-y-4">
         
         <!-- En-tête & Navigation -->
@@ -181,37 +181,94 @@
 
             container.innerHTML = courses.map(c => {
                 const estCoche = c.coche === 1;
-                const prix = parseFloat(c.prix || 0);
-                if (!estCoche) cumulPrix += prix;
-
+                
+                // Extraction et parsing des marques disponibles
                 let marquesDispos = [];
                 try {
                     marquesDispos = typeof c.marques_disponibles === 'string' ? JSON.parse(c.marques_disponibles) : (c.marques_disponibles || []);
                 } catch(e) { marquesDispos = []; }
 
-                // Construction du select de marques
-                let optionsHtml = `<option value="Standard" data-prix="${c.prix}">Standard (${parseFloat(c.prix).toFixed(2)} €)</option>`;
+                // Trouver la marque active actuelle pour récupérer son prix unitaire et le format du paquet
+                let prixUnitaire = parseFloat(c.prix || 0);
+                let formatPaquet = parseFloat(c.format_paquet || c.contenance || c.poids_format || 1);
+                if (isNaN(formatPaquet) || formatPaquet <= 0) formatPaquet = 1;
+
+                if (c.marque && marquesDispos.length > 0) {
+                    const mActive = marquesDispos.find(m => m.nom === c.marque);
+                    if (mActive) {
+                        prixUnitaire = parseFloat(mActive.prix || mActive.cout || prixUnitaire);
+                        if (mActive.format || mActive.contenance) {
+                            formatPaquet = parseFloat(mActive.format || mActive.contenance) || formatPaquet;
+                        }
+                    }
+                }
+
+                // Calcul quantité nécessaire vs format paquet (ex: 300g nécessaires, paquet de 400g => 1 paquet)
+                const besoinTotal = parseFloat(c.quantite_necessaire || c.besoin || 1);
+                const unite = (c.unite || 'g').toLowerCase();
+                
+                // Si l'unité est en grammes ou millilitres, on calcule le nombre de conditionnements nécessaires
+                let nbPaquets = c.nb_paquets !== undefined ? parseInt(c.nb_paquets) : null;
+                if (!nbPaquets || isNaN(nbPaquets)) {
+                    if (unite === 'g' || unite === 'ml' || unite === 'cl' || unite === 'kg') {
+                        let besoinNormalise = besoinTotal;
+                        let formatNormalise = formatPaquet;
+                        if (unite === 'kg') besoinNormalise *= 1000;
+                        if (formatPaquet && formatNormalise > 0) {
+                            nbPaquets = Math.ceil(besoinNormalise / formatNormalise);
+                        } else {
+                            nbPaquets = 1;
+                        }
+                    } else {
+                        nbPaquets = Math.ceil(besoinTotal / (formatPaquet || 1));
+                    }
+                }
+                if (nbPaquets < 1) nbPaquets = 1;
+
+                // Prix total = Prix d'un paquet * nombre de paquets à acheter
+                const prixTotalArticle = prixUnitaire * nbPaquets;
+                if (!estCoche) cumulPrix += prixTotalArticle;
+
+                // Construction dynamique du menu déroulant des marques
+                let optionsHtml = `<option value="Standard" data-prix="${prixUnitaire}" data-format="${formatPaquet}" ${!c.marque || c.marque === 'Standard' ? 'selected' : ''}>Standard (${prixUnitaire.toFixed(2)} € / ${formatPaquet}${c.unite || 'g'})</option>`;
+                
                 if (marquesDispos.length > 0) {
-                    optionsHtml = marquesDispos.map(m => `
-                        <option value="${m.nom}" data-prix="${m.prix}" ${c.marque === m.nom ? 'selected' : ''}>
-                            ${m.nom} - ${parseFloat(m.prix).toFixed(2)} €
-                        </option>
-                    `).join('');
+                    optionsHtml = marquesDispos.map(m => {
+                        const mPrix = parseFloat(m.prix || m.cout || 0);
+                        const mFormat = parseFloat(m.format || m.contenance || formatPaquet);
+                        const estSelectionne = c.marque === m.nom ? 'selected' : '';
+                        return `
+                            <option value="${m.nom}" data-prix="${mPrix}" data-format="${mFormat}" ${estSelectionne}>
+                                ${m.nom} - ${mPrix.toFixed(2)} € (${mFormat} ${c.unite || 'g'})
+                            </option>
+                        `;
+                    }).join('');
                 }
 
                 return `
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all text-xs gap-3">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all text-xs gap-3">
                         <label class="flex items-center gap-2.5 cursor-pointer font-medium text-slate-700 flex-1">
                             <input type="checkbox" ${estCoche ? 'checked' : ''} onchange="toggleCoche(${c.id}, this.checked)" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500">
                             <span id="label-course-${c.id}" class="${estCoche ? 'line-through text-slate-400' : 'text-slate-800'}">
-                                <strong>${c.nom}</strong> <span class="text-slate-500 font-normal">(${c.quantite_necessaire || 1} ${c.unite || ''})</span>
+                                <strong>${c.nom}</strong> 
+                                <span class="text-slate-500 font-normal">
+                                    (Besoin : <strong>${besoinTotal}${c.unite || 'g'}</strong> → À acheter : <strong class="text-blue-600">${nbPaquets} paquet(s)</strong> de ${formatPaquet}${c.unite || 'g'})
+                                </span>
                             </span>
                         </label>
                         
                         <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
-                            <select onchange="changerMarqueArticle(${c.id}, this)" class="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 outline-none w-full sm:w-auto focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all">
+                            <!-- Sélecteur de marque -->
+                            <select onchange="changerMarqueArticle(${c.id}, this)" class="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all">
                                 ${optionsHtml}
                             </select>
+
+                            <!-- Sélecteur direct du nombre de paquets -->
+                            <div class="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1">
+                                <span class="text-[10px] text-slate-400 font-bold">Qté:</span>
+                                <input type="number" min="1" value="${nbPaquets}" onchange="changerNbPaquets(${c.id}, this.value)" class="w-10 text-center font-bold text-blue-600 outline-none text-xs">
+                            </div>
+
                             <span class="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-semibold">${c.rayon || 'Épicerie'}</span>
                         </div>
                     </div>
@@ -226,31 +283,35 @@
             const selectedOption = selectElement.options[selectElement.selectedIndex];
             const marque = selectedOption.value;
             const prix = parseFloat(selectedOption.getAttribute('data-prix')) || 0;
+            const formatPaquet = parseFloat(selectedOption.getAttribute('data-format')) || 1;
 
             try {
                 await fetch('/api/courses/changer-marque', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id, marque, prix })
+                    body: JSON.stringify({ id, marque, prix, format_paquet: formatPaquet })
                 });
-                // Le chargement est rappelé automatiquement par le WebSocket si configuré, 
-                // mais on le force ici pour une actualisation immédiate locale
                 chargerCourses();
             } catch(e) {
                 console.error("Erreur lors du changement de marque", e);
             }
         }
 
-        async function toggleCoche(id, coche) {
-            const label = document.getElementById(`label-course-${id}`);
-            if (label) {
-                if (coche) {
-                    label.classList.add('line-through', 'text-slate-400');
-                } else {
-                    label.classList.remove('line-through', 'text-slate-400');
-                }
+        async function changerNbPaquets(id, nbPaquets) {
+            const qte = parseInt(nbPaquets) || 1;
+            try {
+                await fetch('/api/courses/changer-quantite-paquets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, nb_paquets: qte })
+                });
+                chargerCourses();
+            } catch(e) {
+                console.error("Erreur lors de la modification du nombre de paquets", e);
             }
+        }
 
+        async function toggleCoche(id, coche) {
             try {
                 await fetch(`/api/courses/cocher`, {
                     method: 'POST',

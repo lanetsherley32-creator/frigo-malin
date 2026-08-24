@@ -349,7 +349,6 @@
             chargerSuiviJour();
         }
 
-        // Calcul strict du coût unitaire à la part
         function calculerCoutUnitaire(item) {
             if (!item) return 0;
             if (item.cout_par_part !== undefined && item.cout_par_part !== null && item.cout_par_part !== '') {
@@ -477,55 +476,37 @@
                 const objLipJour = profilObj.lipides || 70;
                 const objFibresJour = profilObj.fibres || 30;
                 const objSucreJour = profilObj.sucre || 50;
-                const objBudget = profilObj.budget || 100;
+                const objBudgetSemaine = profilObj.budget || 100;
 
                 document.getElementById('suivi-semaine-cal-tot').innerText = `${Math.round(cumulSemaine.calories)} kcal`;
                 document.getElementById('obj-semaine-cal').innerText = `${objCalJour * 7}`;
-
                 document.getElementById('suivi-semaine-prot').innerText = `${Math.round(cumulSemaine.proteines)}g`;
                 document.getElementById('obj-semaine-prot').innerText = `${objProtJour * 7}g`;
-
                 document.getElementById('suivi-semaine-gluc').innerText = `${Math.round(cumulSemaine.glucides)}g`;
                 document.getElementById('obj-semaine-gluc').innerText = `${objGlucJour * 7}g`;
-
                 document.getElementById('suivi-semaine-lip').innerText = `${Math.round(cumulSemaine.lipides)}g`;
                 document.getElementById('obj-semaine-lip').innerText = `${objLipJour * 7}g`;
-
                 document.getElementById('suivi-semaine-fibres').innerText = `${Math.round(cumulSemaine.fibres)}g`;
                 document.getElementById('obj-semaine-fibres').innerText = `${objFibresJour * 7}g`;
-
                 document.getElementById('suivi-semaine-sucre').innerText = `${Math.round(cumulSemaine.sucre)}g`;
                 document.getElementById('obj-semaine-sucre').innerText = `${objSucreJour * 7}g`;
 
                 document.getElementById('suivi-semaine-budget-reel').innerText = `${cumulSemaine.cout.toFixed(2)}€`;
-                document.getElementById('objectif-budget-prevu').innerText = `${objBudget}€`;
+                document.getElementById('objectif-budget-prevu').innerText = `${objBudgetSemaine}€`;
 
             } catch (e) { console.error("Erreur bilan semaine", e); }
         }
 
         async function soumettreConsommation(event) {
             event.preventDefault();
+            if (!profilActif) return;
             const idEdit = document.getElementById('conso-id-edit').value;
             const categorie = document.getElementById('conso-cat').value;
-            const nomElement = document.getElementById('recherche-recette-input').value.trim();
-            const quantite = parseFloat(document.getElementById('conso-qte').value) || 1;
+            const nomElement = document.getElementById('recherche-recette-input').value;
+            const quantite = document.getElementById('conso-qte').value;
             const unite = document.getElementById('conso-unite').value;
 
-            if (!nomElement) return;
-
-            const rec = recettesCache.find(r => r.nom.toLowerCase() === nomElement.toLowerCase());
-            const ing = ingredientsCache.find(i => i.nom.toLowerCase() === nomElement.toLowerCase());
-            const element_id = rec ? rec.id : (ing ? ing.id : null);
-
-            const payload = {
-                profil: profilActif,
-                jour: jourActif,
-                categorie,
-                nom_element: nomElement,
-                element_id,
-                quantite,
-                unite
-            };
+            const payload = { profil: profilActif, jour: jourActif, categorie, nom_element: nomElement, quantite, unite };
 
             try {
                 let url = '/api/suivi';
@@ -534,30 +515,27 @@
                     url = `/api/suivi/${idEdit}`;
                     method = 'PUT';
                 }
-
                 const res = await fetch(url, {
                     method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-
                 if (res.ok) {
                     annulerEditionConso();
                     await chargerSuiviJour();
                 }
-            } catch (e) { console.error("Erreur enregistrement conso", e); }
+            } catch (e) { console.error("Erreur soumission conso", e); }
         }
 
         function preparerModificationConso(id) {
             const item = suiviCache.find(c => c.id == id);
             if (!item) return;
-
             document.getElementById('conso-id-edit').value = item.id;
             document.getElementById('conso-cat').value = item.categorie || 'Déjeuner';
             document.getElementById('recherche-recette-input').value = item.nom_element || '';
             document.getElementById('conso-qte').value = item.quantite || 1;
             document.getElementById('conso-unite').value = item.unite || 'portion';
-
+            
             document.getElementById('form-conso-title').innerText = "✏️ Modifier la consommation";
             document.getElementById('btn-submit-conso').innerText = "Mettre à jour";
             document.getElementById('btn-annuler-edit').classList.remove('hidden');
@@ -572,7 +550,7 @@
         }
 
         async function supprimerConsommation(id) {
-            if (!confirm("Voulez-vous vraiment supprimer cette consommation ?")) return;
+            if (!confirm("Voulez-vous supprimer cette consommation ?")) return;
             try {
                 const res = await fetch(`/api/suivi/${id}`, { method: 'DELETE' });
                 if (res.ok) {
@@ -581,23 +559,19 @@
             } catch (e) { console.error("Erreur suppression conso", e); }
         }
 
-        // Fonctions Suivi Eau
         async function modifierEau(delta) {
             if (!profilActif) return;
             try {
-                const resEau = await fetch(`/api/eau?profil=${encodeURIComponent(profilActif)}&jour=${encodeURIComponent(jourActif)}`);
-                let eauData = await resEau.json();
-                let qteActuelle = parseFloat(eauData.quantite) || 0;
-                let nouvelleQte = Math.max(0, qteActuelle + delta);
+                const res = await fetch(`/api/eau?profil=${encodeURIComponent(profilActif)}&jour=${encodeURIComponent(jourActif)}`);
+                const data = await res.json();
+                let nouvelleQte = Math.max(0, (parseFloat(data.quantite) || 0) + delta);
 
                 await fetch('/api/eau', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ profil: profilActif, jour: jourActif, quantite: nouvelleQte })
                 });
-
-                document.getElementById('aff-conso-eau').innerText = nouvelleQte;
-                document.getElementById('stat-eau').innerText = `${nouvelleQte}L`;
+                await chargerSuiviJour();
             } catch (e) { console.error("Erreur modification eau", e); }
         }
 
@@ -609,28 +583,24 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ profil: profilActif, jour: jourActif, quantite: 0 })
                 });
-                document.getElementById('aff-conso-eau').innerText = 0;
-                document.getElementById('stat-eau').innerText = `0L`;
+                await chargerSuiviJour();
             } catch (e) { console.error("Erreur reset eau", e); }
         }
 
-        // Gestion du Profil (Modale)
         function ouvrirModalPersonne(mode) {
             const modal = document.getElementById('modal-personne');
-            if (!modal) return;
+            const title = document.getElementById('modal-personne-title');
             if (mode === 'modifier') {
-                const p = profilsCache.find(item => item.nom === profilActif);
-                if (p) {
-                    document.getElementById('personne-ancien-nom').value = p.nom;
-                    document.getElementById('personne-nom').value = p.nom;
-                    document.getElementById('personne-cal').value = p.calories || 2000;
-                    document.getElementById('personne-budget').value = p.budget || 100;
-                }
+                title.innerText = "⚙️ Modifier le Profil";
+                const p = profilsCache.find(x => x.nom === profilActif) || {};
+                document.getElementById('personne-ancien-nom').value = p.nom || '';
+                document.getElementById('personne-nom').value = p.nom || '';
+                document.getElementById('personne-cal').value = p.calories || 2000;
+                document.getElementById('personne-budget').value = p.budget || 100;
             } else {
+                title.innerText = "➕ Ajouter un Profil";
                 document.getElementById('personne-ancien-nom').value = '';
-                document.getElementById('personne-nom').value = '';
-                document.getElementById('personne-cal').value = 2000;
-                document.getElementById('personne-budget').value = 100;
+                document.getElementById('form-personne').reset();
             }
             modal.classList.remove('hidden');
         }
@@ -641,19 +611,30 @@
 
         async function sauvegarderPersonne(event) {
             event.preventDefault();
-            const nom = document.getElementById('personne-nom').value;
             const ancienNom = document.getElementById('personne-ancien-nom').value;
+            const nom = document.getElementById('personne-nom').value;
             const calories = document.getElementById('personne-cal').value;
             const budget = document.getElementById('personne-budget').value;
 
+            const payload = { nom, calories, budget };
             try {
-                await fetch('/api/personnes-objectifs', {
-                    method: 'POST',
+                let url = '/api/personnes-objectifs';
+                let method = 'POST';
+                if (ancienNom) {
+                    url = `/api/personnes-objectifs/${encodeURIComponent(ancienNom)}`;
+                    method = 'PUT';
+                }
+                const res = await fetch(url, {
+                    method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nom, ancienNom, calories, budget })
+                    body: JSON.stringify(payload)
                 });
-                fermerModalPersonne();
-                initDonnees();
+                if (res.ok) {
+                    profilActif = nom;
+                    localStorage.setItem('profilActif', profilActif);
+                    fermerModalPersonne();
+                    await initDonnees();
+                }
             } catch (e) { console.error("Erreur sauvegarde profil", e); }
         }
     </script>

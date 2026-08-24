@@ -26,7 +26,7 @@
 
             <!-- Navigation harmonisée sur 7 liens -->
             <nav class="grid grid-cols-7 gap-1 text-center text-[11px] font-medium pt-1">
-                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Mon compte</a>
+                <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
                 <a href="planification.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Planification</a>
                 <a href="suivi.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Suivi</a>
                 <a href="recettes.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Recettes</a>
@@ -36,35 +36,45 @@
             </nav>
         </header>
 
-        <!-- Rappel du Profil Actif -->
-        <section class="bg-blue-50/50 p-3.5 rounded-2xl border border-blue-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+        <!-- Rappel du Profil Actif avec boutons de gestion -->
+        <section class="bg-blue-50/50 p-3.5 rounded-2xl border border-blue-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full">
                 <label class="font-bold text-blue-900 whitespace-nowrap">Profil Actif :</label>
                 <select id="select-profil" onchange="changerProfilActif()" class="border border-blue-200 p-2.5 rounded-xl bg-white flex-1 font-medium w-full outline-none">
                     <option value="">-- Aucun profil --</option>
                 </select>
             </div>
-            <span class="text-blue-700 italic text-[11px] whitespace-nowrap">Stock propre à ce profil</span>
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button onclick="ouvrirModalPersonne('modifier')" id="btn-modifier-personne" class="text-xs bg-white hover:bg-blue-100 border border-blue-200 text-blue-900 font-bold px-3 py-2.5 rounded-xl transition-all shadow-sm">⚙️ Profil</button>
+                <button onclick="ouvrirModalPersonne('ajouter')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-2.5 rounded-xl transition-all shadow-sm">+ Profil</button>
+            </div>
         </section>
 
-        <!-- Saisie des ingrédients disponibles -->
+        <!-- Saisie des ingrédients disponibles (Sélection sécurisée anti-saisie libre) -->
         <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 relative">
                 <h2 class="font-bold text-slate-700 text-sm">🛒 Ce qu'il me reste</h2>
                 
-                <div class="space-y-1.5">
-                    <label class="text-[11px] font-bold text-slate-500">Ingrédient :</label>
-                    <select id="select-ingredient" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium"></select>
+                <!-- Champ de recherche / Sélection sécurisée -->
+                <div class="space-y-1.5 relative">
+                    <label class="text-[11px] font-bold text-slate-500">Rechercher/Choisir un ingrédient :</label>
+                    <input type="text" id="input-recherche-ingredient" placeholder="Taper pour filtrer un aliment..." oninput="filtrerIngredients()" onfocus="ouvrirListeDeroulante()" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium outline-none">
+                    <input type="hidden" id="select-ingredient-id">
+                    
+                    <!-- Liste déroulante personnalisée des suggestions filtrées -->
+                    <div id="dropdown-ingredients" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-20 space-y-0.5 p-1">
+                        <!-- Rempli dynamiquement -->
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
                     <div class="space-y-1.5">
                         <label class="text-[11px] font-bold text-slate-500">Quantité :</label>
-                        <input type="number" step="any" id="input-quantite" placeholder="Ex: 500" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium">
+                        <input type="number" step="any" id="input-quantite" placeholder="Ex: 500" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium outline-none">
                     </div>
                     <div class="space-y-1.5">
                         <label class="text-[11px] font-bold text-slate-500">Unité :</label>
-                        <select id="input-unite" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium">
+                        <select id="input-unite" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full text-xs font-medium outline-none">
                             <option value="g">g</option>
                             <option value="kg">kg</option>
                             <option value="ml">ml</option>
@@ -76,7 +86,7 @@
                     </div>
                 </div>
 
-                <button onclick="ajouterIngredientFrigo()" class="w-full bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl text-xs font-bold shadow-sm">
+                <button onclick="ajouterIngredientFrigo()" class="w-full bg-blue-600 active:bg-blue-700 text-white p-3 rounded-xl text-xs font-bold shadow-sm transition-all">
                     + Ajouter au frigo
                 </button>
             </div>
@@ -89,7 +99,7 @@
                         <p class="text-xs text-slate-400 italic">Aucun ingrédient renseigné pour le moment.</p>
                     </div>
                 </div>
-                <button onclick="trouverRecettes()" class="w-full bg-emerald-600 active:bg-emerald-700 text-white p-3 rounded-xl text-xs font-bold shadow-sm mt-2">
+                <button onclick="trouverRecettes()" class="w-full bg-emerald-600 active:bg-emerald-700 text-white p-3 rounded-xl text-xs font-bold shadow-sm mt-2 transition-all">
                     🔍 Trouver des recettes faisables
                 </button>
             </div>
@@ -102,6 +112,58 @@
                 <p class="text-xs text-slate-400 italic bg-white p-4 rounded-2xl border border-slate-200 text-center">Clique sur "Trouver des recettes faisables" pour lancer la recherche.</p>
             </div>
         </section>
+    </div>
+
+    <!-- MODALE GESTION PROFIL -->
+    <div id="modal-personne" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 id="modal-personne-title" class="font-bold text-sm text-slate-800">👤 Gestion du Profil</h3>
+            <form id="form-personne" onsubmit="sauvegarderPersonne(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="personne-ancien-nom">
+                <div>
+                    <label class="block font-bold text-slate-500 mb-1">Nom / Profil</label>
+                    <input type="text" id="personne-nom" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Calories (kcal)</label>
+                        <input type="number" id="personne-cal" value="2000" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Budget Semaine (€)</label>
+                        <input type="number" id="personne-budget" value="100" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Protéines (g)</label>
+                        <input type="number" id="personne-prot" value="150" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Glucides (g)</label>
+                        <input type="number" id="personne-gluc" value="200" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Lipides (g)</label>
+                        <input type="number" id="personne-lip" value="70" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Fibres (g)</label>
+                        <input type="number" id="personne-fibres" value="30" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Sucre (g)</label>
+                        <input type="number" id="personne-sucre" value="50" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-500 mb-1">Eau (L)</label>
+                        <input type="number" id="personne-eau" step="0.1" value="2.0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-medium">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-3">
+                    <button type="button" onclick="fermerModalPersonne()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all">Sauvegarder</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Script unique et centralisé -->
@@ -122,6 +184,14 @@
         document.addEventListener("DOMContentLoaded", () => {
             chargerInfosUtilisateur();
             init();
+
+            // Fermer la liste déroulante si l'on clique en dehors
+            document.addEventListener('click', (e) => {
+                const container = document.getElementById('input-recherche-ingredient')?.parentElement;
+                if (container && !container.contains(e.target)) {
+                    document.getElementById('dropdown-ingredients')?.classList.add('hidden');
+                }
+            });
         });
 
         async function chargerInfosUtilisateur() {
@@ -162,7 +232,7 @@
 
                 chargerStockStocke();
                 renderProfils();
-                renderSelectIngredients();
+                renderListeIngredientsDropdown(ingredientsGlobal);
                 renderStockFrigo();
             } catch (err) {
                 console.error("Erreur lors du chargement des données :", err);
@@ -172,6 +242,8 @@
         function renderProfils() {
             const select = document.getElementById('select-profil');
             const savedProfile = localStorage.getItem('profil_actif');
+
+            if (!select) return;
 
             select.innerHTML = profilsGlobal.length === 0 
                 ? `<option value="">-- Aucun profil créé --</option>` 
@@ -183,6 +255,7 @@
                 select.value = profilsGlobal[0].nom;
                 localStorage.setItem('profil_actif', select.value);
             }
+            document.getElementById('btn-modifier-personne')?.classList.remove('hidden');
         }
 
         function getProfilActifId() {
@@ -194,18 +267,56 @@
             const val = getProfilActifId();
             localStorage.setItem('profil_actif', val);
             renderStockFrigo();
-            document.getElementById('resultats-recettes').innerHTML = `<p class="text-xs text-slate-400 italic bg-white p-4 rounded-2xl border border-slate-200 text-center">Clique sur "Trouver des recettes faisables" pour lancer la recherche.</p>`;
+            const resultats = document.getElementById('resultats-recettes');
+            if (resultats) {
+                resultats.innerHTML = `<p class="text-xs text-slate-400 italic bg-white p-4 rounded-2xl border border-slate-200 text-center">Clique sur "Trouver des recettes faisables" pour lancer la recherche.</p>`;
+            }
         }
 
-        function renderSelectIngredients() {
-            const select = document.getElementById('select-ingredient');
-            select.innerHTML = ingredientsGlobal.length === 0 
-                ? `<option value="">-- Aucun ingrédient disponible --</option>` 
-                : `<option value="">-- Choisir un ingrédient --</option>` + ingredientsGlobal.map(i => {
-                    const libelle = i.titre || i.nom_reference || i.nom || `Ingrédient #${i.id}`;
-                    return `<option value="${i.id}">${libelle} (${i.rayon || 'Divers'})</option>`;
-                }).join('');
+        // --- GESTION DU FILTRE SÉCURISÉ DES INGRÉDIENTS ---
+        function ouvrirListeDeroulante() {
+            filtrerIngredients();
+            document.getElementById('dropdown-ingredients').classList.remove('hidden');
         }
+
+        function filtrerIngredients() {
+            const saisie = document.getElementById('input-recherche-ingredient').value.toLowerCase().trim();
+            const dropdown = document.getElementById('dropdown-ingredients');
+            dropdown.classList.remove('hidden');
+
+            const filtered = ingredientsGlobal.filter(i => {
+                const libelle = (i.titre || i.nom_reference || i.nom || '').toLowerCase();
+                const rayon = (i.rayon || '').toLowerCase();
+                return libelle.includes(saisie) || rayon.includes(saisie);
+            });
+
+            if (filtered.length === 0) {
+                dropdown.innerHTML = `<div class="p-2 text-xs text-slate-400 italic">Aucun ingrédient trouvé dans la base</div>`;
+                return;
+            }
+
+            dropdown.innerHTML = filtered.map(i => {
+                const libelle = i.titre || i.nom_reference || i.nom || `Ingrédient #${i.id}`;
+                const rayon = i.rayon || 'Divers';
+                return `
+                    <div onclick="selectionnerIngredient('${i.id}', '${libelle.replace(/'/g, "\\'")}')" class="p-2 hover:bg-blue-50 rounded-lg cursor-pointer text-xs flex justify-between items-center transition-all">
+                        <span class="font-medium text-slate-800">${libelle}</span>
+                        <span class="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">${rayon}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectionnerIngredient(id, nom) {
+            document.getElementById('select-ingredient-id').value = id;
+            document.getElementById('input-recherche-ingredient').value = nom;
+            document.getElementById('dropdown-ingredients').classList.add('hidden');
+        }
+
+        function renderListeIngredientsDropdown(liste) {
+            // Initialisation silencieuse si besoin
+        }
+        // ---------------------------------------------------
 
         function convertirEnGrammeOuUnite(valeur, unite) {
             valeur = parseFloat(valeur) || 0;
@@ -223,16 +334,16 @@
                 return;
             }
 
-            const select = document.getElementById('select-ingredient');
+            const ingId = document.getElementById('select-ingredient-id').value;
+            const nomSaisi = document.getElementById('input-recherche-ingredient').value.trim();
             const qteInput = document.getElementById('input-quantite');
             const uniteSelect = document.getElementById('input-unite');
             
-            const ingId = select.value;
             const qteVal = parseFloat(qteInput.value);
             const uniteVal = uniteSelect.value;
 
-            if (!ingId) {
-                alert("Veuillez choisir un ingrédient.");
+            if (!ingId || !nomSaisi) {
+                alert("Veuillez obligatoirement choisir un ingrédient existant dans la liste déroulante.");
                 return;
             }
             if (isNaN(qteVal) || qteVal <= 0) {
@@ -252,7 +363,8 @@
             stockFrigoParProfil[profilId][ingId].unite = uniteVal;
 
             qteInput.value = '';
-            select.value = '';
+            document.getElementById('input-recherche-ingredient').value = '';
+            document.getElementById('select-ingredient-id').value = '';
             
             sauvegarderStockStocke();
             renderStockFrigo();
@@ -269,6 +381,7 @@
 
         function renderStockFrigo() {
             const container = document.getElementById('liste-frigo');
+            if (!container) return;
             const profilId = getProfilActifId();
             
             const frigoActuel = (profilId && stockFrigoParProfil[profilId]) ? stockFrigoParProfil[profilId] : {};
@@ -411,6 +524,7 @@
 
         function trouverRecettes() {
             const container = document.getElementById('resultats-recettes');
+            if (!container) return;
             const profilId = getProfilActifId();
             const frigoBrut = (profilId && stockFrigoParProfil[profilId]) ? stockFrigoParProfil[profilId] : {};
 
@@ -536,6 +650,69 @@
                     stockFrigoParProfil = {}; 
                 }
             }
+        }
+
+        function ouvrirModalPersonne(mode) {
+            const modal = document.getElementById('modal-personne');
+            const title = document.getElementById('modal-personne-title');
+            const profilActif = getProfilActifId();
+            if (mode === 'modifier') {
+                title.innerText = "⚙️ Modifier le Profil";
+                const p = profilsGlobal.find(x => x.nom === profilActif) || {};
+                document.getElementById('personne-ancien-nom').value = p.nom || '';
+                document.getElementById('personne-nom').value = p.nom || '';
+                document.getElementById('personne-cal').value = p.calories ?? 2000;
+                document.getElementById('personne-budget').value = p.budget ?? 100;
+                document.getElementById('personne-prot').value = p.proteines ?? 150;
+                document.getElementById('personne-gluc').value = p.glucides ?? 200;
+                document.getElementById('personne-lip').value = p.lipides ?? 70;
+                document.getElementById('personne-fibres').value = p.fibres ?? 30;
+                document.getElementById('personne-sucre').value = p.sucre ?? 50;
+                document.getElementById('personne-eau').value = p.eau ?? 2.0;
+            } else {
+                title.innerText = "➕ Ajouter un Profil";
+                document.getElementById('personne-ancien-nom').value = '';
+                document.getElementById('form-personne').reset();
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function fermerModalPersonne() {
+            document.getElementById('modal-personne').classList.add('hidden');
+        }
+
+        async function sauvegarderPersonne(event) {
+            event.preventDefault();
+            const ancienNom = document.getElementById('personne-ancien-nom').value;
+            const nom = document.getElementById('personne-nom').value;
+            const calories = document.getElementById('personne-cal').value;
+            const budget = document.getElementById('personne-budget').value;
+            const proteines = document.getElementById('personne-prot').value;
+            const glucides = document.getElementById('personne-gluc').value;
+            const lipides = document.getElementById('personne-lip').value;
+            const fibres = document.getElementById('personne-fibres').value;
+            const sucre = document.getElementById('personne-sucre').value;
+            const eau = document.getElementById('personne-eau').value;
+
+            const payload = { nom, calories, budget, proteines, glucides, lipides, fibres, sucre, eau };
+            try {
+                let url = '/api/personnes-objectifs';
+                let method = 'POST';
+                if (ancienNom) {
+                    url = `/api/personnes-objectifs/${encodeURIComponent(ancienNom)}`;
+                    method = 'PUT';
+                }
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    localStorage.setItem('profil_actif', nom);
+                    fermerModalPersonne();
+                    await chargerDonnees();
+                }
+            } catch (e) { console.error("Erreur sauvegarde profil", e); }
         }
     </script>
 </body>
