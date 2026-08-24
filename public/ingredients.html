@@ -189,14 +189,13 @@
                 arrow.innerText = "▼";
             }
         }
-
-        function ouvrirFormulaireModification(i) {
+function ouvrirFormulaireModification(i) {
             const container = document.getElementById('form-content-container');
             container.classList.remove('hidden');
             document.getElementById('form-toggle-arrow').innerText = "▲";
             
             document.getElementById('ingredient-id').value = i.id;
-            document.getElementById('nom').value = i.nom || i.titre || '';
+            document.getElementById('nom').value = i.nom || '';
             document.getElementById('rayon').value = i.rayon || 'Épicerie salée';
             
             document.getElementById('marques-container').innerHTML = '';
@@ -205,7 +204,7 @@
                 i.marques.forEach(m => ajouterBlocMarque(m));
             } else {
                 ajouterBlocMarque({
-                    nom: i.nom || i.titre || '',
+                    nom: i.nom || '',
                     calories: i.calories || 0,
                     proteines: i.proteines || 0,
                     glucides: i.glucides || 0,
@@ -218,7 +217,7 @@
                 });
             }
 
-            document.getElementById('form-toggle-title').innerText = "✏️ Modifier l'ingrédient : " + (i.nom || i.titre);
+            document.getElementById('form-toggle-title').innerText = "✏️ Modifier l'ingrédient : " + (i.nom || '');
             document.getElementById('btn-annuler').classList.remove('hidden');
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
         }
@@ -273,7 +272,7 @@
                 return;
             }
 
-            const resultats = listeGlobaleIngredients.filter(i => (i.nom || i.titre || '').toLowerCase().includes(terme));
+            const resultats = listeGlobaleIngredients.filter(i => (i.nom || '').toLowerCase().includes(terme));
 
             container.innerHTML = `
                 <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
@@ -290,7 +289,7 @@
 
         function genererHtmlIngredient(i) {
             let marquesHtml = '';
-            const nomAffichage = i.nom || i.titre || 'Sans nom';
+            const nomAffichage = i.nom || 'Sans nom';
             
             if (i.marques && Array.isArray(i.marques)) {
                 marquesHtml = i.marques.map(m => {
@@ -307,6 +306,36 @@
                         }).join('');
                     }
 
+                    const portionStr = m.quantite_portion ? ` | 🥣 Portion type : ${m.quantite_portion} ${m.unite_portion || 'g'}` : '';
+
+                    return `
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                            <div class="flex justify-between items-center flex-wrap gap-1">
+                                <span class="font-bold text-slate-700 text-xs">🏷️ ${m.nom || 'Marque générique'}</span>
+                                <span class="text-emerald-700 text-[11px]">🔥 ${m.calories || 0} kcal | P: ${m.proteines || 0}g | G: ${m.glucides || 0}g (sucres: ${m.sucres || 0}g) | L: ${m.lipides || 0}g | Fibres: ${m.fibres || 0}g${portionStr}</span>
+                            </div>
+                            <div class="space-y-1.5 pl-2 border-l-2 border-indigo-200">${formatsHtml}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            return `
+                <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-3 text-xs">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <h4 class="font-bold text-slate-800 text-sm">🥗 ${nomAffichage}</h4>
+                            <span class="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-xl text-[10px] font-bold">${i.rayon || 'Épicerie salée'}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick='ouvrirFormulaireModification(${JSON.stringify(i).replace(/'/g, "&#39;")})' class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-xl font-bold">Modifier</button>
+                            <button onclick="supprimerIngredient(${i.id})" class="bg-rose-100 hover:bg-rose-200 text-rose-600 px-3 py-1.5 rounded-xl font-bold">Supprimer</button>
+                        </div>
+                    </div>
+                    <div class="space-y-2">${marquesHtml}</div>
+                </div>
+            `;
+        }
                     const portionStr = m.quantite_portion ? ` | 🥣 Portion type : ${m.quantite_portion} ${m.unite_portion || 'g'}` : '';
 
                     return `
@@ -516,91 +545,71 @@
             const nom = document.getElementById('nom').value.trim();
             const rayon = document.getElementById('rayon').value;
 
-            const doublon = listeGlobaleIngredients.find(i => (i.nom || i.titre || '').toLowerCase() === nom.toLowerCase() && i.id != id);
-            if (doublon) {
-                alert(`⚠️ Cet ingrédient ("${nom}") existe déjà !`);
-                return;
-            }
+            const melements = document.querySelectorAll('#marques-container > div');
+            const marques = Array.from(melements).map(mEl => {
+                const mNom = mEl.querySelector('.input-marque')?.value.trim() || 'Générique';
+                const portionQte = parseFloat(mEl.querySelector('.input-portion-qte')?.value) || null;
+                const portionUnite = mEl.querySelector('.input-portion-unite')?.value || 'g';
 
-            let marquesData = [];
-            document.querySelectorAll('#marques-container > div').forEach(block => {
-                const nomMarque = block.querySelector('.input-marque').value.trim();
-                const quantite_portion = parseFloat(block.querySelector('.input-portion-qte').value) || null;
-                const unite_portion = block.querySelector('.input-portion-unite').value;
-                const calories = parseFloat(block.querySelector('.input-cal').value) || 0;
-                const proteines = parseFloat(block.querySelector('.input-prot').value) || 0;
-                const glucides = parseFloat(block.querySelector('.input-gluc').value) || 0;
-                const sucres = parseFloat(block.querySelector('.input-sucres').value) || 0;
-                const lipides = parseFloat(block.querySelector('.input-lip').value) || 0;
-                const fibres = parseFloat(block.querySelector('.input-fibres').value) || 0;
+                const cal = parseFloat(mEl.querySelector('.input-cal')?.value) || 0;
+                const prot = parseFloat(mEl.querySelector('.input-prot')?.value) || 0;
+                const gluc = parseFloat(mEl.querySelector('.input-gluc')?.value) || 0;
+                const sucres = parseFloat(mEl.querySelector('.input-sucres')?.value) || 0;
+                const lip = parseFloat(mEl.querySelector('.input-lip')?.value) || 0;
+                const fibres = parseFloat(mEl.querySelector('.input-fibres')?.value) || 0;
 
-                let formatsData = [];
-                block.querySelectorAll('.formats-container > div').forEach(formatDiv => {
-                    const qte = parseFloat(formatDiv.querySelector('.input-format-qte').value) || 1;
-                    const unite = formatDiv.querySelector('.select-format-unite').value;
+                const fElements = mEl.querySelectorAll('.formats-container > div');
+                const formats = Array.from(fElements).map(fEl => {
+                    const qte = parseFloat(fEl.querySelector('.input-format-qte')?.value) || 1;
+                    const unite = fEl.querySelector('.select-format-unite')?.value || 'g';
 
-                    let prix_enseignes = {};
-                    formatDiv.querySelectorAll('.prix-enseignes-container > div').forEach(row => {
-                        const ens = row.querySelector('.select-enseigne').value;
-                        const prix = parseFloat(row.querySelector('.input-prix').value);
-                        if (ens && !isNaN(prix)) {
-                            prix_enseignes[ens] = prix;
+                    const prix_enseignes = {};
+                    const pRows = fEl.querySelectorAll('.prix-enseignes-container > div');
+                    pRows.forEach(row => {
+                        const ens = row.querySelector('.select-enseigne')?.value;
+                        const px = parseFloat(row.querySelector('.input-prix')?.value);
+                        if (ens && !isNaN(px)) {
+                            prix_enseignes[ens] = px;
                         }
                     });
 
-                    formatsData.push({ qte, unite, prix_enseignes });
+                    return { qte, unite, prix_enseignes };
                 });
 
-                marquesData.push({
-                    nom: nomMarque || "Générique",
-                    quantite_portion,
-                    unite_portion,
-                    calories,
-                    proteines,
-                    glucides,
-                    sucres,
-                    lipides,
-                    fibres,
-                    formats: formatsData
-                });
+                return {
+                    nom: mNom,
+                    quantite_portion: portionQte,
+                    unite_portion: portionUnite,
+                    calories: cal,
+                    proteines: prot,
+                    glucides: gluc,
+                    sucres: sucres,
+                    lipides: lip,
+                    fibres: fibres,
+                    formats: formats
+                };
             });
 
-            // CORRECTION : Suppression de "titre" qui causait l'erreur SQL
-            const payload = {
-                nom: nom,
-                rayon,
-                portion_quantite: marquesData[0]?.quantite_portion || 100,
-                portion_unite: marquesData[0]?.unite_portion || 'g',
-                calories: marquesData[0]?.calories || 0,
-                proteines: marquesData[0]?.proteines || 0,
-                glucides: marquesData[0]?.glucides || 0,
-                lipides: marquesData[0]?.lipides || 0,
-                fibres: marquesData[0]?.fibres || 0,
-                sucre: marquesData[0]?.sucres || 0,
-                prix: 0,
-                marques: marquesData
-            };
+            const payload = { nom, rayon, marques };
+            const url = id ? `/api/ingredients/${id}` : '/api/ingredients';
+            const method = id ? 'PUT' : 'POST';
 
             try {
-                const url = id ? `/api/ingredients/${id}` : '/api/ingredients';
-                const method = id ? 'PUT' : 'POST';
-
                 const res = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
-                const data = await res.json();
-                if (res.ok && data.success) {
+                if (res.ok) {
                     reinitialiserFormulaire();
                     init();
+                    alert(id ? "✅ Ingrédient mis à jour avec succès !" : "✅ Ingrédient ajouté avec succès !");
                 } else {
-                    alert("Erreur : " + (data.error || "Impossible d'enregistrer"));
+                    alert("⚠️ Erreur lors de l'enregistrement.");
                 }
             } catch (err) {
-                console.error("Erreur réseau :", err);
-                alert("Erreur réseau lors de la sauvegarde.");
+                console.error("Erreur enregistrement ingredient:", err);
             }
         }
 
@@ -608,14 +617,14 @@
             if (!confirm("Voulez-vous vraiment supprimer cet ingrédient ?")) return;
             try {
                 const res = await fetch(`/api/ingredients/${id}`, { method: 'DELETE' });
-                const data = await res.json();
-                if (res.ok && data.success) {
+                if (res.ok) {
                     init();
+                    document.getElementById('conteneur-affichage-dynamique').innerHTML = '';
                 } else {
-                    alert("Erreur lors de la suppression.");
+                    alert("⚠️ Impossible de supprimer l'ingrédient.");
                 }
             } catch (err) {
-                console.error("Erreur suppression :", err);
+                console.error("Erreur suppression ingredient:", err);
             }
         }
     </script>

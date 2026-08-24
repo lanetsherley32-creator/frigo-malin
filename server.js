@@ -363,9 +363,8 @@ app.get('/api/ingredients', async (req, res) => {
 });
 
 app.post('/api/ingredients', async (req, res) => {
-    // Récupération de tous les champs de votre nouveau formulaire
+    // Récupération des champs sans la notion de titre
     const { 
-        titre, 
         nom,                  // correspond au "Nom de l'ingrédient / Référence"
         rayon, 
         portion_quantite, 
@@ -384,11 +383,10 @@ app.post('/api/ingredients', async (req, res) => {
     
     try {
         const query = `
-            INSERT INTO ingredients (titre, nom, rayon, portion_quantite, portion_unite, calories, proteines, glucides, lipides, fibres, sucre, prix, marques) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id
+            INSERT INTO ingredients (nom, rayon, portion_quantite, portion_unite, calories, proteines, glucides, lipides, fibres, sucre, prix, marques) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id
         `;
         const result = await pool.query(query, [
-            titre || nom,                    // Si le titre est vide, on prend le nom
             nom,                             // Nom de l'ingrédient / Référence
             rayon || 'Épicerie', 
             portion_quantite || 100,         // Valeur par défaut si vide
@@ -413,7 +411,6 @@ app.post('/api/ingredients', async (req, res) => {
 app.put('/api/ingredients/:id', async (req, res) => {
     const { id } = req.params;
     const { 
-        titre, 
         nom, 
         rayon, 
         portion_quantite, 
@@ -433,13 +430,12 @@ app.put('/api/ingredients/:id', async (req, res) => {
     try {
         const query = `
             UPDATE ingredients 
-            SET titre = $1, nom = $2, rayon = $3, portion_quantite = $4, portion_unite = $5, 
-                calories = $6, proteines = $7, glucides = $8, lipides = $9, fibres = $10, 
-                sucre = $11, prix = $12, marques = $13 
-            WHERE id = $14
+            SET nom = $1, rayon = $2, portion_quantite = $3, portion_unite = $4, 
+                calories = $5, proteines = $6, glucides = $7, lipides = $8, fibres = $9, 
+                sucre = $10, prix = $11, marques = $12 
+            WHERE id = $13
         `;
         await pool.query(query, [
-            titre || nom, 
             nom, 
             rayon || 'Épicerie', 
             portion_quantite || 100, 
