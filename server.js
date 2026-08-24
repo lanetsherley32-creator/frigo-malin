@@ -347,8 +347,69 @@ app.delete('/api/recettes/:id', async (req, res) => {
     }
 });
 
+// --- API INGREDIENTS (Structure Relationnelle 4 Tables) ---
+
+app.get('/api/ingredients', async (req, res) => {
+    try {
+        const ingResult = await pool.query("SELECT * FROM ingredients ORDER BY id DESC");
+        const ingredients = ingResult.rows;
+
+        const ingredientsComplets = [];
+        for (const ing of ingredients) {
+            const marquesResult = await pool.query("SELECT * FROM marques WHERE ingredient_id = $1", [ing.id]);
+            const marques = [];
+
+            for (const marq of marquesResult.rows) {
+                const formatsResult = await pool.query("SELECT * FROM formats WHERE marque_id = $1", [marq.id]);
+                const formats = [];
+
+                for (const fmt of formatsResult.rows) {
+                    const prixResult = await pool.query("SELECT * FROM prix_enseignes WHERE format_id = $1", [fmt.id]);
+                    const prix_enseignes = {};
+                    prixResult.rows.forEach(p => {
+                        prix_enseignes[p.enseigne] = p.prix;
+                    });
+
+                    formats.push({
+                        id: fmt.id,
+                        qte: fmt.quantite,
+                        unite: fmt.unite,
+                        prix_enseignes: prix_enseignes
+                    });
+                }
+
+                marques.push({
+                    id: marq.id,
+                    nom: marq.nom_marque,
+                    calories: marq.calories_kcal,
+                    proteines: marq.proteines_g,
+                    glucides: marq.glucides_g,
+                    sucres: marq.sucres_g,
+                    lipides: marq.lipides_g,
+                    fibres: marq.fibres_g,
+                    formats: formats
+                });
+            }
+
+            ingredientsComplets.push({
+                id: ing.id,
+                titre: ing.titre,
+                nom: ing.nom_reference,
+                rayon: ing.rayon,
+                portion_quantite: ing.portion_quantite,
+                portion_unite: ing.portion_unite,
+                marques: marques
+            });
+        }
+
+        res.json(ingredientsComplets);
+    } catch (err) {
+        console.error("Erreur GET /api/ingredients:", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/ingredients', async (req, res) => {
-    // On accepte plusieurs variantes possibles pour les noms de champs du formulaire
     const nomIngredient = req.body.nom || req.body.titre || req.body.nom_reference || 'Sans nom';
     const rayonIngredient = req.body.rayon || 'Épicerie';
     const marques = req.body.marques || [];
@@ -367,7 +428,6 @@ app.post('/api/ingredients', async (req, res) => {
 
         if (Array.isArray(marques)) {
             for (const m of marques) {
-                // On accepte 'nom', 'nom_marque' ou 'titre' pour la marque
                 const nomMarque = m.nom || m.nom_marque || m.titre || 'Générique';
                 
                 const marqQuery = `
@@ -523,120 +583,11 @@ app.put('/api/ingredients/:id', async (req, res) => {
 app.delete('/api/ingredients/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        // Grâce aux "ON DELETE CASCADE" dans vos tables SQL, supprimer l'ingrédient 
-        // va automatiquement supprimer ses marques, formats et prix associés !
         await pool.query("DELETE FROM ingredients WHERE id = $1", [id]);
         io.emit('data_updated');
         res.json({ success: true, message: "Ingrédient supprimé" });
     } catch (err) {
         console.error("Erreur DELETE /api/ingredients:", err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// --- API RECHERCHE GLOBALE ---
-app.get('/api/recherche-globale', async (req, res) => {
-    const { q, profil, jour, categories } = req.query;
-    const termeRecherche = (q || '').toLowerCase().trim();
-
-    try {
-        let cible = { calories: 2000, proteines: 120, glucides: 200, lipides: 70, fibres: 30, sucre: 50, budget: 100 };
-        let consomme = { calories: 0, proteines: 0, glucides: 0, lipides: 0, fibres: 0, sucre: 0, cout: 0 };
-
-        if (profil) {
-            const objRes = await pool.query("SELECT * FROM personnes_objectifs WHERE nom = $1", [profil]);
-            if (objRes.rows.length > 0) {
-                const obj = objRes.rows[0];
-                cible = {
-                    calories: parseFloat(obj.calories) || 2000,
-                    proteines: parseFloat(obj.proteines) || 120,
-                    glucides: parseFloat(obj.glucides) || 200,
-                    lipides: parseFloat(obj.lipides) || 70,
-                    fibres: parseFloat(obj.fibres) || 30,
-                    sucre: parseFloat(obj.sucre) || 50,
-                    budget: parseFloat(obj.budget) || 100
-                };
-            }
-
-            if (jour) {
-                const suiviRes = await pool.query(`
-                    SELECT s.quantite,
-                           COALESCE(r.parts, 1) as parts,
-                           COALESCE(r.calories, i.calories) as calories,
-                           COALESCE(r.proteines, i.proteines) as proteines,
-                           COALESCE(r.glucides, i.glucides) as glucides,
-                           COALESCE(r.lipides, i.lipides) as lipides,
-                           COALESCE(r.fibres, i.fibres) as fibres,
-                           COALESCE(r.sucre, i.sucre) as sucre,
-                           COALESCE(r.cout, i.prix, 0) as cout
-                    FROM suivi_conso s
-                    LEFT JOIN recettes r ON s.type_element = 'recette' AND s.element_id = r.id
-                    LEFT JOIN ingredients i ON s.type_element = 'ingredient' AND s.element_id = i.id
-                    WHERE s.profil = $1 AND s.jour = $2
-                `, [profil, jour]);
-
-                suiviRes.rows.forEach(row => {
-                    const qte = parseFloat(row.quantite) || 1;
-                    const ratioPart = 1 / (parseFloat(row.parts) || 1);
-                    consomme.calories += (parseFloat(row.calories) || 0) * ratioPart * qte;
-                    consomme.proteines += (parseFloat(row.proteines) || 0) * ratioPart * qte;
-                    consomme.glucides += (parseFloat(row.glucides) || 0) * ratioPart * qte;
-                    consomme.lipides += (parseFloat(row.lipides) || 0) * ratioPart * qte;
-                    consomme.fibres += (parseFloat(row.fibres) || 0) * ratioPart * qte;
-                    consomme.sucre += (parseFloat(row.sucre) || 0) * ratioPart * qte;
-                    consomme.cout += (parseFloat(row.cout) || 0) * ratioPart * qte;
-                });
-            }
-        }
-
-        let categoriesFiltre = categories ? (Array.isArray(categories) ? categories : categories.split(',').map(c => c.trim().toLowerCase())) : [];
-
-        const recettesRes = await pool.query("SELECT * FROM recettes");
-        let recettes = recettesRes.rows.map(r => ({ ...r, type: 'recette', marques: [] })).filter(r => {
-            const matchNom = r.nom.toLowerCase().includes(termeRecherche);
-            const matchCat = categoriesFiltre.length === 0 || (r.categorie && categoriesFiltre.includes(r.categorie.toLowerCase()));
-            return matchNom && matchCat;
-        });
-
-        const ingredientsRes = await pool.query("SELECT * FROM ingredients");
-        let ingredients = ingredientsRes.rows.map(i => ({
-            ...i,
-            type: 'ingredient',
-            parts: 1,
-            cout: i.prix || 0,
-            categorie: i.rayon || 'Épicerie',
-            marques: i.marques ? JSON.parse(i.marques) : []
-        })).filter(i => {
-            const matchNom = i.nom.toLowerCase().includes(termeRecherche);
-            const matchCat = categoriesFiltre.length === 0 || (i.rayon && categoriesFiltre.includes(i.rayon.toLowerCase()));
-            return matchNom && matchCat;
-        });
-
-        let tousLesChoix = [...recettes, ...ingredients].map(item => {
-            const parts = parseFloat(item.parts) || 1;
-            const ratioPart = 1 / parts;
-            const cal = (parseFloat(item.calories) || 0) * ratioPart;
-            const pro = (parseFloat(item.proteines) || 0) * ratioPart;
-            const glu = (parseFloat(item.glucides) || 0) * ratioPart;
-            const lip = (parseFloat(item.lipides) || 0) * ratioPart;
-            const fib = (parseFloat(item.fibres) || 0) * ratioPart;
-            const suc = (parseFloat(item.sucre) || 0) * ratioPart;
-
-            let penalite = 0;
-            if ((consomme.calories + cal) > cible.calories) penalite += ((consomme.calories + cal) - cible.calories) * 2;
-            if ((consomme.lipides + lip) > cible.lipides) penalite += ((consomme.lipides + lip) - cible.lipides) * 2;
-            if ((consomme.sucre + suc) > cible.sucre) penalite += ((consomme.sucre + suc) - cible.sucre) * 3;
-
-            return {
-                ...item,
-                scoreRecommandation: penalite,
-                recommandeEnVert: (consomme.proteines < cible.proteines && pro >= 10)
-            };
-        });
-
-        tousLesChoix.sort((a, b) => a.scoreRecommandation - b.scoreRecommandation);
-        res.json(tousLesChoix);
-    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
