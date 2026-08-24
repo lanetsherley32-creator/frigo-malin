@@ -785,17 +785,6 @@ app.post('/api/eau', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Error</title>
-</head>
-<body>
-<pre>Cannot GET /api/courses</pre>
-</body>
-</html> 
-
 // 3. Cocher / décocher un article
 app.post('/api/courses/cocher', async (req, res) => {
     const { id, coche } = req.body;
