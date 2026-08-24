@@ -23,7 +23,7 @@
                     <select id="select-profil" onchange="changerProfil()" class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 outline-none">
                         <option value="">Chargement...</option>
                     </select>
-                    <button onclick="ouvrirModalPersonne('modifier')" id="btn-modifier-personne" class="hidden text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-xl transition-all">⚙️ Profil</button>
+                    <button onclick="ouvrirModalPersonne('modifier')" id="btn-modifier-personne" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-xl transition-all">⚙️ Profil</button>
                     <button onclick="ouvrirModalPersonne('ajouter')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-xl transition-all">+ Profil</button>
                 </div>
             </div>
@@ -616,19 +616,25 @@
 
         function calculerEtAfficherTotauxSemaine() {
             const profilNom = document.getElementById('select-profil')?.value;
-            const profilObj = profilsCache.find(p => p.nom === profilNom) || { calories: 2000, budget: 100, proteines: 150, glucides: 200, lipides: 70 };
+            const profilObj = profilsCache.find(p => p.nom === profilNom) || { 
+                calories: 2000, budget: 100, proteines: 150, glucides: 200, lipides: 70, fibres: 30 
+            };
             
-            let totalCalSemaine = 0, totalBudgetSemaine = 0, totalProtSemaine = 0, totalGlucSemaine = 0, totalLipSemaine = 0;
+            let totalCalSemaine = 0, totalBudgetSemaine = 0, totalProtSemaine = 0, totalGlucSemaine = 0, totalLipSemaine = 0, totalFibresSemaine = 0;
             
             const objCalJour = Number(profilObj.calories) || 2000;
             const objBudgetSemaine = Number(profilObj.budget) || 100;
             const objBudgetJour = objBudgetSemaine / 7;
+            const objProtJour = Number(profilObj.proteines) || 150;
+            const objGlucJour = Number(profilObj.glucides) || 200;
+            const objLipJour = Number(profilObj.lipides) || 70;
+            const objFibresJour = Number(profilObj.fibres) || 30;
 
             const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
             jours.forEach(jour => {
                 const menuJour = menusCache.find(m => m.jour === jour) || {};
-                let calJour = 0, budgetJour = 0, protJour = 0, glucJour = 0, lipJour = 0;
+                let calJour = 0, budgetJour = 0, protJour = 0, glucJour = 0, lipJour = 0, fibresJour = 0;
 
                 const nomsRepas = [
                     getNomRecette(menuJour.petitdejeuner),
@@ -645,6 +651,7 @@
                         protJour += Number(r.proteines || 0);
                         glucJour += Number(r.glucides || 0);
                         lipJour += Number(r.lipides || 0);
+                        fibresJour += Number(r.fibres || 0);
                     }
                 });
 
@@ -653,18 +660,23 @@
                 totalProtSemaine += protJour;
                 totalGlucSemaine += glucJour;
                 totalLipSemaine += lipJour;
+                totalFibresSemaine += fibresJour;
 
                 const containerTotauxJour = document.getElementById(`totaux-${jour}`);
                 if (containerTotauxJour) {
                     const couleurCal = calJour > objCalJour * 1.05 ? 'text-red-600' : 'text-slate-600';
                     const couleurBudget = budgetJour > objBudgetJour * 1.05 ? 'text-red-600' : 'text-slate-600';
+                    const couleurProt = protJour < objProtJour * 0.9 ? 'text-amber-600' : 'text-blue-600';
+                    const couleurGluc = glucJour > objGlucJour * 1.1 ? 'text-red-600' : 'text-emerald-600';
+                    const couleurLip = lipJour > objLipJour * 1.1 ? 'text-red-600' : 'text-amber-600';
 
                     containerTotauxJour.innerHTML = `
                         <span class="${couleurCal}">🔥 ${Math.round(calJour)}/${objCalJour} kcal</span>
                         <span class="${couleurBudget}">💰 ${budgetJour.toFixed(2)}/${objBudgetJour.toFixed(2)} €</span>
-                        <span class="text-blue-600">P:${Math.round(protJour)}g</span>
-                        <span class="text-emerald-600">G:${Math.round(glucJour)}g</span>
-                        <span class="text-amber-600">L:${Math.round(lipJour)}g</span>
+                        <span class="${couleurProt}">P:${Math.round(protJour)}/${objProtJour}g</span>
+                        <span class="${couleurGluc}">G:${Math.round(glucJour)}/${objGlucJour}g</span>
+                        <span class="${couleurLip}">L:${Math.round(lipJour)}/${objLipJour}g</span>
+                        <span class="text-purple-600">F:${Math.round(fibresJour)}/${objFibresJour}g</span>
                     `;
                 }
             });
@@ -672,13 +684,19 @@
             const bilanGlobalDiv = document.getElementById('bilan-global-semaine');
             if (bilanGlobalDiv) {
                 const objCalSemaine = objCalJour * 7;
+                const objProtSemaine = objProtJour * 7;
+                const objGlucSemaine = objGlucJour * 7;
+                const objLipSemaine = objLipJour * 7;
+                const objFibresSemaine = objFibresJour * 7;
+
                 bilanGlobalDiv.innerHTML = `
                     <span class="font-bold text-blue-900">📊 Bilan Semaine :</span>
                     <span>🔥 ${Math.round(totalCalSemaine)} / ${objCalSemaine} kcal</span>
                     <span>💰 ${totalBudgetSemaine.toFixed(2)} / ${objBudgetSemaine.toFixed(2)} €</span>
-                    <span>🥩 P: ${Math.round(totalProtSemaine)}g</span>
-                    <span>🍞 G: ${Math.round(totalGlucSemaine)}g</span>
-                    <span>🥑 L: ${Math.round(totalLipSemaine)}g</span>
+                    <span>🥩 P: ${Math.round(totalProtSemaine)}/${objProtSemaine}g</span>
+                    <span>🍞 G: ${Math.round(totalGlucSemaine)}/${objGlucSemaine}g</span>
+                    <span>🥑 L: ${Math.round(totalLipSemaine)}/${objLipSemaine}g</span>
+                    <span>🌾 F: ${Math.round(totalFibresSemaine)}/${objFibresSemaine}g</span>
                 `;
             }
         }
@@ -711,7 +729,14 @@
                 }
                 if (genCollation) {
                     const pool = filtrerRecettesParType('dessertcollation');
-                    if (pool.length > 0) menuJour.encas = [pool[Math.floor(Math.random() * pool.length)].nom];
+                    if (pool.length > 0) {
+                        const randomEncas = pool[Math.floor(Math.random() * pool.length)].nom;
+                        let encasActuels = getEncasList(menuJour);
+                        if (!encasActuels.includes(randomEncas)) {
+                            encasActuels.push(randomEncas);
+                        }
+                        menuJour.encas = encasActuels;
+                    }
                 }
 
                 await fetch('/api/menu-prevu-semaine', {
@@ -720,9 +745,9 @@
                     body: JSON.stringify({
                         profil,
                         jour,
-                        petitdejeuner: menuJour.petitdejeuner,
-                        repas1: menuJour.repas1,
-                        repas2: menuJour.repas2,
+                        petitdejeuner: menuJour.petitdejeuner || '',
+                        repas1: menuJour.repas1 || '',
+                        repas2: menuJour.repas2 || '',
                         encas: menuJour.encas || []
                     })
                 });
