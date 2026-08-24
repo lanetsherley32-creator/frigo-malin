@@ -347,10 +347,15 @@ app.delete('/api/recettes/:id', async (req, res) => {
     }
 });
 
+// --- API INGREDIENTS ---
+
 app.get('/api/ingredients', async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM ingredients");
-        const rows = (result.rows || []).map(r => ({ ...r, marques: r.marques ? JSON.parse(r.marques) : [] }));
+        const rows = (result.rows || []).map(r => ({ 
+            ...r, 
+            marques: r.marques ? (typeof r.marques === 'string' ? JSON.parse(r.marques) : r.marques) : [] 
+        }));
         res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -358,15 +363,46 @@ app.get('/api/ingredients', async (req, res) => {
 });
 
 app.post('/api/ingredients', async (req, res) => {
-    const { nom, rayon, calories, proteines, glucides, lipides, fibres, sucre, prix, marques } = req.body;
+    // Récupération de tous les champs de votre nouveau formulaire
+    const { 
+        titre, 
+        nom,                  // correspond au "Nom de l'ingrédient / Référence"
+        rayon, 
+        portion_quantite, 
+        portion_unite, 
+        calories, 
+        proteines, 
+        glucides, 
+        lipides, 
+        fibres, 
+        sucre, 
+        prix, 
+        marques 
+    } = req.body;
+
     const marquesStr = Array.isArray(marques) ? JSON.stringify(marques) : (marques || '[]');
     
     try {
         const query = `
-            INSERT INTO ingredients (nom, rayon, calories, proteines, glucides, lipides, fibres, sucre, prix, marques) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
+            INSERT INTO ingredients (titre, nom, rayon, portion_quantite, portion_unite, calories, proteines, glucides, lipides, fibres, sucre, prix, marques) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id
         `;
-        const result = await pool.query(query, [nom, rayon || 'Épicerie', calories || 0, proteines || 0, glucides || 0, lipides || 0, fibres || 0, sucre || 0, prix || 0, marquesStr]);
+        const result = await pool.query(query, [
+            titre || nom,                    // Si le titre est vide, on prend le nom
+            nom,                             // Nom de l'ingrédient / Référence
+            rayon || 'Épicerie', 
+            portion_quantite || 100,         // Valeur par défaut si vide
+            portion_unite || 'g',            // Unité par défaut (g ou ml)
+            calories || 0, 
+            proteines || 0, 
+            glucides || 0, 
+            lipides || 0, 
+            fibres || 0, 
+            sucre || 0, 
+            prix || 0, 
+            marquesStr
+        ]);
+        
         io.emit('data_updated');
         res.json({ success: true, id: result.rows[0].id });
     } catch (err) {
@@ -376,23 +412,56 @@ app.post('/api/ingredients', async (req, res) => {
 
 app.put('/api/ingredients/:id', async (req, res) => {
     const { id } = req.params;
-    const { nom, rayon, calories, proteines, glucides, lipides, fibres, sucre, prix, marques } = req.body;
+    const { 
+        titre, 
+        nom, 
+        rayon, 
+        portion_quantite, 
+        portion_unite, 
+        calories, 
+        proteines, 
+        glucides, 
+        lipides, 
+        fibres, 
+        sucre, 
+        prix, 
+        marques 
+    } = req.body;
+
     const marquesStr = Array.isArray(marques) ? JSON.stringify(marques) : (marques || '[]');
     
     try {
         const query = `
-            UPDATE ingredients SET nom = $1, rayon = $2, calories = $3, proteines = $4, glucides = $5, 
-                lipides = $6, fibres = $7, sucre = $8, prix = $9, marques = $10 WHERE id = $11
+            UPDATE ingredients 
+            SET titre = $1, nom = $2, rayon = $3, portion_quantite = $4, portion_unite = $5, 
+                calories = $6, proteines = $7, glucides = $8, lipides = $9, fibres = $10, 
+                sucre = $11, prix = $12, marques = $13 
+            WHERE id = $14
         `;
-        await pool.query(query, [nom, rayon || 'Épicerie', calories || 0, proteines || 0, glucides || 0, lipides || 0, fibres || 0, sucre || 0, prix || 0, marquesStr, id]);
+        await pool.query(query, [
+            titre || nom, 
+            nom, 
+            rayon || 'Épicerie', 
+            portion_quantite || 100, 
+            portion_unite || 'g', 
+            calories || 0, 
+            proteines || 0, 
+            glucides || 0, 
+            lipides || 0, 
+            fibres || 0, 
+            sucre || 0, 
+            prix || 0, 
+            marquesStr, 
+            id
+        ]);
+
         io.emit('data_updated');
-        res.json({ success: true, message: "Mis à jour avec succès !" });
+        res.json({ success: true, message: "Ingrédient mis à jour avec succès !" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Route DELETE pour supprimer un ingrédient (Ajoutée)
 app.delete('/api/ingredients/:id', async (req, res) => {
     const { id } = req.params;
     try {
