@@ -353,16 +353,18 @@
                 </div>
 
                 <div class="bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100 space-y-1">
-                    <label class="block text-[11px] font-bold text-indigo-900">🥣 Quantité d'une portion standard :</label>
-                    <div class="flex items-center gap-2">
-                        <input type="number" step="any" class="input-portion-qte border border-slate-200 p-1.5 rounded-lg bg-white w-28 text-center font-medium" placeholder="Ex: 50" value="${qtePortionVal}">
-                        <select class="input-portion-unite border border-slate-200 p-1.5 rounded-lg bg-white font-medium">
-                            <option value="g" ${unitePortionVal === 'g' ? 'selected' : ''}>g</option>
-                            <option value="ml" ${unitePortionVal === 'ml' ? 'selected' : ''}>ml</option>
-                        </select>
-                    </div>
-                </div>
-
+    <label class="block text-[11px] font-bold text-indigo-900">🥣 Quantité d'une portion standard :</label>
+    <div class="flex items-center gap-2">
+        <input type="number" step="any" class="input-portion-qte border border-slate-200 p-1.5 rounded-lg bg-white w-28 text-center font-medium" placeholder="Ex: 50" value="${qtePortionVal}">
+        <select class="input-portion-unite border border-slate-200 p-1.5 rounded-lg bg-white font-medium">
+            <option value="g" ${unitePortionVal === 'g' ? 'selected' : ''}>g</option>
+            <option value="kg" ${unitePortionVal === 'kg' ? 'selected' : ''}>kg</option>
+            <option value="ml" ${unitePortionVal === 'ml' ? 'selected' : ''}>ml</option>
+            <option value="L" ${unitePortionVal === 'L' ? 'selected' : ''}>L</option>
+            <option value="unité" ${unitePortionVal === 'unité' ? 'selected' : ''}>unité(s)</option>
+        </select>
+    </div>
+</div>
                 <div class="space-y-1.5">
                     <span class="block text-[11px] font-bold text-slate-600">📊 Valeurs nutritionnelles (pour 100g / 100ml) :</span>
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
