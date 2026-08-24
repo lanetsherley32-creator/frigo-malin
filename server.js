@@ -347,105 +347,45 @@ app.delete('/api/recettes/:id', async (req, res) => {
     }
 });
 
-// --- API INGREDIENTS (Structure Relationnelle 4 Tables) ---
-
-app.get('/api/ingredients', async (req, res) => {
-    try {
-        // 1. Récupérer tous les ingrédients
-        const ingResult = await pool.query("SELECT * FROM ingredients ORDER BY id DESC");
-        const ingredients = ingResult.rows;
-
-        // 2. Pour chaque ingrédient, récupérer ses marques, formats et prix
-        const ingredientsComplets = [];
-        for (const ing of ingredients) {
-            const marquesResult = await pool.query("SELECT * FROM marques WHERE ingredient_id = $1", [ing.id]);
-            const marques = [];
-
-            for (const marq of marquesResult.rows) {
-                const formatsResult = await pool.query("SELECT * FROM formats WHERE marque_id = $1", [marq.id]);
-                const formats = [];
-
-                for (const fmt of formatsResult.rows) {
-                    const prixResult = await pool.query("SELECT * FROM prix_enseignes WHERE format_id = $1", [fmt.id]);
-                    const prix_enseignes = {};
-                    prixResult.rows.forEach(p => {
-                        prix_enseignes[p.enseigne] = p.prix;
-                    });
-
-                    formats.push({
-                        id: fmt.id,
-                        qte: fmt.quantite,
-                        unite: fmt.unite,
-                        prix_enseignes: prix_enseignes
-                    });
-                }
-
-                marques.push({
-                    id: marq.id,
-                    nom: marq.nom_marque,
-                    calories: marq.calories_kcal,
-                    proteines: marq.proteines_g,
-                    glucides: marq.glucides_g,
-                    sucres: marq.sucres_g,
-                    lipides: marq.lipides_g,
-                    fibres: marq.fibres_g,
-                    formats: formats
-                });
-            }
-
-            ingredientsComplets.push({
-                id: ing.id,
-                titre: ing.titre,
-                nom: ing.nom_reference, // Mappe nom_reference vers nom pour le front-end
-                rayon: ing.rayon,
-                portion_quantite: ing.portion_quantite,
-                portion_unite: ing.portion_unite,
-                marques: marques
-            });
-        }
-
-        res.json(ingredientsComplets);
-    } catch (err) {
-        console.error("Erreur GET /api/ingredients:", err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
 app.post('/api/ingredients', async (req, res) => {
-    const { nom, rayon, marques } = req.body;
+    // On accepte plusieurs variantes possibles pour les noms de champs du formulaire
+    const nomIngredient = req.body.nom || req.body.titre || req.body.nom_reference || 'Sans nom';
+    const rayonIngredient = req.body.rayon || 'Épicerie';
+    const marques = req.body.marques || [];
+
     const client = await pool.connect();
 
     try {
-        await client.query('BEGIN'); // Début de la transaction sécurisée
+        await client.query('BEGIN');
 
-        // 1. Insertion dans ingredients (on met nom et titre identiques par défaut)
         const ingQuery = `
             INSERT INTO ingredients (titre, nom_reference, rayon) 
             VALUES ($1, $2, $3) RETURNING id
         `;
-        const ingRes = await client.query(ingQuery, [nom || 'Sans nom', nom || 'Sans nom', rayon || 'Épicerie']);
+        const ingRes = await client.query(ingQuery, [nomIngredient, nomIngredient, rayonIngredient]);
         const ingredientId = ingRes.rows[0].id;
 
-        // 2. Insertion des marques, formats et prix
         if (Array.isArray(marques)) {
             for (const m of marques) {
+                // On accepte 'nom', 'nom_marque' ou 'titre' pour la marque
+                const nomMarque = m.nom || m.nom_marque || m.titre || 'Générique';
+                
                 const marqQuery = `
                     INSERT INTO marques (ingredient_id, nom_marque, calories_kcal, proteines_g, glucides_g, sucres_g, lipides_g, fibres_g)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
                 `;
                 const marqRes = await client.query(marqQuery, [
                     ingredientId,
-                    m.nom || 'Générique',
-                    m.calories || 0,
-                    m.proteines || 0,
-                    m.glucides || 0,
-                    m.sucres || 0,
-                    m.lipides || 0,
-                    m.fibres || 0
+                    nomMarque,
+                    m.calories || m.calories_kcal || 0,
+                    m.proteines || m.proteines_g || 0,
+                    m.glucides || m.glucides_g || 0,
+                    m.sucres || m.sucres_g || 0,
+                    m.lipides || m.lipides_g || 0,
+                    m.fibres || m.fibres_g || 0
                 ]);
                 const marqueId = marqRes.rows[0].id;
 
-                // Mise à jour optionnelle de la portion standard sur l'ingrédient si présente dans la première marque
                 if (m.quantite_portion) {
                     await client.query(
                         "UPDATE ingredients SET portion_quantite = $1, portion_unite = $2 WHERE id = $3",
@@ -461,7 +401,7 @@ app.post('/api/ingredients', async (req, res) => {
                         `;
                         const fmtRes = await client.query(fmtQuery, [
                             marqueId,
-                            f.qte || 1,
+                            f.qte || f.quantite || 1,
                             f.unite || 'g'
                         ]);
                         const formatId = fmtRes.rows[0].id;
@@ -481,11 +421,11 @@ app.post('/api/ingredients', async (req, res) => {
             }
         }
 
-        await client.query('COMMIT'); // Validation de la transaction
+        await client.query('COMMIT');
         io.emit('data_updated');
         res.json({ success: true, id: ingredientId });
     } catch (err) {
-        await client.query('ROLLBACK'); // Annulation en cas d'erreur
+        await client.query('ROLLBACK');
         console.error("Erreur POST /api/ingredients:", err.message);
         res.status(500).json({ error: err.message });
     } finally {
@@ -495,39 +435,41 @@ app.post('/api/ingredients', async (req, res) => {
 
 app.put('/api/ingredients/:id', async (req, res) => {
     const { id } = req.params;
-    const { nom, rayon, marques } = req.body;
+    const nomIngredient = req.body.nom || req.body.titre || req.body.nom_reference || 'Sans nom';
+    const rayonIngredient = req.body.rayon || 'Épicerie';
+    const marques = req.body.marques || [];
+
     const client = await pool.connect();
 
     try {
         await client.query('BEGIN');
 
-        // 1. Mettre à jour l'ingrédient de base
         const updateIngQuery = `
             UPDATE ingredients 
             SET titre = $1, nom_reference = $2, rayon = $3 
             WHERE id = $4
         `;
-        await client.query(updateIngQuery, [nom || 'Sans nom', nom || 'Sans nom', rayon || 'Épicerie', id]);
+        await client.query(updateIngQuery, [nomIngredient, nomIngredient, rayonIngredient, id]);
 
-        // 2. Pour une mise à jour propre, on supprime les anciennes marques liées (les cascades supprimeront formats et prix automatiquement)
         await client.query("DELETE FROM marques WHERE ingredient_id = $1", [id]);
 
-        // 3. On réinsère les nouvelles marques reçues du formulaire
         if (Array.isArray(marques)) {
             for (const m of marques) {
+                const nomMarque = m.nom || m.nom_marque || m.titre || 'Générique';
+
                 const marqQuery = `
                     INSERT INTO marques (ingredient_id, nom_marque, calories_kcal, proteines_g, glucides_g, sucres_g, lipides_g, fibres_g)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
                 `;
                 const marqRes = await client.query(marqQuery, [
                     id,
-                    m.nom || 'Générique',
-                    m.calories || 0,
-                    m.proteines || 0,
-                    m.glucides || 0,
-                    m.sucres || 0,
-                    m.lipides || 0,
-                    m.fibres || 0
+                    nomMarque,
+                    m.calories || m.calories_kcal || 0,
+                    m.proteines || m.proteines_g || 0,
+                    m.glucides || m.glucides_g || 0,
+                    m.sucres || m.sucres_g || 0,
+                    m.lipides || m.lipides_g || 0,
+                    m.fibres || m.fibres_g || 0
                 ]);
                 const marqueId = marqRes.rows[0].id;
 
@@ -546,7 +488,7 @@ app.put('/api/ingredients/:id', async (req, res) => {
                         `;
                         const fmtRes = await client.query(fmtQuery, [
                             marqueId,
-                            f.qte || 1,
+                            f.qte || f.quantite || 1,
                             f.unite || 'g'
                         ]);
                         const formatId = fmtRes.rows[0].id;
