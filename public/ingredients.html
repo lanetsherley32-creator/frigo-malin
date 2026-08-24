@@ -336,7 +336,6 @@
             const lipVal = data.lipides || data.lip || 0;
             const fibresVal = data.fibres || 0;
             
-            // Gestion de la quantité d'une portion
             const qtePortionVal = data.quantite_portion || '';
             const unitePortionVal = data.unite_portion || 'g';
 
@@ -351,7 +350,6 @@
                     <input type="text" class="input-marque border border-slate-200 p-2 rounded-xl bg-white w-full font-medium pr-8" placeholder="Ex: Barilla" value="${marqueVal}">
                 </div>
 
-                <!-- Entrée de la quantité d'une portion en grammes ou mL -->
                 <div class="bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100 space-y-1">
                     <label class="block text-[11px] font-bold text-indigo-900">🥣 Quantité d'une portion standard :</label>
                     <div class="flex items-center gap-2">
@@ -526,37 +524,69 @@
                 block.querySelectorAll('.formats-container > div').forEach(formatDiv => {
                     const qte = parseFloat(formatDiv.querySelector('.input-format-qte').value) || 1;
                     const unite = formatDiv.querySelector('.select-format-unite').value;
+
                     let prix_enseignes = {};
                     formatDiv.querySelectorAll('.prix-enseignes-container > div').forEach(row => {
                         const ens = row.querySelector('.select-enseigne').value;
-                        const px = parseFloat(row.querySelector('.input-prix').value);
-                        if (ens && !isNaN(px)) prix_enseignes[ens] = px;
+                        const prix = parseFloat(row.querySelector('.input-prix').value);
+                        if (ens && !isNaN(prix)) {
+                            prix_enseignes[ens] = prix;
+                        }
                     });
+
                     formatsData.push({ qte, unite, prix_enseignes });
                 });
-                marquesData.push({ nom: nomMarque, quantite_portion, unite_portion, calories, proteines, glucides, sucres, lipides, fibres, formats: formatsData });
+
+                marquesData.push({
+                    nom: nomMarque || "Générique",
+                    quantite_portion,
+                    unite_portion,
+                    calories,
+                    proteines,
+                    glucides,
+                    sucres,
+                    lipides,
+                    fibres,
+                    formats: formatsData
+                });
             });
 
-            const data = { nom, rayon, marques: marquesData };
-            const url = id ? `/api/ingredients/${id}` : '/api/ingredients';
-            const method = id ? 'PUT' : 'POST';
+            const payload = {
+                titre: nom,
+                nom: nom,
+                rayon,
+                portion_quantite: marquesData[0]?.quantite_portion || 100,
+                portion_unite: marquesData[0]?.unite_portion || 'g',
+                calories: marquesData[0]?.calories || 0,
+                proteines: marquesData[0]?.proteines || 0,
+                glucides: marquesData[0]?.glucides || 0,
+                lipides: marquesData[0]?.lipides || 0,
+                fibres: marquesData[0]?.fibres || 0,
+                sucre: marquesData[0]?.sucres || 0,
+                prix: 0,
+                marques: marquesData
+            };
 
             try {
+                const url = id ? `/api/ingredients/${id}` : '/api/ingredients';
+                const method = id ? 'PUT' : 'POST';
+
                 const res = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(payload)
                 });
 
-                if (res.ok) {
+                const data = await res.json();
+                if (res.ok && data.success) {
                     reinitialiserFormulaire();
                     init();
-                    alert("✅ Ingrédient enregistré avec succès !");
                 } else {
-                    alert("❌ Erreur lors de l'enregistrement.");
+                    alert("Erreur : " + (data.error || "Impossible d'enregistrer"));
                 }
             } catch (err) {
-                console.error("Erreur sauvegarde ingrédient", err);
+                console.error("Erreur réseau :", err);
+                alert("Erreur réseau lors de la sauvegarde.");
             }
         }
 
@@ -564,14 +594,14 @@
             if (!confirm("Voulez-vous vraiment supprimer cet ingrédient ?")) return;
             try {
                 const res = await fetch(`/api/ingredients/${id}`, { method: 'DELETE' });
-                if (res.ok) {
+                const data = await res.json();
+                if (res.ok && data.success) {
                     init();
-                    document.getElementById('conteneur-affichage-dynamique').innerHTML = '';
                 } else {
-                    alert("❌ Erreur lors de la suppression.");
+                    alert("Erreur lors de la suppression.");
                 }
             } catch (err) {
-                console.error("Erreur suppression ingrédient", err);
+                console.error("Erreur suppression :", err);
             }
         }
     </script>
