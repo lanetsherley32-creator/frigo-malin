@@ -959,19 +959,22 @@ app.post('/api/courses/cocher', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
 // 4. Modifier la marque et le prix d'un article de la liste de courses
 app.post('/api/courses/changer-marque', async (req, res) => {
-    const { id, marque, prix } = req.body;
+    const { id, marque, prix, format_paquet } = req.body;
     if (id === undefined || !marque || prix === undefined) {
         return res.status(400).json({ error: "Données manquantes pour le changement de marque" });
     }
 
     try {
-        await pool.query("UPDATE courses SET marque = $1, prix = $2 WHERE id = $3", [marque, prix, id]);
+        await pool.query(
+            "UPDATE courses SET marque = $1, prix = $2, format_paquet = $3 WHERE id = $4", 
+            [marque, prix, format_paquet || 1, id]
+        );
         io.emit('data_updated');
         res.json({ success: true });
     } catch (err) {
+        console.error("Erreur changer-marque :", err.message);
         res.status(500).json({ error: err.message });
     }
 });

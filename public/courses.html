@@ -183,13 +183,11 @@
             container.innerHTML = courses.map(c => {
                 const estCoche = c.coche === 1;
                 
-                // Extraction et parsing des marques disponibles
                 let marquesDispos = [];
                 try {
                     marquesDispos = typeof c.marques_disponibles === 'string' ? JSON.parse(c.marques_disponibles) : (c.marques_disponibles || []);
                 } catch(e) { marquesDispos = []; }
 
-                // Trouver la marque active actuelle pour récupérer son prix unitaire et le format du paquet
                 let prixUnitaire = parseFloat(c.prix || 0);
                 let formatPaquet = parseFloat(c.format_paquet || c.contenance || c.poids_format || 1);
                 if (isNaN(formatPaquet) || formatPaquet <= 0) formatPaquet = 1;
@@ -204,11 +202,9 @@
                     }
                 }
 
-                // Calcul quantité nécessaire vs format paquet (ex: 300g nécessaires, paquet de 400g => 1 paquet)
                 const besoinTotal = parseFloat(c.quantite_necessaire || c.besoin || 1);
                 const unite = (c.unite || 'g').toLowerCase();
                 
-                // Si l'unité est en grammes ou millilitres, on calcule le nombre de conditionnements nécessaires
                 let nbPaquets = c.nb_paquets !== undefined ? parseInt(c.nb_paquets) : null;
                 if (!nbPaquets || isNaN(nbPaquets)) {
                     if (unite === 'g' || unite === 'ml' || unite === 'cl' || unite === 'kg') {
@@ -226,11 +222,9 @@
                 }
                 if (nbPaquets < 1) nbPaquets = 1;
 
-                // Prix total = Prix d'un paquet * nombre de paquets à acheter
                 const prixTotalArticle = prixUnitaire * nbPaquets;
                 if (!estCoche) cumulPrix += prixTotalArticle;
 
-                // Construction dynamique du menu déroulant des marques
                 let optionsHtml = `<option value="Standard" data-prix="${prixUnitaire}" data-format="${formatPaquet}" ${!c.marque || c.marque === 'Standard' ? 'selected' : ''}>Standard (${prixUnitaire.toFixed(2)} € / ${formatPaquet}${c.unite || 'g'})</option>`;
                 
                 if (marquesDispos.length > 0) {
@@ -259,12 +253,10 @@
                         </label>
                         
                         <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
-                            <!-- Sélecteur de marque -->
                             <select onchange="changerMarqueArticle(${c.id}, this)" class="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all">
                                 ${optionsHtml}
                             </select>
 
-                            <!-- Sélecteur direct du nombre de paquets -->
                             <div class="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1">
                                 <span class="text-[10px] text-slate-400 font-bold">Qté:</span>
                                 <input type="number" min="1" value="${nbPaquets}" onchange="changerNbPaquets(${c.id}, this.value)" class="w-10 text-center font-bold text-blue-600 outline-none text-xs">
