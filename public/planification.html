@@ -6,6 +6,8 @@
     <title>Planification - Frigomalin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <!-- Inclusion de jsPDF pour l'export du menu -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body class="bg-slate-50 min-h-screen pb-12 text-slate-800">
     <div class="max-w-6xl mx-auto p-4 space-y-4">
@@ -26,6 +28,12 @@
                     <button onclick="ouvrirModalPersonne('ajouter')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-xl transition-all">+ Profil</button>
                 </div>
             </div>
+            
+            <!-- Bilan Global Semaine -->
+            <div id="bilan-global-semaine" class="bg-blue-50 border border-blue-200 p-3 rounded-xl flex flex-wrap justify-between items-center text-xs font-semibold text-blue-900 gap-2">
+                <span>📊 Bilan Global Semaine en cours...</span>
+            </div>
+
             <nav class="grid grid-cols-7 gap-1 text-center text-[11px] font-medium pt-1">
                 <a href="global.html" class="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">Menu</a>
                 <a href="planification.html" class="p-2 rounded-xl bg-blue-600 text-white font-bold shadow-sm">Planification</a>
@@ -147,11 +155,16 @@
 
         <!-- Actions Avancées Planification -->
         <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap gap-2 justify-between items-center text-xs print:hidden">
-            <button onclick="genererSemaineAleatoire()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
-                🎲 Générer la semaine aléatoirement (selon sélection)
-            </button>
-            <button onclick="genererSemaineAleatoireOptimisee()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
-                ⚡ Génération Intelligente (Objectifs & Filtres)
+            <div class="flex flex-wrap gap-2">
+                <button onclick="genererSemaineAleatoire()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
+                    🎲 Générer la semaine aléatoirement (selon sélection)
+                </button>
+                <button onclick="genererSemaineAleatoireOptimisee()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
+                    ⚡ Génération Intelligente (Objectifs & Filtres)
+                </button>
+            </div>
+            <button onclick="exporterMenuPDF()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm">
+                📄 Exporter le menu en PDF
             </button>
         </section>
 
@@ -332,6 +345,7 @@
                     });
                     const resProfils = await fetch('/api/personnes-objectifs');
                     profilsCache = await resProfils.json();
+                    calculerEtAfficherTotauxSemaine();
                 } catch (e) {
                     console.error("Erreur sauvegarde directe profil", e);
                 }
@@ -404,15 +418,23 @@
             checkboxes.forEach(cb => {
                 if (cb.checked) selectionnes.push(cb.value.toLowerCase());
             });
+            // Sécurité anti-liste vide pour éviter les blocages de génération aléatoire
+            if (selectionnes.length === 0) {
+                return ['petitdej', 'repas chaud', 'repas froid', 'dessert', 'encas'];
+            }
             return selectionnes;
         }
 
         function filtrerRecettesParType(typeRepas) {
             const categoriesAcceptees = getFiltresActifsPourType(typeRepas);
-            return recettesCache.filter(rec => {
+            let result = recettesCache.filter(rec => {
                 const catRec = (rec.categorie || rec.type || '').toLowerCase();
                 return categoriesAcceptees.some(c => catRec.includes(c));
             });
+            if (result.length === 0) {
+                result = recettesCache; // Fallback si aucune recette ne correspond strictement
+            }
+            return result;
         }
 
         function mettreAJourDatalists() {
@@ -493,146 +515,355 @@
                                     <input type="text" id="input-${jour}-repas2" list="liste-recettes-soir" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'repas2', this.value)" value="${getNomRecette(menuJour.repas2)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Encas (Plusieurs possibles)</label>
-                                    <div class="space-y-2">
-                                        <div class="flex gap-1">
-                                            <input type="text" id="input-${jour}-encas-new" list="liste-ingredients-recettes-global" placeholder="Ex: pomme, banane..." class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
-                                            <button type="button" onclick="ajouterEncas('${jour}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-2 rounded-xl transition-all text-xs whitespace-nowrap">+ Ajouter</button>
-                                        </div>
-                                        <div id="tags-encas-${jour}" class="flex flex-wrap gap-1.5 min-h-[28px] items-center">
-                                            ${encasActuels.map((encas, idx) => `
-                                                <span class="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-700 px-2 py-1 rounded-lg text-[11px] font-medium">
-                                                    ${encas}
-                                                    <button type="button" onclick="supprimerEncas('${jour}', ${idx})" class="text-blue-400 hover:text-red-500 font-bold ml-1">×</button>
-                                                </span>
-                                            `).join('')}
-                                        </div>
+                                    <label class="block text-[10px] text-slate-400 font-bold mb-1">Collation / Encas</label>
+                                    <div class="flex gap-1 items-center">
+                                        <input type="text" id="input-${jour}-collation" list="liste-recettes-collation" placeholder="Ajouter encas..." onchange="ajouterEncasJour('${jour}', this.value)" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    </div>
+                                    <div id="tags-encas-${jour}" class="flex flex-wrap gap-1 mt-1.5">
+                                        ${encasActuels.map(enc => `<span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${enc} <button onclick="supprimerEncasJour('${jour}', '${enc}')" class="text-blue-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     `;
                 }).join('');
+
+                calculerEtAfficherTotauxSemaine();
             } catch (e) {
                 console.error("Erreur chargement menu semaine", e);
             }
         }
 
-        async function sauvegarderRepasParNom(jour, typeRepas, valeur) {
+        async function sauvegarderRepasParNom(jour, typeRepas, valeurNom) {
             const profil = document.getElementById('select-profil')?.value;
             if (!profil) return;
 
-            const menuJour = menusCache.find(m => m.jour === jour) || { jour, profil, encas: [] };
-            menuJour[typeRepas] = valeur;
+            let menuJour = menusCache.find(m => m.jour === jour);
+            if (!menuJour) {
+                menuJour = { jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [] };
+                menusCache.push(menuJour);
+            }
+
+            if (typeRepas === 'petitdejeuner') menuJour.petitdejeuner = valeurNom;
+            else if (typeRepas === 'repas1') menuJour.repas1 = valeurNom;
+            else if (typeRepas === 'repas2') menuJour.repas2 = valeurNom;
 
             try {
                 await fetch('/api/menu-prevu-semaine', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        profil: profil,
-                        jour: jour,
-                        petitdejeuner: typeRepas === 'petitdejeuner' ? valeur : getNomRecette(menuJour.petitdejeuner),
-                        repas1: typeRepas === 'repas1' ? valeur : getNomRecette(menuJour.repas1),
-                        repas2: typeRepas === 'repas2' ? valeur : getNomRecette(menuJour.repas2),
-                        encas: getEncasList(menuJour)
+                        profil,
+                        jour,
+                        petitdejeuner: menuJour.petitdejeuner,
+                        repas1: menuJour.repas1,
+                        repas2: menuJour.repas2,
+                        encas: menuJour.encas || []
                     })
                 });
+                calculerEtAfficherTotauxSemaine();
             } catch (e) {
                 console.error("Erreur sauvegarde repas", e);
             }
         }
 
-        async function ajouterEncas(jour) {
-            const inputEl = document.getElementById(`input-${jour}-encas-new`);
-            if (!inputEl) return;
-            const valeur = inputEl.value.trim();
-            if (!valeur) return;
-
+        async function ajouterEncasJour(jour, valeurNom) {
+            if (!valeurNom.trim()) return;
             const profil = document.getElementById('select-profil')?.value;
             if (!profil) return;
 
-            const menuJour = menusCache.find(m => m.jour === jour) || { jour, profil, encas: [] };
-            let encasActuels = getEncasList(menuJour);
-            if (!encasActuels.includes(valeur)) {
-                encasActuels.push(valeur);
+            let menuJour = menusCache.find(m => m.jour === jour);
+            if (!menuJour) {
+                menuJour = { jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [] };
+                menusCache.push(menuJour);
             }
-            menuJour.encas = encasActuels;
-            inputEl.value = '';
 
-            await sauvegarderMenuComplet(jour, menuJour);
-            chargerMenuSemaine();
-        }
+            let encas = getEncasList(menuJour);
+            encas.push(valeurNom.trim());
+            menuJour.encas = encas;
 
-        async function supprimerEncas(jour, index) {
-            const profil = document.getElementById('select-profil')?.value;
-            if (!profil) return;
-
-            const menuJour = menusCache.find(m => m.jour === jour);
-            if (!menuJour) return;
-
-            let encasActuels = getEncasList(menuJour);
-            encasActuels.splice(index, 1);
-            menuJour.encas = encasActuels;
-
-            await sauvegarderMenuComplet(jour, menuJour);
-            chargerMenuSemaine();
-        }
-
-        async function sauvegarderMenuComplet(jour, menuJour) {
-            const profil = document.getElementById('select-profil')?.value;
-            if (!profil) return;
+            document.getElementById(`input-${jour}-collation`).value = '';
 
             try {
                 await fetch('/api/menu-prevu-semaine', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        profil: profil,
-                        jour: jour,
-                        petitdejeuner: getNomRecette(menuJour.petitdejeuner),
-                        repas1: getNomRecette(menuJour.repas1),
-                        repas2: getNomRecette(menuJour.repas2),
-                        encas: getEncasList(menuJour)
+                        profil,
+                        jour,
+                        petitdejeuner: menuJour.petitdejeuner,
+                        repas1: menuJour.repas1,
+                        repas2: menuJour.repas2,
+                        encas: menuJour.encas
                     })
                 });
+                chargerMenuSemaine();
             } catch (e) {
-                console.error("Erreur sauvegarde menu complet", e);
+                console.error("Erreur ajout encas", e);
+            }
+        }
+
+        async function supprimerEncasJour(jour, nomEncas) {
+            const profil = document.getElementById('select-profil')?.value;
+            if (!profil) return;
+
+            let menuJour = menusCache.find(m => m.jour === jour);
+            if (!menuJour) return;
+
+            let encas = getEncasList(menuJour).filter(e => e !== nomEncas);
+            menuJour.encas = encas;
+
+            try {
+                await fetch('/api/menu-prevu-semaine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        profil,
+                        jour,
+                        petitdejeuner: menuJour.petitdejeuner,
+                        repas1: menuJour.repas1,
+                        repas2: menuJour.repas2,
+                        encas: menuJour.encas
+                    })
+                });
+                chargerMenuSemaine();
+            } catch (e) {
+                console.error("Erreur suppression encas", e);
+            }
+        }
+
+        function trouverRecetteParNom(nom) {
+            if (!nom) return null;
+            return recettesCache.find(r => r.nom.toLowerCase() === nom.toLowerCase()) || null;
+        }
+
+        function calculerEtAfficherTotauxSemaine() {
+            const profilNom = document.getElementById('select-profil')?.value;
+            const profilObj = profilsCache.find(p => p.nom === profilNom) || { calories: 2000, budget: 100, proteines: 150, glucides: 200, lipides: 70 };
+            
+            let totalCalSemaine = 0, totalBudgetSemaine = 0, totalProtSemaine = 0, totalGlucSemaine = 0, totalLipSemaine = 0;
+            const objectifCalSemaine = (Number(profilObj.calories) || 2000) * 7;
+            const objectifBudgetSemaine = (Number(profilObj.budget) || 100);
+
+            const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
+            jours.forEach(jour => {
+                const menuJour = menusCache.find(m => m.jour === jour) || {};
+                let calJour = 0, budgetJour = 0, protJour = 0, glucJour = 0, lipJour = 0;
+
+                const nomsRepas = [
+                    getNomRecette(menuJour.petitdejeuner),
+                    getNomRecette(menuJour.repas1),
+                    getNomRecette(menuJour.repas2),
+                    ...getEncasList(menuJour)
+                ];
+
+                nomsRepas.forEach(nom => {
+                    const r = trouverRecetteParNom(nom);
+                    if (r) {
+                        calJour += Number(r.calories || r.kcal || 0);
+                        budgetJour += Number(r.budget || r.prix || 0);
+                        protJour += Number(r.proteines || 0);
+                        glucJour += Number(r.glucides || 0);
+                        lipJour += Number(r.lipides || 0);
+                    }
+                });
+
+                totalCalSemaine += calJour;
+                totalBudgetSemaine += budgetJour;
+                totalProtSemaine += protJour;
+                totalGlucSemaine += glucJour;
+                totalLipSemaine += lipJour;
+
+                const containerTotauxJour = document.getElementById(`totaux-${jour}`);
+                if (containerTotauxJour) {
+                    containerTotauxJour.innerHTML = `
+                        <span class="text-slate-600">🔥 ${Math.round(calJour)} kcal</span>
+                        <span class="text-slate-600">💰 ${budgetJour.toFixed(2)} €</span>
+                        <span class="text-blue-600">P:${Math.round(protJour)}g</span>
+                        <span class="text-emerald-600">G:${Math.round(glucJour)}g</span>
+                        <span class="text-amber-600">L:${Math.round(lipJour)}g</span>
+                    `;
+                }
+            });
+
+            const bilanGlobalDiv = document.getElementById('bilan-global-semaine');
+            if (bilanGlobalDiv) {
+                bilanGlobalDiv.innerHTML = `
+                    <span class="font-bold text-blue-900">📊 Bilan Global Semaine :</span>
+                    <span>🔥 ${Math.round(totalCalSemaine)} / ${objectifCalSemaine} kcal</span>
+                    <span>💰 ${totalBudgetSemaine.toFixed(2)} / ${objectifBudgetSemaine} €</span>
+                    <span>🥩 P: ${Math.round(totalProtSemaine)}g</span>
+                    <span>🍞 G: ${Math.round(totalGlucSemaine)}g</span>
+                    <span>🥑 L: ${Math.round(totalLipSemaine)}g</span>
+                `;
             }
         }
 
         async function genererSemaineAleatoire() {
             const profil = document.getElementById('select-profil')?.value;
             if (!profil) return;
-            alert("Fonctionnalité de génération aléatoire active.");
+
+            const genPtDej = document.getElementById('generer-pt-dej')?.checked ?? true;
+            const genMidi = document.getElementById('generer-midi')?.checked ?? true;
+            const genSoir = document.getElementById('generer-soir')?.checked ?? true;
+            const genCollation = document.getElementById('generer-collation')?.checked ?? true;
+
+            const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
+            for (const jour of jours) {
+                let menuJour = menusCache.find(m => m.jour === jour) || { jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [] };
+
+                if (genPtDej) {
+                    const pool = filtrerRecettesParType('petitdejeuner');
+                    if (pool.length > 0) {
+                        menuJour.petitdejeuner = pool[Math.floor(Math.random() * pool.length)].nom;
+                    }
+                }
+                if (genMidi) {
+                    const pool = filtrerRecettesParType('repas1');
+                    if (pool.length > 0) {
+                        menuJour.repas1 = pool[Math.floor(Math.random() * pool.length)].nom;
+                    }
+                }
+                if (genSoir) {
+                    const pool = filtrerRecettesParType('repas2');
+                    if (pool.length > 0) {
+                        menuJour.repas2 = pool[Math.floor(Math.random() * pool.length)].nom;
+                    }
+                }
+                if (genCollation) {
+                    const pool = filtrerRecettesParType('dessertcollation');
+                    if (pool.length > 0) {
+                        menuJour.encas = [pool[Math.floor(Math.random() * pool.length)].nom];
+                    }
+                }
+
+                await fetch('/api/menu-prevu-semaine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        profil,
+                        jour,
+                        petitdejeuner: menuJour.petitdejeuner,
+                        repas1: menuJour.repas1,
+                        repas2: menuJour.repas2,
+                        encas: menuJour.encas || []
+                    })
+                });
+            }
+
+            await chargerMenuSemaine();
         }
 
         async function genererSemaineAleatoireOptimisee() {
-            const profil = document.getElementById('select-profil')?.value;
-            if (!profil) return;
-            alert("Génération intelligente active.");
+            // Utilise la même logique robuste filtrée par sélection
+            await genererSemaineAleatoire();
         }
 
-        function afficherSuggestionsVertes() {
+        async function afficherSuggestionsVertes() {
             const container = document.getElementById('container-suggestions-vertes');
-            if (container) {
-                container.innerHTML = '<p class="text-xs text-emerald-600">Aucune suggestion pour le moment.</p>';
+            if (!container) return;
+            if (recettesCache.length === 0) {
+                container.innerHTML = '<p class="text-xs text-emerald-600 italic">Aucune recette disponible pour les suggestions.</p>';
+                return;
+            }
+            const shuffle = [...recettesCache].sort(() => 0.5 - Math.random()).slice(0, 3);
+            container.innerHTML = shuffle.map(r => `
+                <div class="bg-white/80 p-2.5 rounded-xl border border-emerald-100 text-xs shadow-sm">
+                    <span class="font-bold text-emerald-900 block">${r.nom}</span>
+                    <span class="text-[10px] text-emerald-600">🔥 ${r.calories || r.kcal || 0} kcal | 💰 ${r.budget || r.prix || 0} €</span>
+                </div>
+            `).join('');
+        }
+
+        function ouvrirModalPersonne(mode) {
+            const modal = document.getElementById('modal-personne');
+            modal.classList.remove('hidden');
+            if (mode === 'ajouter') {
+                document.getElementById('modal-personne-title').innerText = '👤 Ajouter un profil';
+                document.getElementById('personne-ancien-nom').value = '';
+                document.getElementById('personne-nom').value = '';
+                document.getElementById('personne-cal').value = '2000';
+                document.getElementById('personne-budget').value = '100';
+            } else {
+                const profilActif = document.getElementById('select-profil')?.value;
+                const p = profilsCache.find(item => item.nom === profilActif);
+                document.getElementById('modal-personne-title').innerText = '👤 Modifier le profil';
+                document.getElementById('personne-ancien-nom').value = profilActif;
+                document.getElementById('personne-nom').value = profilActif;
+                if (p) {
+                    document.getElementById('personne-cal').value = p.calories || 2000;
+                    document.getElementById('personne-budget').value = p.budget || 100;
+                }
             }
         }
 
-        function ouvrirModalPersonne(action) {
-            const modal = document.getElementById('modal-personne');
-            if (modal) modal.classList.remove('hidden');
-        }
-
         function fermerModalPersonne() {
-            const modal = document.getElementById('modal-personne');
-            if (modal) modal.classList.add('hidden');
+            document.getElementById('modal-personne').classList.add('hidden');
         }
 
         async function sauvegarderPersonne(e) {
             e.preventDefault();
-            fermerModalPersonne();
+            const nom = document.getElementById('personne-nom').value;
+            const ancienNom = document.getElementById('personne-ancien-nom').value;
+            const calories = document.getElementById('personne-cal').value;
+            const budget = document.getElementById('personne-budget').value;
+
+            try {
+                await fetch('/api/personnes-objectifs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nom, ancienNom, calories, budget })
+                });
+                fermerModalPersonne();
+                initPlanification();
+            } catch (err) {
+                console.error("Erreur sauvegarde profil", err);
+            }
+        }
+
+        // Export du Menu en PDF avec jsPDF
+        function exporterMenuPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const profilActif = document.getElementById('select-profil')?.value || 'Frigomalin';
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.text(`Menu de la Semaine - ${profilActif}`, 14, 20);
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.text(`Généré par Frigomalin`, 14, 28);
+
+            let y = 38;
+            const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
+            jours.forEach(jour => {
+                const menuJour = menusCache.find(m => m.jour === jour) || {};
+                const ptDej = getNomRecette(menuJour.petitdejeuner) || '-';
+                const midi = getNomRecette(menuJour.repas1) || '-';
+                const soir = getNomRecette(menuJour.repas2) || '-';
+                const encas = getEncasList(menuJour).join(', ') || '-';
+
+                if (y > 270) {
+                    doc.addPage();
+                    y = 20;
+                }
+
+                doc.setFont("helvetica", "bold");
+                doc.text(jour, 14, y);
+                y += 6;
+
+                doc.setFont("helvetica", "normal");
+                doc.text(`- Petit-déjeuner : ${ptDej}`, 18, y); y += 5;
+                doc.text(`- Midi : ${midi}`, 18, y); y += 5;
+                doc.text(`- Soir : ${soir}`, 18, y); y += 5;
+                doc.text(`- Collation : ${encas}`, 18, y); y += 8;
+            });
+
+            doc.save(`menu-semaine-${profilActif.toLowerCase()}.pdf`);
         }
     </script>
 </body>
