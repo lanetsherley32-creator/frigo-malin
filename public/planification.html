@@ -173,6 +173,7 @@
     <datalist id="liste-recettes-midi"></datalist>
     <datalist id="liste-recettes-soir"></datalist>
     <datalist id="liste-recettes-collation"></datalist>
+    <datalist id="liste-ingredients-globale"></datalist>
 
     <!-- MODALE GESTION PROFIL -->
     <div id="modal-personne" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
@@ -265,6 +266,7 @@
                 select.value = savedProfil;
                 remplirChampsObjectifsDirects(savedProfil);
                 chargerFiltresSauvegardes();
+                mettreAJourDatalistIngredients();
                 await chargerMenuSemaine();
                 mettreAJourDatalists();
                 afficherSuggestionsVertes();
@@ -439,6 +441,12 @@
             });
         }
 
+        function mettreAJourDatalistIngredients() {
+            const datalist = document.getElementById('liste-ingredients-globale');
+            if (!datalist) return;
+            datalist.innerHTML = ingredientsCache.map(i => `<option value="${i.nom || i.titre}">`).join('');
+        }
+
         function getNomRecette(val) {
             if (!val) return '';
             if (typeof val === 'string') return val;
@@ -458,6 +466,19 @@
             return encas.map(item => getNomRecette(item)).filter(Boolean);
         }
 
+        function getIngredientsList(menuJour, typeRepas) {
+            if (!menuJour) return [];
+            let key = typeRepas === 'petitdejeuner' ? 'ingredients_petitdejeuner' : (typeRepas === 'repas1' ? 'ingredients_repas1' : 'ingredients_repas2');
+            let ing = menuJour[key] || [];
+            if (typeof ing === 'string') {
+                try { ing = JSON.parse(ing); } catch(e) { ing = ing ? [ing] : []; }
+            }
+            if (!Array.isArray(ing)) {
+                ing = ing ? [ing] : [];
+            }
+            return ing.map(item => getNomRecette(item)).filter(Boolean);
+        }
+
         async function chargerMenuSemaine() {
             const profil = document.getElementById('select-profil')?.value;
             if (!profil) return;
@@ -471,6 +492,9 @@
                 container.innerHTML = jours.map(jour => {
                     const menuJour = menusCache.find(m => m.jour === jour) || {};
                     const encasActuels = getEncasList(menuJour);
+                    const ingPtDej = getIngredientsList(menuJour, 'petitdejeuner');
+                    const ingMidi = getIngredientsList(menuJour, 'repas1');
+                    const ingSoir = getIngredientsList(menuJour, 'repas2');
 
                     return `
                         <div id="row-${jour}" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
@@ -479,18 +503,46 @@
                                 <div id="totaux-${jour}" class="flex items-center gap-3 text-[11px] font-semibold text-slate-600"></div>
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs items-start">
-                                <div>
+                                <!-- Petit Dej -->
+                                <div class="space-y-1">
                                     <label class="block text-[10px] text-slate-400 font-bold mb-1">Petit dej</label>
-                                    <input type="text" id="input-${jour}-petitdejeuner" list="liste-recettes-pt-dej" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'petitdejeuner', this.value)" value="${getNomRecette(menuJour.petitdejeuner)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    <input type="text" id="input-${jour}-petitdejeuner" list="liste-recettes-pt-dej" placeholder="Recette..." onchange="sauvegarderRepasParNom('${jour}', 'petitdejeuner', this.value)" value="${getNomRecette(menuJour.petitdejeuner)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    
+                                    <div class="pt-1">
+                                        <input type="text" id="input-ing-${jour}-petitdejeuner" list="liste-ingredients-globale" placeholder="+ Ingrédient additionnel..." onchange="ajouterIngredientJour('${jour}', 'petitdejeuner', this.value)" class="w-full bg-slate-50 border border-slate-100 p-1.5 rounded-xl outline-none text-[11px]">
+                                        <div id="tags-ing-${jour}-petitdejeuner" class="flex flex-wrap gap-1 mt-1">
+                                            ${ingPtDej.map(i => `<span class="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${i} <button type="button" onclick="supprimerIngredientJour('${jour}', 'petitdejeuner', '${i}')" class="text-amber-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
+
+                                <!-- Repas Midi -->
+                                <div class="space-y-1">
                                     <label class="block text-[10px] text-slate-400 font-bold mb-1">Repas midi</label>
-                                    <input type="text" id="input-${jour}-repas1" list="liste-recettes-midi" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'repas1', this.value)" value="${getNomRecette(menuJour.repas1)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    <input type="text" id="input-${jour}-repas1" list="liste-recettes-midi" placeholder="Recette..." onchange="sauvegarderRepasParNom('${jour}', 'repas1', this.value)" value="${getNomRecette(menuJour.repas1)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    
+                                    <div class="pt-1">
+                                        <input type="text" id="input-ing-${jour}-repas1" list="liste-ingredients-globale" placeholder="+ Ingrédient additionnel..." onchange="ajouterIngredientJour('${jour}', 'repas1', this.value)" class="w-full bg-slate-50 border border-slate-100 p-1.5 rounded-xl outline-none text-[11px]">
+                                        <div id="tags-ing-${jour}-repas1" class="flex flex-wrap gap-1 mt-1">
+                                            ${ingMidi.map(i => `<span class="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${i} <button type="button" onclick="supprimerIngredientJour('${jour}', 'repas1', '${i}')" class="text-amber-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
+
+                                <!-- Repas Soir -->
+                                <div class="space-y-1">
                                     <label class="block text-[10px] text-slate-400 font-bold mb-1">Repas soir</label>
-                                    <input type="text" id="input-${jour}-repas2" list="liste-recettes-soir" placeholder="Rechercher..." onchange="sauvegarderRepasParNom('${jour}', 'repas2', this.value)" value="${getNomRecette(menuJour.repas2)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    <input type="text" id="input-${jour}-repas2" list="liste-recettes-soir" placeholder="Recette..." onchange="sauvegarderRepasParNom('${jour}', 'repas2', this.value)" value="${getNomRecette(menuJour.repas2)}" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-xl outline-none font-medium">
+                                    
+                                    <div class="pt-1">
+                                        <input type="text" id="input-ing-${jour}-repas2" list="liste-ingredients-globale" placeholder="+ Ingrédient additionnel..." onchange="ajouterIngredientJour('${jour}', 'repas2', this.value)" class="w-full bg-slate-50 border border-slate-100 p-1.5 rounded-xl outline-none text-[11px]">
+                                        <div id="tags-ing-${jour}-repas2" class="flex flex-wrap gap-1 mt-1">
+                                            ${ingSoir.map(i => `<span class="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1">${i} <button type="button" onclick="supprimerIngredientJour('${jour}', 'repas2', '${i}')" class="text-amber-400 hover:text-red-500 font-bold">×</button></span>`).join('')}
+                                        </div>
+                                    </div>
                                 </div>
+
+                                <!-- Collation -->
                                 <div>
                                     <label class="block text-[10px] text-slate-400 font-bold mb-1">Collation / Encas (multiples)</label>
                                     <div class="flex gap-1 items-center">
@@ -517,7 +569,7 @@
 
             let menuJour = menusCache.find(m => m.jour === jour);
             if (!menuJour) {
-                menuJour = { jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [] };
+                menuJour = { jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [], ingredients_petitdejeuner: [], ingredients_repas1: [], ingredients_repas2: [] };
                 menusCache.push(menuJour);
             }
 
@@ -535,12 +587,93 @@
                         petitdejeuner: menuJour.petitdejeuner,
                         repas1: menuJour.repas1,
                         repas2: menuJour.repas2,
-                        encas: menuJour.encas || []
+                        encas: getEncasList(menuJour),
+                        ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
+                        ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
+                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
                     })
                 });
                 calculerEtAfficherTotauxSemaine();
             } catch (e) {
                 console.error("Erreur sauvegarde repas", e);
+            }
+        }
+
+        async function ajouterIngredientJour(jour, typeRepas, valeurNom) {
+            if (!valeurNom.trim()) return;
+            const profil = document.getElementById('select-profil')?.value;
+            if (!profil) return;
+
+            let menuJour = menusCache.find(m => m.jour === jour);
+            if (!menuJour) {
+                menuJour = { jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [], ingredients_petitdejeuner: [], ingredients_repas1: [], ingredients_repas2: [] };
+                menusCache.push(menuJour);
+            }
+
+            let liste = getIngredientsList(menuJour, typeRepas);
+            if (!liste.includes(valeurNom.trim())) {
+                liste.push(valeurNom.trim());
+            }
+
+            if (typeRepas === 'petitdejeuner') menuJour.ingredients_petitdejeuner = liste;
+            else if (typeRepas === 'repas1') menuJour.ingredients_repas1 = liste;
+            else if (typeRepas === 'repas2') menuJour.ingredients_repas2 = liste;
+
+            document.getElementById(`input-ing-${jour}-${typeRepas}`).value = '';
+
+            try {
+                await fetch('/api/menu-prevu-semaine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        profil,
+                        jour,
+                        petitdejeuner: menuJour.petitdejeuner || '',
+                        repas1: menuJour.repas1 || '',
+                        repas2: menuJour.repas2 || '',
+                        encas: getEncasList(menuJour),
+                        ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
+                        ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
+                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
+                    })
+                });
+                await chargerMenuSemaine();
+            } catch (e) {
+                console.error("Erreur ajout ingrédient", e);
+            }
+        }
+
+        async function supprimerIngredientJour(jour, typeRepas, nomIngredient) {
+            const profil = document.getElementById('select-profil')?.value;
+            if (!profil) return;
+
+            let menuJour = menusCache.find(m => m.jour === jour);
+            if (!menuJour) return;
+
+            let liste = getIngredientsList(menuJour, typeRepas).filter(i => i !== nomIngredient);
+            if (typeRepas === 'petitdejeuner') menuJour.ingredients_petitdejeuner = liste;
+            else if (typeRepas === 'repas1') menuJour.ingredients_repas1 = liste;
+            else if (typeRepas === 'repas2') menuJour.ingredients_repas2 = liste;
+
+            try {
+                await fetch('/api/menu-prevu-semaine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        profil,
+                        jour,
+                        petitdejeuner: menuJour.petitdejeuner || '',
+                        repas1: menuJour.repas1 || '',
+                        repas2: menuJour.repas2 || '',
+                        encas: getEncasList(menuJour),
+                        ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
+                        ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
+                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
+                    })
+                });
+                await chargerMenuSemaine();
+            } catch (e) {
+                console.error("Erreur suppression ingrédient", e);
             }
         }
 
@@ -568,10 +701,13 @@
                     body: JSON.stringify({
                         profil,
                         jour,
-                        petitdejeuner: menuJour.petitdejeuner,
-                        repas1: menuJour.repas1,
-                        repas2: menuJour.repas2,
-                        encas: menuJour.encas
+                        petitdejeuner: menuJour.petitdejeuner || '',
+                        repas1: menuJour.repas1 || '',
+                        repas2: menuJour.repas2 || '',
+                        encas: menuJour.encas,
+                        ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
+                        ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
+                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
                     })
                 });
                 await chargerMenuSemaine();
@@ -597,10 +733,13 @@
                     body: JSON.stringify({
                         profil,
                         jour,
-                        petitdejeuner: menuJour.petitdejeuner,
-                        repas1: menuJour.repas1,
-                        repas2: menuJour.repas2,
-                        encas: menuJour.encas
+                        petitdejeuner: menuJour.petitdejeuner || '',
+                        repas1: menuJour.repas1 || '',
+                        repas2: menuJour.repas2 || '',
+                        encas: menuJour.encas,
+                        ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
+                        ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
+                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
                     })
                 });
                 await chargerMenuSemaine();
@@ -612,6 +751,11 @@
         function trouverRecetteParNom(nom) {
             if (!nom) return null;
             return recettesCache.find(r => r.nom.toLowerCase() === nom.toLowerCase()) || null;
+        }
+
+        function trouverIngredientParNom(nom) {
+            if (!nom) return null;
+            return ingredientsCache.find(i => (i.nom || i.titre || '').toLowerCase() === nom.toLowerCase()) || null;
         }
 
         function calculerEtAfficherTotauxSemaine() {
@@ -636,14 +780,19 @@
                 const menuJour = menusCache.find(m => m.jour === jour) || {};
                 let calJour = 0, budgetJour = 0, protJour = 0, glucJour = 0, lipJour = 0, fibresJour = 0;
 
-                const nomsRepas = [
+                // Récupération de tous les éléments du jour (Recettes principales + Encas + Ingrédients additionnels)
+                const nomsElements = [
                     getNomRecette(menuJour.petitdejeuner),
                     getNomRecette(menuJour.repas1),
                     getNomRecette(menuJour.repas2),
-                    ...getEncasList(menuJour)
+                    ...getEncasList(menuJour),
+                    ...getIngredientsList(menuJour, 'petitdejeuner'),
+                    ...getIngredientsList(menuJour, 'repas1'),
+                    ...getIngredientsList(menuJour, 'repas2')
                 ];
 
-                nomsRepas.forEach(nom => {
+                nomsElements.forEach(nom => {
+                    // On cherche d'abord dans les recettes, sinon dans les ingrédients
                     const r = trouverRecetteParNom(nom);
                     if (r) {
                         calJour += Number(r.calories || r.kcal || 0);
@@ -652,6 +801,16 @@
                         glucJour += Number(r.glucides || 0);
                         lipJour += Number(r.lipides || 0);
                         fibresJour += Number(r.fibres || 0);
+                    } else {
+                        const ing = trouverIngredientParNom(nom);
+                        if (ing) {
+                            calJour += Number(ing.calories || ing.kcal || 0);
+                            budgetJour += Number(ing.budget || ing.prix || 0);
+                            protJour += Number(ing.proteines || 0);
+                            glucJour += Number(ing.glucides || 0);
+                            lipJour += Number(ing.lipides || 0);
+                            fibresJour += Number(ing.fibres || 0);
+                        }
                     }
                 });
 
@@ -713,7 +872,10 @@
             const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
             for (const jour of jours) {
-                let menuJour = menusCache.find(m => m.jour === jour) || { jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [] };
+                let menuJour = menusCache.find(m => m.jour === jour) || { 
+                    jour, profil, petitdejeuner: '', repas1: '', repas2: '', encas: [], 
+                    ingredients_petitdejeuner: [], ingredients_repas1: [], ingredients_repas2: [] 
+                };
 
                 if (genPtDej) {
                     const pool = filtrerRecettesParType('petitdejeuner');
@@ -748,7 +910,10 @@
                         petitdejeuner: menuJour.petitdejeuner || '',
                         repas1: menuJour.repas1 || '',
                         repas2: menuJour.repas2 || '',
-                        encas: menuJour.encas || []
+                        encas: menuJour.encas || [],
+                        ingredients_petitdejeuner: getIngredientsList(menuJour, 'petitdejeuner'),
+                        ingredients_repas1: getIngredientsList(menuJour, 'repas1'),
+                        ingredients_repas2: getIngredientsList(menuJour, 'repas2')
                     })
                 });
             }
@@ -841,7 +1006,11 @@
                 const soir = getNomRecette(menuJour.repas2) || '-';
                 const encas = getEncasList(menuJour).join(', ') || '-';
 
-                if (y > 270) {
+                const ingPtDej = getIngredientsList(menuJour, 'petitdejeuner').join(', ');
+                const ingMidi = getIngredientsList(menuJour, 'repas1').join(', ');
+                const ingSoir = getIngredientsList(menuJour, 'repas2').join(', ');
+
+                if (y > 260) {
                     doc.addPage();
                     y = 20;
                 }
@@ -851,9 +1020,9 @@
                 y += 6;
 
                 doc.setFont("helvetica", "normal");
-                doc.text(`- Petit-déjeuner : ${ptDej}`, 18, y); y += 5;
-                doc.text(`- Midi : ${midi}`, 18, y); y += 5;
-                doc.text(`- Soir : ${soir}`, 18, y); y += 5;
+                doc.text(`- Petit-déjeuner : ${ptDej} ${ingPtDej ? '(' + ingPtDej + ')' : ''}`, 18, y); y += 5;
+                doc.text(`- Midi : ${midi} ${ingMidi ? '(' + ingMidi + ')' : ''}`, 18, y); y += 5;
+                doc.text(`- Soir : ${soir} ${ingSoir ? '(' + ingSoir + ')' : ''}`, 18, y); y += 5;
                 doc.text(`- Collation : ${encas}`, 18, y); y += 8;
             });
 

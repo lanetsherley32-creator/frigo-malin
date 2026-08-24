@@ -605,29 +605,36 @@ app.get('/api/menu-prevu-semaine', async (req, res) => {
 });
 
 app.post('/api/menu-prevu-semaine', async (req, res) => {
-    const { profil, jour, petitdejeuner, repas1, repas2, encas } = req.body;
+    const { profil, jour, petitdejeuner, repas1, repas2, encas, ingredients_repas1, ingredients_repas2, ingredients_petitdejeuner } = req.body;
     if (!profil || !jour) return res.status(400).json({ error: "Profil ou jour manquant" });
 
-    // S'assure que encas est bien un tableau propre
     const tableauEncas = Array.isArray(encas) ? encas : (encas ? [encas] : []);
+    const tabIngRepas1 = Array.isArray(ingredients_repas1) ? ingredients_repas1 : (ingredients_repas1 ? [ingredients_repas1] : []);
+    const tabIngRepas2 = Array.isArray(ingredients_repas2) ? ingredients_repas2 : (ingredients_repas2 ? [ingredients_repas2] : []);
+    const tabIngPtDej = Array.isArray(ingredients_petitdejeuner) ? ingredients_petitdejeuner : (ingredients_petitdejeuner ? [ingredients_petitdejeuner] : []);
 
     const q = `
-        INSERT INTO menu_prevu (profil, jour, petitdejeuner, repas1, repas2, encas) 
-        VALUES ($1, $2, $3, $4, $5, $6) 
+        INSERT INTO menu_prevu (profil, jour, petitdejeuner, repas1, repas2, encas, ingredients_repas1, ingredients_repas2, ingredients_petitdejeuner) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
         ON CONFLICT (profil, jour) DO UPDATE SET 
             petitdejeuner = EXCLUDED.petitdejeuner, 
             repas1 = EXCLUDED.repas1, 
             repas2 = EXCLUDED.repas2, 
-            encas = EXCLUDED.encas
+            encas = EXCLUDED.encas,
+            ingredients_repas1 = EXCLUDED.ingredients_repas1,
+            ingredients_repas2 = EXCLUDED.ingredients_repas2,
+            ingredients_petitdejeuner = EXCLUDED.ingredients_petitdejeuner
     `;
     try {
         await pool.query(q, [
-            profil, 
-            jour, 
+            profil, jour, 
             petitdejeuner || null, 
             repas1 || null, 
             repas2 || null, 
-            tableauEncas
+            tableauEncas,
+            tabIngRepas1,
+            tabIngRepas2,
+            tabIngPtDej
         ]);
         io.emit('data_updated');
         res.json({ success: true });
