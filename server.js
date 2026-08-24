@@ -856,8 +856,7 @@ app.get('/api/courses', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
-/// 2. Générer la liste de courses à partir du menu prévu (avec prix au paquet / marque la moins chère)
+// 2. Générer la liste de courses à partir du menu prévu (avec prix au paquet / marque la moins chère)
 app.post('/api/courses/generer', async (req, res) => {
     const { profil } = req.body;
     if (!profil) return res.status(400).json({ error: "Profil manquant" });
@@ -898,7 +897,6 @@ app.post('/api/courses/generer', async (req, res) => {
                 for (const ingItem of ingredientsList) {
                     const nomIng = ingItem.nom || ingItem.ingredient || 'Ingrédient';
                     
-                    // Sécurisation stricte de la quantité pour qu'elle soit toujours un nombre (numeric)
                     let qteNum = parseFloat(ingItem.quantite);
                     const qte = isNaN(qteNum) ? 1.0 : qteNum;
                     
@@ -909,12 +907,10 @@ app.post('/api/courses/generer', async (req, res) => {
                     let marquesDispos = [];
                     let prixRetenu = parseFloat(ingItem.prix || 0);
                     let marqueRetenue = 'Standard';
-                    let rayonFinal = ingItem.rayon || 'Épicerie'; // Valeur par défaut initiale
+                    let rayonFinal = ingItem.rayon || 'Épicerie';
 
                     if (refIngRes.rows.length > 0) {
                         const ref = refIngRes.rows[0];
-                        
-                        // Récupération prioritaire du vrai rayon depuis la table des ingrédients
                         if (ref.rayon) {
                             rayonFinal = ref.rayon;
                         }
@@ -923,7 +919,6 @@ app.post('/api/courses/generer', async (req, res) => {
                             marquesDispos = typeof ref.marques === 'string' ? JSON.parse(ref.marques) : (ref.marques || []);
                         } catch (e) { marquesDispos = []; }
 
-                        // Sélectionner par défaut la marque la moins chère si disponible
                         if (Array.isArray(marquesDispos) && marquesDispos.length > 0) {
                             marquesDispos.sort((a, b) => parseFloat(a.prix) - parseFloat(b.prix));
                             prixRetenu = parseFloat(marquesDispos[0].prix) || 0;
@@ -933,20 +928,20 @@ app.post('/api/courses/generer', async (req, res) => {
                         }
                     }
 
-                    // Insertion sécurisée avec des types explicites
+                    // Insertion en explicitant les colonnes pour éviter tout décalage d'ordre
                     await pool.query(
                         `INSERT INTO courses (profil, nom, quantite_necessaire, unite, rayon, prix, marque, marques_disponibles, coche) 
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)`,
                         [
-                            profil,                               // $1: text
-                            nomIng,                               // $2: text
-                            qte,                                  // $3: numeric
-                            unite,                                // $4: text
-                            rayonFinal,                           // $5: text
-                            prixRetenu,                           // $6: numeric
-                            marqueRetenue,                        // $7: text
-                            JSON.stringify(marquesDispos),        // $8: jsonb
-                            0                                     // $9: integer (coche)
+                            profil,                        // $1 -> profil (text)
+                            nomIng,                        // $2 -> nom (text)
+                            qte,                           // $3 -> quantite_necessaire (numeric)
+                            unite,                         // $4 -> unite (text)
+                            rayonFinal,                    // $5 -> rayon (text)
+                            prixRetenu,                    // $6 -> prix (numeric)
+                            marqueRetenue,                 // $7 -> marque (text)
+                            JSON.stringify(marquesDispos), // $8 -> marques_disponibles (jsonb)
+                            0                              // $9 -> coche (integer obligatoirement un nombre)
                         ]
                     );
                 }
