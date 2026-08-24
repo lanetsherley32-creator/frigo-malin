@@ -834,28 +834,6 @@ app.post('/api/favoris', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-// --- API LISTE DE COURSES ---
-
-// 1. Récupérer la liste des courses
-app.get('/api/courses', async (req, res) => {
-    const { profil, enseigne, inclureDeja } = req.query;
-    if (!profil) return res.status(400).json({ error: "Profil manquant" });
-
-    try {
-        let query = "SELECT * FROM courses WHERE profil = $1";
-        let params = [profil];
-
-        if (enseigne && enseigne !== 'toutes' && enseigne !== 'meilleur_prix') {
-            query += " AND enseigne = $2";
-            params.push(enseigne);
-        }
-
-        const result = await pool.query(query, params);
-        res.json(result.rows || []);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 // 2. Générer la liste de courses à partir du menu prévu (avec prix au paquet / marque la moins chère)
 app.post('/api/courses/generer', async (req, res) => {
     const { profil } = req.body;
@@ -867,30 +845,28 @@ app.post('/api/courses/generer', async (req, res) => {
         
         let idsRecettes = [];
         menuRes.rows.forEach(row => {
-            // S'assurer qu'on ne récupère que des identifiants valides (convertis en nombres entiers)
-            if (row.petitdejeuner) {
-                const idNum = parseInt(row.petitdejeuner, 10);
-                if (!isNaN(idNum)) idsRecettes.push(idNum);
-            }
-            if (row.repas1) {
-                const idNum = parseInt(row.repas1, 10);
-                if (!isNaN(idNum)) idsRecettes.push(idNum);
-            }
-            if (row.repas2) {
-                const idNum = parseInt(row.repas2, 10);
-                if (!isNaN(idNum)) idsRecettes.push(idNum);
-            }
-            if (row.dessertcollation) {
-                const idNum = parseInt(row.dessertcollation, 10);
-                if (!isNaN(idNum)) idsRecettes.push(idNum);
-            }
+            // Fonction de sécurité interne pour ne garder QUE les nombres valides (ignore les textes comme "Beurre doux")
+            const ajouterIdSecurise = (valeur) => {
+                if (valeur !== null && valeur !== undefined) {
+                    const idNum = parseInt(valeur, 10);
+                    // Si c'est un nombre valide et supérieur à 0, on l'ajoute
+                    if (!isNaN(idNum) && idNum > 0) {
+                        idsRecettes.push(idNum);
+                    }
+                }
+            };
+
+            ajouterIdSecurise(row.petitdejeuner);
+            ajouterIdSecurise(row.repas1);
+            ajouterIdSecurise(row.repas2);
+            ajouterIdSecurise(row.dessertcollation);
         });
 
         if (idsRecettes.length === 0) {
-            return res.json({ success: true, message: "Aucun menu planifié trouvé pour générer les courses." });
+            return res.json({ success: true, message: "Aucun menu planifié valide trouvé pour générer les courses." });
         }
 
-        // Récupérer les ingrédients des recettes sélectionnées
+        // Récupérer les ingrédients des recettes sélectionnées en toute sécurité
         const placeholders = idsRecettes.map((_, i) => `$${i + 1}`).join(',');
         const recettesRes = await pool.query(`SELECT ingredients FROM recettes WHERE id IN (${placeholders})`, idsRecettes);
 
@@ -941,20 +917,20 @@ app.post('/api/courses/generer', async (req, res) => {
                         }
                     }
 
-                    // Insertion en explicitant les colonnes pour éviter tout décalage d'ordre
+                    // Insertion sécurisée dans la table courses
                     await pool.query(
                         `INSERT INTO courses (profil, nom, quantite_necessaire, unite, rayon, prix, marque, marques_disponibles, coche) 
                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)`,
                         [
-                            profil,                        // $1 -> profil (text)
-                            nomIng,                        // $2 -> nom (text)
-                            qte,                           // $3 -> quantite_necessaire (numeric)
-                            unite,                         // $4 -> unite (text)
-                            rayonFinal,                    // $5 -> rayon (text)
-                            prixRetenu,                    // $6 -> prix (numeric)
-                            marqueRetenue,                 // $7 -> marque (text)
-                            JSON.stringify(marquesDispos), // $8 -> marques_disponibles (jsonb)
-                            0                              // $9 -> coche (integer obligatoirement un nombre)
+                            profil,                        
+                            nomIng,                        
+                            qte,                           
+                            unite,                         
+                            rayonFinal,                    
+                            prixRetenu,                    
+                            marqueRetenue,                 
+                            JSON.stringify(marquesDispos), 
+                            0                              
                         ]
                     );
                 }
@@ -964,14 +940,10 @@ app.post('/api/courses/generer', async (req, res) => {
         io.emit('data_updated');
         res.json({ success: true, message: "Liste de courses générée avec succès !" });
     } catch (err) {
-        console.error("--- ERREUR GENERATION COURSES ---");
-        console.error("Message :", err.message);
-        console.error("Détail :", err.detail);
-        console.error("Indication de position :", err.position);
-        console.error("----------------------------------");
+        console.error("Erreur génération courses :", err.message);
         res.status(500).json({ error: err.message });
     }
-}); 
+});
 // 3. Cocher / décocher un article
 app.post('/api/courses/cocher', async (req, res) => {
     const { id, coche } = req.body;
