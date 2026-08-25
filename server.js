@@ -856,15 +856,27 @@ app.get('/api/courses', async (req, res) => {
     }
 });
 
-// Fonction utilitaire interne pour insérer proprement un ingrédient dans la liste de courses
+// Fonction utilitaire sécurisée utilisant les colonnes exactes de la table ingredients
 async function ajouterIngredientDansCourses(profil, nomIng, qte, unite) {
-    const refIngRes = await pool.query("SELECT * FROM ingredients WHERE LOWER(nom) = LOWER($1)", [nomIng]);
+    let refIngRes;
+    try {
+        // Recherche avec la colonne "titre"
+        refIngRes = await pool.query("SELECT * FROM ingredients WHERE LOWER(titre) = LOWER($1)", [nomIng]);
+        
+        // Si rien trouvé, essaie avec "nom_reference"
+        if (refIngRes.rows.length === 0) {
+            refIngRes = await pool.query("SELECT * FROM ingredients WHERE LOWER(nom_reference) = LOWER($1)", [nomIng]);
+        }
+    } catch (e) {
+        refIngRes = { rows: [] };
+    }
+
     let marquesDispos = [];
     let prixRetenu = 0;
     let marqueRetenue = 'Standard';
     let rayonFinal = 'Épicerie';
 
-    if (refIngRes.rows.length > 0) {
+    if (refIngRes.rows && refIngRes.rows.length > 0) {
         const ref = refIngRes.rows[0];
         if (ref.rayon) rayonFinal = ref.rayon;
 
@@ -898,7 +910,7 @@ async function ajouterIngredientDansCourses(profil, nomIng, qte, unite) {
     );
 }
 
-// 2. Générer la liste de courses à partir du menu prévu (gère recettes et ingrédients directs)
+// 2. Générer la liste de courses à partir du menu prévu
 app.post('/api/courses/generer', async (req, res) => {
     const { profil } = req.body;
     if (!profil) return res.status(400).json({ error: "Profil manquant" });
@@ -948,7 +960,7 @@ app.post('/api/courses/generer', async (req, res) => {
 
                 if (Array.isArray(ingredientsList)) {
                     for (const ingItem of ingredientsList) {
-                        const nomIng = ingItem.nom || ingItem.ingredient || 'Ingrédient';
+                        const nomIng = ingItem.nom || ingItem.ingredient || ingItem.titre || 'Ingrédient';
                         let qteNum = parseFloat(ingItem.quantite);
                         const qte = isNaN(qteNum) ? 1.0 : qteNum;
                         const unite = ingItem.unite || '';
@@ -990,7 +1002,7 @@ app.post('/api/courses/cocher', async (req, res) => {
     }
 });
 
-// 4. Modifier la marque et le prix d'un article de la liste de courses
+// 4. Modifier la marque et le prix d'un article
 app.post('/api/courses/changer-marque', async (req, res) => {
     const { id, marque, prix, format_paquet } = req.body;
     if (id === undefined || !marque || prix === undefined) {
