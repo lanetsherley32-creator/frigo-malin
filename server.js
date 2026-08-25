@@ -410,12 +410,24 @@ app.get('/api/ingredients', async (req, res) => {
 app.post('/api/ingredients', async (req, res) => {
     const { nom, titre, rayon, portion_quantite, portion_unite, marques } = req.body;
     const nomFinal = titre || nom || 'Sans nom';
+    
+    // Chercher la portion soit à la racine, soit à l'intérieur de la première marque si elle y est stockée
+    let pQte = parseFloat(portion_quantite);
+    let pUnite = portion_unite;
+
+    if ((isNaN(pQte) || !pUnite) && Array.isArray(marques) && marques.length > 0) {
+        if (marques[0].quantite_portion) pQte = parseFloat(marques[0].quantite_portion);
+        if (marques[0].portion_quantite) pQte = parseFloat(marques[0].portion_quantite);
+        if (marques[0].unite_portion) pUnite = marques[0].unite_portion;
+        if (marques[0].portion_unite) pUnite = marques[0].portion_unite;
+    }
+
     const client = await pool.connect();
 
     try {
         await client.query('BEGIN');
 
-        // 1. Insertion dans ingredients avec gestion des portions
+        // 1. Insertion dans ingredients avec la portion correcte
         const ingQuery = `
             INSERT INTO ingredients (titre, nom_reference, rayon, portion_quantite, portion_unite) 
             VALUES ($1, $2, $3, $4, $5) RETURNING id
@@ -424,8 +436,8 @@ app.post('/api/ingredients', async (req, res) => {
             nomFinal, 
             nomFinal, 
             rayon || 'Épicerie',
-            parseFloat(portion_quantite) || 100,
-            portion_unite || 'g'
+            isNaN(pQte) ? 100 : pQte,
+            pUnite || 'g'
         ]);
         const ingredientId = ingRes.rows[0].id;
 
@@ -492,6 +504,17 @@ app.put('/api/ingredients/:id', async (req, res) => {
     const { id } = req.params;
     const { nom, titre, rayon, portion_quantite, portion_unite, marques } = req.body;
     const nomFinal = titre || nom || 'Sans nom';
+
+    let pQte = parseFloat(portion_quantite);
+    let pUnite = portion_unite;
+
+    if ((isNaN(pQte) || !pUnite) && Array.isArray(marques) && marques.length > 0) {
+        if (marques[0].quantite_portion) pQte = parseFloat(marques[0].quantite_portion);
+        if (marques[0].portion_quantite) pQte = parseFloat(marques[0].portion_quantite);
+        if (marques[0].unite_portion) pUnite = marques[0].unite_portion;
+        if (marques[0].portion_unite) pUnite = marques[0].portion_unite;
+    }
+
     const client = await pool.connect();
 
     try {
@@ -506,8 +529,8 @@ app.put('/api/ingredients/:id', async (req, res) => {
             nomFinal, 
             nomFinal, 
             rayon || 'Épicerie', 
-            parseFloat(portion_quantite) || 100, 
-            portion_unite || 'g', 
+            isNaN(pQte) ? 100 : pQte, 
+            pUnite || 'g', 
             id
         ]);
 
@@ -570,33 +593,29 @@ app.put('/api/ingredients/:id', async (req, res) => {
         client.release();
     }
 });
-
-app.delete('/api/ingredients/:id', async (req, res) => {
-    const { id } = req.params;
-    const client = await pool.connect();
+// Route DELETE globale pour la table ingredients (sécurité si l'app appelle /api/ingredients directement)
+app.delete('/api/ingredients', async (req, res) => {
     try {
-        await client.query('BEGIN');
-        // Suppression manuelle en cascade sécurisée dans l'ordre relationnel inverse
-        const marquesRes = await client.query("SELECT id FROM marques WHERE ingredient_id = $1", [id]);
-        for (const marq of marquesRes.rows) {
-            const formatsRes = await client.query("SELECT id FROM formats WHERE marque_id = $1", [marq.id]);
-            for (const fmt of formatsRes.rows) {
-                await client.query("DELETE FROM prix_enseignes WHERE format_id = $1", [fmt.id]);
-            }
-            await client.query("DELETE FROM formats WHERE marque_id = $1", [marq.id]);
+        // Optionnel : si vous voulez vider toute la table proprement via les cascades
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query("DELETE FROM prix_enseignes");
+            await client.query("DELETE FROM formats");
+            await client.query("DELETE FROM marques");
+            await client.query("DELETE FROM ingredients");
+            await client.query('COMMIT');
+            io.emit('data_updated');
+            res.json({ success: true, message: "Tous les ingrédients ont été supprimés." });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
         }
-        await client.query("DELETE FROM marques WHERE ingredient_id = $1", [id]);
-        await client.query("DELETE FROM ingredients WHERE id = $1", [id]);
-
-        await client.query('COMMIT');
-        io.emit('data_updated');
-        res.json({ success: true, message: "Ingrédient supprimé avec succès" });
     } catch (err) {
-        await client.query('ROLLBACK');
         console.error("Erreur DELETE /api/ingredients:", err.message);
         res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
     }
 });
 
