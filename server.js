@@ -832,7 +832,6 @@ app.post('/api/favoris', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
 // --- API LISTE DE COURSES ---
 
 // 1. Récupérer la liste des courses
@@ -857,7 +856,49 @@ app.get('/api/courses', async (req, res) => {
     }
 });
 
-// 2. Générer la liste de courses à partir du menu prévu (sécurisé)
+// Fonction utilitaire interne pour insérer proprement un ingrédient dans la liste de courses
+async function ajouterIngredientDansCourses(profil, nomIng, qte, unite) {
+    const refIngRes = await pool.query("SELECT * FROM ingredients WHERE LOWER(nom) = LOWER($1)", [nomIng]);
+    let marquesDispos = [];
+    let prixRetenu = 0;
+    let marqueRetenue = 'Standard';
+    let rayonFinal = 'Épicerie';
+
+    if (refIngRes.rows.length > 0) {
+        const ref = refIngRes.rows[0];
+        if (ref.rayon) rayonFinal = ref.rayon;
+
+        try {
+            marquesDispos = typeof ref.marques === 'string' ? JSON.parse(ref.marques) : (ref.marques || []);
+        } catch (e) { marquesDispos = []; }
+
+        if (Array.isArray(marquesDispos) && marquesDispos.length > 0) {
+            marquesDispos.sort((a, b) => parseFloat(a.prix) - parseFloat(b.prix));
+            prixRetenu = parseFloat(marquesDispos[0].prix) || 0;
+            marqueRetenue = marquesDispos[0].nom || 'Standard';
+        } else if (ref.prix) {
+            prixRetenu = parseFloat(ref.prix) || 0;
+        }
+    }
+
+    await pool.query(
+        `INSERT INTO courses (profil, nom, quantite_necessaire, unite, rayon, prix, marque, marques_disponibles, coche) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)`,
+        [
+            profil,                        
+            nomIng,                        
+            qte,                           
+            unite,                         
+            rayonFinal,                    
+            prixRetenu,                    
+            marqueRetenue,                 
+            JSON.stringify(marquesDispos), 
+            0                              
+        ]
+    );
+}
+
+// 2. Générer la liste de courses à partir du menu prévu (gère recettes et ingrédients directs)
 app.post('/api/courses/generer', async (req, res) => {
     const { profil } = req.body;
     if (!profil) return res.status(400).json({ error: "Profil manquant" });
@@ -865,77 +906,66 @@ app.post('/api/courses/generer', async (req, res) => {
     try {
         const menuRes = await pool.query("SELECT petitdejeuner, repas1, repas2, dessertcollation FROM menu_prevu WHERE profil = $1", [profil]);
         
-        let idsRecettes = [];
-        menuRes.rows.forEach(row => {
-            const ajouterIdSecurise = (valeur) => {
-                if (valeur !== null && valeur !== undefined) {
-                    const idNum = parseInt(valeur, 10);
-                    if (!isNaN(idNum) && idNum > 0) {
-                        idsRecettes.push(idNum);
-                    }
-                }
-            };
-
-            ajouterIdSecurise(row.petitdejeuner);
-            ajouterIdSecurise(row.repas1);
-            ajouterIdSecurise(row.repas2);
-            ajouterIdSecurise(row.dessertcollation);
-        });
-
-        if (idsRecettes.length === 0) {
-            return res.json({ success: true, message: "Aucun menu planifié valide trouvé pour générer les courses." });
+        if (menuRes.rows.length === 0) {
+            return res.json({ success: true, message: "Aucun menu planifié trouvé pour ce profil." });
         }
 
-        const placeholders = idsRecettes.map((_, i) => `$${i + 1}`).join(',');
-        const recettesRes = await pool.query(`SELECT ingredients FROM recettes WHERE id IN (${placeholders})`, idsRecettes);
+        const menuRow = menuRes.rows[0];
+        let idsRecettes = [];
+        let ingredientsDirects = [];
 
+        const analyserCaseMenu = (valeur) => {
+            if (valeur === null || valeur === undefined || valeur === '') return;
+
+            const idNum = parseInt(valeur, 10);
+            if (!isNaN(idNum) && idNum > 0 && String(valeur).trim() === String(idNum)) {
+                idsRecettes.push(idNum);
+            } else {
+                ingredientsDirects.push(String(valeur).trim());
+            }
+        };
+
+        analyserCaseMenu(menuRow.petitdejeuner);
+        analyserCaseMenu(menuRow.repas1);
+        analyserCaseMenu(menuRow.repas2);
+        analyserCaseMenu(menuRow.dessertcollation);
+
+        // Nettoyer l'ancienne liste de courses du profil avant de régénérer
         await pool.query("DELETE FROM courses WHERE profil = $1", [profil]);
 
-        for (const recette of recettesRes.rows) {
-            let ingredientsList = [];
-            try {
-                ingredientsList = typeof recette.ingredients === 'string' ? JSON.parse(recette.ingredients) : recette.ingredients;
-            } catch (e) {
-                ingredientsList = [];
-            }
+        // Traitement des ingrédients issus des recettes
+        if (idsRecettes.length > 0) {
+            const placeholders = idsRecettes.map((_, i) => `$${i + 1}`).join(',');
+            const recettesRes = await pool.query(`SELECT ingredients FROM recettes WHERE id IN (${placeholders})`, idsRecettes);
 
-            if (Array.isArray(ingredientsList)) {
-                for (const ingItem of ingredientsList) {
-                    const nomIng = ingItem.nom || ingItem.ingredient || 'Ingrédient';
-                    let qteNum = parseFloat(ingItem.quantite);
-                    const qte = isNaN(qteNum) ? 1.0 : qteNum;
-                    const unite = ingItem.unite || '';
-                    
-                    const refIngRes = await pool.query("SELECT * FROM ingredients WHERE LOWER(nom) = LOWER($1)", [nomIng]);
-                    let marquesDispos = [];
-                    let prixRetenu = parseFloat(ingItem.prix || 0);
-                    let marqueRetenue = 'Standard';
-                    let rayonFinal = ingItem.rayon || 'Épicerie';
+            for (const recette of recettesRes.rows) {
+                let ingredientsList = [];
+                try {
+                    ingredientsList = typeof recette.ingredients === 'string' ? JSON.parse(recette.ingredients) : recette.ingredients;
+                } catch (e) {
+                    ingredientsList = [];
+                }
 
-                    if (refIngRes.rows.length > 0) {
-                        const ref = refIngRes.rows[0];
-                        if (ref.rayon) rayonFinal = ref.rayon;
-
-                        try {
-                            marquesDispos = typeof ref.marques === 'string' ? JSON.parse(ref.marques) : (ref.marques || []);
-                        } catch (e) { marquesDispos = []; }
-
-                        if (Array.isArray(marquesDispos) && marquesDispos.length > 0) {
-                            marquesDispos.sort((a, b) => parseFloat(a.prix) - parseFloat(b.prix));
-                            prixRetenu = parseFloat(marquesDispos[0].prix) || 0;
-                            marqueRetenue = marquesDispos[0].nom || 'Standard';
-                        } else if (ref.prix) {
-                            prixRetenu = parseFloat(ref.prix) || 0;
-                        }
+                if (Array.isArray(ingredientsList)) {
+                    for (const ingItem of ingredientsList) {
+                        const nomIng = ingItem.nom || ingItem.ingredient || 'Ingrédient';
+                        let qteNum = parseFloat(ingItem.quantite);
+                        const qte = isNaN(qteNum) ? 1.0 : qteNum;
+                        const unite = ingItem.unite || '';
+                        
+                        await ajouterIngredientDansCourses(profil, nomIng, qte, unite);
                     }
-
-                    await pool.query(
-                        `INSERT INTO courses (profil, nom, quantite_necessaire, unite, rayon, prix, marque, marques_disponibles, coche) 
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)`,
-                        [profil, nomIng, qte, unite, rayonFinal, prixRetenu, marqueRetenue, JSON.stringify(marquesDispos), 0]
-                    );
                 }
             }
+        }
+
+        // Traitement des ingrédients saisis en texte direct
+        for (const nomIngDirect of ingredientsDirects) {
+            await ajouterIngredientDansCourses(profil, nomIngDirect, 1.0, '');
+        }
+
+        if (idsRecettes.length === 0 && ingredientsDirects.length === 0) {
+            return res.json({ success: true, message: "Aucun élément valide trouvé dans le menu pour générer les courses." });
         }
 
         io.emit('data_updated');
@@ -945,6 +975,7 @@ app.post('/api/courses/generer', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 // 3. Cocher / décocher un article
 app.post('/api/courses/cocher', async (req, res) => {
     const { id, coche } = req.body;
@@ -958,6 +989,7 @@ app.post('/api/courses/cocher', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 // 4. Modifier la marque et le prix d'un article de la liste de courses
 app.post('/api/courses/changer-marque', async (req, res) => {
     const { id, marque, prix, format_paquet } = req.body;
@@ -991,6 +1023,7 @@ app.delete('/api/courses', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 // --- LANCEMENT DU SERVEUR ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
