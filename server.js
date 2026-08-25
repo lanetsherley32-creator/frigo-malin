@@ -288,7 +288,7 @@ app.delete('/api/personnes-objectifs', async (req, res) => {
     }
 });
 
-/// --- API RECETTES & INGREDIENTS ---
+// --- API RECETTES & INGREDIENTS ---
 app.get('/api/recettes', async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM recettes");
@@ -411,7 +411,6 @@ app.post('/api/ingredients', async (req, res) => {
     const { nom, titre, rayon, portion_quantite, portion_unite, marques } = req.body;
     const nomFinal = titre || nom || 'Sans nom';
     
-    // Chercher la portion soit à la racine, soit à l'intérieur de la première marque si elle y est stockée
     let pQte = parseFloat(portion_quantite);
     let pUnite = portion_unite;
 
@@ -427,7 +426,6 @@ app.post('/api/ingredients', async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // 1. Insertion dans ingredients avec la portion correcte
         const ingQuery = `
             INSERT INTO ingredients (titre, nom_reference, rayon, portion_quantite, portion_unite) 
             VALUES ($1, $2, $3, $4, $5) RETURNING id
@@ -441,7 +439,6 @@ app.post('/api/ingredients', async (req, res) => {
         ]);
         const ingredientId = ingRes.rows[0].id;
 
-        // 2. Insertion des marques, formats et prix
         if (Array.isArray(marques)) {
             for (const m of marques) {
                 const marqQuery = `
@@ -593,6 +590,36 @@ app.put('/api/ingredients/:id', async (req, res) => {
         client.release();
     }
 });
+
+// --- ROUTE DE SUPPRESSION INDIVIDUELLE (INDISPENSABLE) ---
+app.delete('/api/ingredients/:id', async (req, res) => {
+    const { id } = req.params;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const marquesRes = await client.query("SELECT id FROM marques WHERE ingredient_id = $1", [id]);
+        for (const marq of marquesRes.rows) {
+            const formatsRes = await client.query("SELECT id FROM formats WHERE marque_id = $1", [marq.id]);
+            for (const fmt of formatsRes.rows) {
+                await client.query("DELETE FROM prix_enseignes WHERE format_id = $1", [fmt.id]);
+            }
+            await client.query("DELETE FROM formats WHERE marque_id = $1", [marq.id]);
+        }
+        await client.query("DELETE FROM marques WHERE ingredient_id = $1", [id]);
+        await client.query("DELETE FROM ingredients WHERE id = $1", [id]);
+
+        await client.query('COMMIT');
+        io.emit('data_updated');
+        res.json({ success: true, message: "Ingrédient supprimé avec succès" });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Erreur DELETE /api/ingredients/:id:", err.message);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
 // Protection contre la suppression globale par erreur
 app.delete('/api/ingredients', async (req, res) => {
     res.status(400).json({ error: "Suppression globale interdite. Spécifiez un ID d'ingrédient." });
@@ -699,6 +726,7 @@ app.delete('/api/suivi/:id', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 app.put('/api/suivi/:id', async (req, res) => {
     const { id } = req.params;
     const { profil, jour, categorie, nom_element, element_id, type_element, quantite, unite } = req.body;
