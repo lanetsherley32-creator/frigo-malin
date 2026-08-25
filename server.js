@@ -593,30 +593,9 @@ app.put('/api/ingredients/:id', async (req, res) => {
         client.release();
     }
 });
-// Route DELETE globale pour la table ingredients (sécurité si l'app appelle /api/ingredients directement)
+// Protection contre la suppression globale par erreur
 app.delete('/api/ingredients', async (req, res) => {
-    try {
-        // Optionnel : si vous voulez vider toute la table proprement via les cascades
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            await client.query("DELETE FROM prix_enseignes");
-            await client.query("DELETE FROM formats");
-            await client.query("DELETE FROM marques");
-            await client.query("DELETE FROM ingredients");
-            await client.query('COMMIT');
-            io.emit('data_updated');
-            res.json({ success: true, message: "Tous les ingrédients ont été supprimés." });
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
-        }
-    } catch (err) {
-        console.error("Erreur DELETE /api/ingredients:", err.message);
-        res.status(500).json({ error: err.message });
-    }
+    res.status(400).json({ error: "Suppression globale interdite. Spécifiez un ID d'ingrédient." });
 });
 
 // --- API MENU PRÉVU (PLANIFICATION) ---
