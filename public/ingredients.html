@@ -633,7 +633,6 @@
                 });
             });
 
-            // Payload strictement aligné sur les colonnes SQL trouvées (titre, rayon, portion_quantite, portion_unite, marques)
             const payload = { 
                 titre, 
                 rayon, 
@@ -676,65 +675,42 @@
                 console.error("Erreur suppression", e);
             }
         }
-async function rechercherOffIngredient() {
-    const query = document.getElementById('recherche-off-ing').value.trim();
-    const container = document.getElementById('resultats-off-container');
-    if (!query) return;
 
-    container.classList.remove('hidden');
-    container.innerHTML = '<p class="text-xs text-indigo-700 italic">Interrogation d\'Open Food Facts en cours...</p>';
+        // Fonction Open Food Facts corrigée via la route proxy backend (anti-CORS & anti-503)
+        async function rechercherOffIngredient() {
+            const query = document.getElementById('recherche-off-ing').value.trim();
+            const container = document.getElementById('resultats-off-container');
+            if (!query) return;
 
-    try {
-        // Appel direct à l'API officielle Open Food Facts (v2)
-        const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Erreur réseau Open Food Facts");
-        
-        const data = await res.json();
-        const produits = data.products || [];
+            container.classList.remove('hidden');
+            container.innerHTML = '<p class="text-xs text-indigo-700 italic">Recherche sur Open Food Facts en cours...</p>';
 
-        if (produits.length === 0) {
-            container.innerHTML = '<p class="text-xs text-slate-500 italic">Aucun produit trouvé sur Open Food Facts.</p>';
-            return;
-        }
+            try {
+                const res = await fetch(`/api/off/search?q=${encodeURIComponent(query)}`);
+                if (!res.ok) throw new Error("Erreur réseau");
+                
+                const produits = await res.json();
 
-        container.innerHTML = produits.map((p) => {
-            // Extraction sécurisée des données nutriments (pour 100g)
-            const nutriments = p.nutriments || {};
-            const nomProduit = p.product_name || 'Produit sans nom';
-            const marqueProduit = p.brands || 'Marque inconnue';
-            const quantiteStr = p.quantity || '';
+                if (!Array.isArray(produits) || produits.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-slate-500 italic">Aucun produit trouvé sur Open Food Facts.</p>';
+                    return;
+                }
 
-            // Objet nettoyé prêt à être importé
-            const produitFormat = {
-                nom: nomProduit,
-                marque: marqueProduit,
-                calories: nutriments['energy-kcal_100g'] || nutriments['energy_100g'] ? Math.round(nutriments['energy-kcal_100g'] || (nutriments['energy_100g'] / 4.184)) : 0,
-                proteines: nutriments['proteins_100g'] || 0,
-                glucides: nutriments['carbohydrates_100g'] || 0,
-                sucres: nutriments['sugars_100g'] || 0,
-                lipides: nutriments['fat_100g'] || 0,
-                fibres: nutriments['fiber_100g'] || 0,
-                quantite_paquet: parseFloat(quantiteStr) || 100,
-                unite: quantiteStr.toLowerCase().includes('kg') ? 'kg' : (quantiteStr.toLowerCase().includes('l') ? 'L' : 'g')
-            };
-
-            return `
-                <div class="bg-white p-2 rounded-lg border border-indigo-100 flex justify-between items-center text-xs gap-2">
-                    <div class="overflow-hidden">
-                        <span class="font-bold text-slate-800 truncate block">${nomProduit}</span>
-                        <span class="text-slate-500 block text-[10px]">${marqueProduit} — ${quantiteStr || 'Format non spécifié'}</span>
+                container.innerHTML = produits.map((p) => `
+                    <div class="bg-white p-2 rounded-lg border border-indigo-100 flex justify-between items-center text-xs gap-2">
+                        <div class="overflow-hidden">
+                            <span class="font-bold text-slate-800 truncate block">${p.nom}</span>
+                            <span class="text-slate-500 block text-[10px]">${p.marque} — ${p.quantite_paquet} ${p.unite}</span>
+                        </div>
+                        <button type="button" onclick='importerProduitOff(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg font-bold shrink-0">Sélectionner</button>
                     </div>
-                    <button type="button" onclick='importerProduitOff(${JSON.stringify(produitFormat).replace(/'/g, "&#39;")})' class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg font-bold shrink-0">Sélectionner</button>
-                </div>
-            `;
-        }).join('');
+                `).join('');
 
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = '<p class="text-xs text-red-500">Erreur de connexion avec Open Food Facts.</p>';
-    }
-}
+            } catch (e) {
+                console.error(e);
+                container.innerHTML = '<p class="text-xs text-red-500">Erreur lors de la communication avec le serveur.</p>';
+            }
+        }
 
         function importerProduitOff(p) {
             document.getElementById('titre').value = p.nom || '';
