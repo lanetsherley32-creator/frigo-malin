@@ -288,7 +288,7 @@ app.delete('/api/personnes-objectifs', async (req, res) => {
     }
 });
 
-// --- API RECETTES & INGREDIENTS ---
+/// --- API RECETTES & INGREDIENTS ---
 app.get('/api/recettes', async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM recettes");
@@ -315,7 +315,6 @@ app.post('/api/recettes', async (req, res) => {
     }
 });
 
-// Route PUT pour modifier une recette (Ajoutée)
 app.put('/api/recettes/:id', async (req, res) => {
     const { id } = req.params;
     const { nom, categorie, parts, ingredients, etapes, cout, calories, proteines, glucides, lipides, fibres, sucre } = req.body;
@@ -335,7 +334,6 @@ app.put('/api/recettes/:id', async (req, res) => {
     }
 });
 
-// Route DELETE pour supprimer une recette (Ajoutée)
 app.delete('/api/recettes/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -351,11 +349,9 @@ app.delete('/api/recettes/:id', async (req, res) => {
 
 app.get('/api/ingredients', async (req, res) => {
     try {
-        // 1. Récupérer tous les ingrédients
         const ingResult = await pool.query("SELECT * FROM ingredients ORDER BY id DESC");
         const ingredients = ingResult.rows;
 
-        // 2. Pour chaque ingrédient, récupérer ses marques, formats et prix
         const ingredientsComplets = [];
         for (const ing of ingredients) {
             const marquesResult = await pool.query("SELECT * FROM marques WHERE ingredient_id = $1", [ing.id]);
@@ -396,10 +392,10 @@ app.get('/api/ingredients', async (req, res) => {
             ingredientsComplets.push({
                 id: ing.id,
                 titre: ing.titre,
-                nom: ing.nom_reference, // Mappe nom_reference vers nom pour le front-end
+                nom: ing.nom_reference || ing.titre,
                 rayon: ing.rayon,
-                portion_quantite: ing.portion_quantite,
-                portion_unite: ing.portion_unite,
+                portion_quantite: ing.portion_quantite || 100,
+                portion_unite: ing.portion_unite || 'g',
                 marques: marques
             });
         }
@@ -412,18 +408,25 @@ app.get('/api/ingredients', async (req, res) => {
 });
 
 app.post('/api/ingredients', async (req, res) => {
-    const { nom, rayon, marques } = req.body;
+    const { nom, titre, rayon, portion_quantite, portion_unite, marques } = req.body;
+    const nomFinal = titre || nom || 'Sans nom';
     const client = await pool.connect();
 
     try {
-        await client.query('BEGIN'); // Début de la transaction sécurisée
+        await client.query('BEGIN');
 
-        // 1. Insertion dans ingredients (on met nom et titre identiques par défaut)
+        // 1. Insertion dans ingredients avec gestion des portions
         const ingQuery = `
-            INSERT INTO ingredients (titre, nom_reference, rayon) 
-            VALUES ($1, $2, $3) RETURNING id
+            INSERT INTO ingredients (titre, nom_reference, rayon, portion_quantite, portion_unite) 
+            VALUES ($1, $2, $3, $4, $5) RETURNING id
         `;
-        const ingRes = await client.query(ingQuery, [nom || 'Sans nom', nom || 'Sans nom', rayon || 'Épicerie']);
+        const ingRes = await client.query(ingQuery, [
+            nomFinal, 
+            nomFinal, 
+            rayon || 'Épicerie',
+            parseFloat(portion_quantite) || 100,
+            portion_unite || 'g'
+        ]);
         const ingredientId = ingRes.rows[0].id;
 
         // 2. Insertion des marques, formats et prix
@@ -444,14 +447,6 @@ app.post('/api/ingredients', async (req, res) => {
                     m.fibres || 0
                 ]);
                 const marqueId = marqRes.rows[0].id;
-
-                // Mise à jour optionnelle de la portion standard sur l'ingrédient si présente dans la première marque
-                if (m.quantite_portion) {
-                    await client.query(
-                        "UPDATE ingredients SET portion_quantite = $1, portion_unite = $2 WHERE id = $3",
-                        [m.quantite_portion, m.unite_portion || 'g', ingredientId]
-                    );
-                }
 
                 if (Array.isArray(m.formats)) {
                     for (const f of m.formats) {
@@ -481,11 +476,11 @@ app.post('/api/ingredients', async (req, res) => {
             }
         }
 
-        await client.query('COMMIT'); // Validation de la transaction
+        await client.query('COMMIT');
         io.emit('data_updated');
         res.json({ success: true, id: ingredientId });
     } catch (err) {
-        await client.query('ROLLBACK'); // Annulation en cas d'erreur
+        await client.query('ROLLBACK');
         console.error("Erreur POST /api/ingredients:", err.message);
         res.status(500).json({ error: err.message });
     } finally {
@@ -495,24 +490,29 @@ app.post('/api/ingredients', async (req, res) => {
 
 app.put('/api/ingredients/:id', async (req, res) => {
     const { id } = req.params;
-    const { nom, rayon, marques } = req.body;
+    const { nom, titre, rayon, portion_quantite, portion_unite, marques } = req.body;
+    const nomFinal = titre || nom || 'Sans nom';
     const client = await pool.connect();
 
     try {
         await client.query('BEGIN');
 
-        // 1. Mettre à jour l'ingrédient de base
         const updateIngQuery = `
             UPDATE ingredients 
-            SET titre = $1, nom_reference = $2, rayon = $3 
-            WHERE id = $4
+            SET titre = $1, nom_reference = $2, rayon = $3, portion_quantite = $4, portion_unite = $5 
+            WHERE id = $6
         `;
-        await client.query(updateIngQuery, [nom || 'Sans nom', nom || 'Sans nom', rayon || 'Épicerie', id]);
+        await client.query(updateIngQuery, [
+            nomFinal, 
+            nomFinal, 
+            rayon || 'Épicerie', 
+            parseFloat(portion_quantite) || 100, 
+            portion_unite || 'g', 
+            id
+        ]);
 
-        // 2. Pour une mise à jour propre, on supprime les anciennes marques liées (les cascades supprimeront formats et prix automatiquement)
         await client.query("DELETE FROM marques WHERE ingredient_id = $1", [id]);
 
-        // 3. On réinsère les nouvelles marques reçues du formulaire
         if (Array.isArray(marques)) {
             for (const m of marques) {
                 const marqQuery = `
@@ -530,13 +530,6 @@ app.put('/api/ingredients/:id', async (req, res) => {
                     m.fibres || 0
                 ]);
                 const marqueId = marqRes.rows[0].id;
-
-                if (m.quantite_portion) {
-                    await client.query(
-                        "UPDATE ingredients SET portion_quantite = $1, portion_unite = $2 WHERE id = $3",
-                        [m.quantite_portion, m.unite_portion || 'g', id]
-                    );
-                }
 
                 if (Array.isArray(m.formats)) {
                     for (const f of m.formats) {
@@ -580,15 +573,30 @@ app.put('/api/ingredients/:id', async (req, res) => {
 
 app.delete('/api/ingredients/:id', async (req, res) => {
     const { id } = req.params;
+    const client = await pool.connect();
     try {
-        // Grâce aux "ON DELETE CASCADE" dans vos tables SQL, supprimer l'ingrédient 
-        // va automatiquement supprimer ses marques, formats et prix associés !
-        await pool.query("DELETE FROM ingredients WHERE id = $1", [id]);
+        await client.query('BEGIN');
+        // Suppression manuelle en cascade sécurisée dans l'ordre relationnel inverse
+        const marquesRes = await client.query("SELECT id FROM marques WHERE ingredient_id = $1", [id]);
+        for (const marq of marquesRes.rows) {
+            const formatsRes = await client.query("SELECT id FROM formats WHERE marque_id = $1", [marq.id]);
+            for (const fmt of formatsRes.rows) {
+                await client.query("DELETE FROM prix_enseignes WHERE format_id = $1", [fmt.id]);
+            }
+            await client.query("DELETE FROM formats WHERE marque_id = $1", [marq.id]);
+        }
+        await client.query("DELETE FROM marques WHERE ingredient_id = $1", [id]);
+        await client.query("DELETE FROM ingredients WHERE id = $1", [id]);
+
+        await client.query('COMMIT');
         io.emit('data_updated');
-        res.json({ success: true, message: "Ingrédient supprimé" });
+        res.json({ success: true, message: "Ingrédient supprimé avec succès" });
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error("Erreur DELETE /api/ingredients:", err.message);
         res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -631,10 +639,10 @@ app.post('/api/menu-prevu-semaine', async (req, res) => {
             petitdejeuner || null, 
             repas1 || null, 
             repas2 || null, 
-            tableauEncas,
-            tabIngRepas1,
-            tabIngRepas2,
-            tabIngPtDej
+            JSON.stringify(tableauEncas),
+            JSON.stringify(tabIngRepas1),
+            JSON.stringify(tabIngRepas2),
+            JSON.stringify(tabIngPtDej)
         ]);
         io.emit('data_updated');
         res.json({ success: true });
