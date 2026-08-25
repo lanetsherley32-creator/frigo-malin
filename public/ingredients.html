@@ -75,8 +75,8 @@
                     
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div class="space-y-1.5">
-                            <label class="font-bold text-slate-700 text-xs">Nom de l'ingrédient / Référence :</label>
-                            <input type="text" id="nom" placeholder="Ex: Riz blanc" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium" required>
+                            <label class="font-bold text-slate-700 text-xs">Nom de l'ingrédient (Titre) :</label>
+                            <input type="text" id="titre" placeholder="Ex: Riz blanc" class="border border-slate-200 p-2.5 rounded-xl bg-slate-50 w-full font-medium" required>
                         </div>
                         <div class="space-y-1.5">
                             <label class="font-bold text-slate-700 text-xs">Rayon :</label>
@@ -92,6 +92,21 @@
                                 <option value="Surgelé">Surgelé</option>
                                 <option value="Boisson">Boisson</option>
                                 <option value="Divers / Autre">Divers / Autre</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Portion standard alignée sur la table SQL -->
+                    <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 space-y-2">
+                        <label class="block font-bold text-indigo-900 text-xs">🥣 Portion standard de l'ingrédient :</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" step="any" id="portion_quantite" class="border border-slate-200 p-2 rounded-lg bg-white w-32 text-center font-medium" placeholder="Ex: 50">
+                            <select id="portion_unite" class="border border-slate-200 p-2 rounded-lg bg-white font-medium">
+                                <option value="g">g</option>
+                                <option value="kg">kg</option>
+                                <option value="ml">ml</option>
+                                <option value="L">L</option>
+                                <option value="unité">unité(s)</option>
                             </select>
                         </div>
                     </div>
@@ -113,7 +128,7 @@
         </section>
     </div>
 
-    <!-- Scripts JavaScript complets -->
+    <!-- Scripts JavaScript complets et corrigés -->
     <script>
         let socket;
         let listeGlobaleIngredients = [];
@@ -201,7 +216,6 @@
                 listeGlobaleIngredients = await res.json();
                 renderCategories();
                 
-                // Actualiser l'affichage dynamique s'il y a une recherche ou un rayon ouvert
                 const inputRecherche = document.getElementById('input-recherche-globale')?.value;
                 if (inputRecherche) {
                     rechercherAlimentGlobal();
@@ -252,11 +266,11 @@
                 return;
             }
 
-            const index = favorisIngredientsCache.findIndex(i => (i.nom || i) === nomIngredient);
+            const index = favorisIngredientsCache.findIndex(i => (i.titre || i.nom || i) === nomIngredient);
             if (index > -1) {
                 favorisIngredientsCache.splice(index, 1);
             } else {
-                const ingObj = listeGlobaleIngredients.find(i => i.nom === nomIngredient) || { nom: nomIngredient };
+                const ingObj = listeGlobaleIngredients.find(i => (i.titre || i.nom) === nomIngredient) || { titre: nomIngredient };
                 favorisIngredientsCache.push(ingObj);
             }
 
@@ -316,8 +330,10 @@
             document.getElementById('form-toggle-arrow').innerText = "▲";
             
             document.getElementById('ingredient-id').value = i.id;
-            document.getElementById('nom').value = i.nom || '';
+            document.getElementById('titre').value = i.titre || i.nom || '';
             document.getElementById('rayon').value = i.rayon || 'Épicerie salée';
+            document.getElementById('portion_quantite').value = i.portion_quantite || '';
+            document.getElementById('portion_unite').value = i.portion_unite || 'g';
             
             document.getElementById('marques-container').innerHTML = '';
             
@@ -325,20 +341,18 @@
                 i.marques.forEach(m => ajouterBlocMarque(m));
             } else {
                 ajouterBlocMarque({
-                    nom: i.nom || '',
+                    nom: i.titre || i.nom || '',
                     calories: i.calories || 0,
                     proteines: i.proteines || 0,
                     glucides: i.glucides || 0,
                     sucres: i.sucre || i.sucres || 0,
                     lipides: i.lipides || 0,
                     fibres: i.fibres || 0,
-                    quantite_portion: i.portion_quantite || '',
-                    unite_portion: i.portion_unite || 'g',
                     formats: [{ qte: i.quantite_paquet || 1, unite: i.unite || 'g', prix_enseignes: i.prix_enseignes || {} }]
                 });
             }
 
-            document.getElementById('form-toggle-title').innerText = "✏️ Modifier l'ingrédient : " + (i.nom || '');
+            document.getElementById('form-toggle-title').innerText = "✏️ Modifier l'ingrédient : " + (i.titre || i.nom || '');
             document.getElementById('btn-annuler').classList.remove('hidden');
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
         }
@@ -346,6 +360,8 @@
         function reinitialiserFormulaire() {
             document.getElementById('form-ingredient').reset();
             document.getElementById('ingredient-id').value = '';
+            document.getElementById('portion_quantite').value = '';
+            document.getElementById('portion_unite').value = 'g';
             document.getElementById('marques-container').innerHTML = '';
             document.getElementById('form-toggle-title').innerText = "➕ Ajouter ou modifier un ingrédient (cliquer pour ouvrir)";
             document.getElementById('btn-annuler').classList.add('hidden');
@@ -393,7 +409,7 @@
                 return;
             }
 
-            const resultats = listeGlobaleIngredients.filter(i => (i.nom || '').toLowerCase().includes(terme));
+            const resultats = listeGlobaleIngredients.filter(i => (i.titre || i.nom || '').toLowerCase().includes(terme));
 
             container.innerHTML = `
                 <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
@@ -410,8 +426,15 @@
 
         function genererHtmlIngredient(i) {
             let marquesHtml = '';
-            const nomAffichage = i.nom || 'Sans nom';
-            const estFavori = favorisIngredientsCache.some(fav => (fav.nom || fav) === nomAffichage);
+            const nomAffichage = i.titre || i.nom || 'Sans nom';
+            const estFavori = favorisIngredientsCache.some(fav => (fav.titre || fav.nom || fav) === nomAffichage);
+            
+            const qtePortion = parseFloat(i.portion_quantite) || 0;
+            const unitePortion = i.portion_unite || 'g';
+            
+            let portionHtml = qtePortion > 0 
+                ? `<div class="text-indigo-900 bg-indigo-50 px-2.5 py-1 rounded-lg text-[11px] font-bold inline-block">🥣 Portion standard : ${qtePortion} ${unitePortion}</div>`
+                : `<div class="text-slate-400 italic text-[11px]">🥣 Aucune portion standard définie</div>`;
             
             if (i.marques && Array.isArray(i.marques)) {
                 marquesHtml = i.marques.map(m => {
@@ -428,13 +451,11 @@
                         }).join('');
                     }
 
-                    const portionStr = m.quantite_portion ? ` | 🥣 Portion type : ${m.quantite_portion} ${m.unite_portion || 'g'}` : '';
-
                     return `
                         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
                             <div class="flex justify-between items-center flex-wrap gap-1">
                                 <span class="font-bold text-slate-700 text-xs">🏷️ ${m.nom || 'Marque générique'}</span>
-                                <span class="text-emerald-700 text-[11px]">🔥 ${m.calories || 0} kcal | P: ${m.proteines || 0}g | G: ${m.glucides || 0}g (sucres: ${m.sucres || 0}g) | L: ${m.lipides || 0}g | Fibres: ${m.fibres || 0}g${portionStr}</span>
+                                <span class="text-emerald-700 text-[11px]">🔥 ${m.calories || 0} kcal | P: ${m.proteines || 0}g | G: ${m.glucides || 0}g (sucres: ${m.sucres || 0}g) | L: ${m.lipides || 0}g | Fibres: ${m.fibres || 0}g</span>
                             </div>
                             <div class="space-y-1.5 pl-2 border-l-2 border-indigo-200">${formatsHtml}</div>
                         </div>
@@ -459,6 +480,7 @@
                             <button onclick="supprimerIngredient(${i.id})" class="bg-rose-100 hover:bg-rose-200 text-rose-600 px-3 py-1.5 rounded-xl font-bold">Supprimer</button>
                         </div>
                     </div>
+                    <div>${portionHtml}</div>
                     <div class="space-y-2">${marquesHtml}</div>
                 </div>
             `;
@@ -475,9 +497,6 @@
             const sucresVal = data.sucres || data.sucre || 0;
             const lipVal = data.lipides || data.lip || 0;
             const fibresVal = data.fibres || 0;
-            
-            const qtePortionVal = data.quantite_portion || '';
-            const unitePortionVal = data.unite_portion || 'g';
 
             const div = document.createElement('div');
             div.id = blockId;
@@ -488,20 +507,6 @@
                 <div>
                     <label class="block text-[10px] font-bold text-slate-500 mb-1">Nom de la marque :</label>
                     <input type="text" class="input-marque border border-slate-200 p-2 rounded-xl bg-white w-full font-medium pr-8" placeholder="Ex: Barilla" value="${marqueVal}">
-                </div>
-
-                <div class="bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100 space-y-1">
-                    <label class="block text-[11px] font-bold text-indigo-900">🥣 Quantité d'une portion standard :</label>
-                    <div class="flex items-center gap-2">
-                        <input type="number" step="any" class="input-portion-qte border border-slate-200 p-1.5 rounded-lg bg-white w-28 text-center font-medium" placeholder="Ex: 50" value="${qtePortionVal}">
-                        <select class="input-portion-unite border border-slate-200 p-1.5 rounded-lg bg-white font-medium">
-                            <option value="g" ${unitePortionVal === 'g' ? 'selected' : ''}>g</option>
-                            <option value="kg" ${unitePortionVal === 'kg' ? 'selected' : ''}>kg</option>
-                            <option value="ml" ${unitePortionVal === 'ml' ? 'selected' : ''}>ml</option>
-                            <option value="L" ${unitePortionVal === 'L' ? 'selected' : ''}>L</option>
-                            <option value="unité" ${unitePortionVal === 'unité' ? 'selected' : ''}>unité(s)</option>
-                        </select>
-                    </div>
                 </div>
 
                 <div class="space-y-1.5">
@@ -541,17 +546,28 @@
             const formatId = 'format-' + Math.random().toString(36).substring(2, 9);
             const qteVal = fData.qte || fData.quantite || fData.quantite_paquet || '';
             const uniteVal = fData.unite || 'g';
+            const prixEnseignes = fData.prix_enseignes || {};
 
             const div = document.createElement('div');
             div.id = formatId;
             div.className = "bg-white p-3 rounded-xl border border-slate-200 space-y-2 relative";
-            
+
+            let prixInputsHtml = enseignesDisponibles.map(enseigne => {
+                const valPrix = prixEnseignes[enseigne] !== undefined ? prixEnseignes[enseigne] : '';
+                return `
+                    <div class="space-y-0.5">
+                        <label class="block text-[9px] font-bold text-slate-400">${enseigne} (€)</label>
+                        <input type="number" step="any" class="input-prix-enseigne border border-slate-200 p-1 rounded-lg bg-slate-50 w-full text-center font-medium text-xs" data-enseigne="${enseigne}" placeholder="0.00" value="${valPrix}">
+                    </div>
+                `;
+            }).join('');
+
             div.innerHTML = `
-                <button type="button" onclick="document.getElementById('${formatId}').remove()" class="absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-xs">✕ Supprimer</button>
-                <div class="flex items-center gap-2 pr-20">
-                    <span class="text-[10px] font-bold text-slate-500">Quantité :</span>
-                    <input type="number" step="any" class="format-qte border border-slate-200 p-1.5 rounded-lg bg-slate-50 w-24 text-center font-medium" placeholder="Ex: 500" value="${qteVal}">
-                    <select class="format-unite border border-slate-200 p-1.5 rounded-lg bg-slate-50 font-medium text-xs">
+                <button type="button" onclick="document.getElementById('${formatId}').remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-600 font-bold text-xs">✕</button>
+                <div class="flex items-center gap-2 pr-6">
+                    <span class="text-[10px] font-bold text-slate-600">Quantité paquet :</span>
+                    <input type="number" step="any" class="input-format-qte border border-slate-200 p-1.5 rounded-lg bg-slate-50 w-24 text-center font-medium" placeholder="Ex: 500" value="${qteVal}">
+                    <select class="input-format-unite border border-slate-200 p-1.5 rounded-lg bg-slate-50 font-medium">
                         <option value="g" ${uniteVal === 'g' ? 'selected' : ''}>g</option>
                         <option value="kg" ${uniteVal === 'kg' ? 'selected' : ''}>kg</option>
                         <option value="ml" ${uniteVal === 'ml' ? 'selected' : ''}>ml</option>
@@ -559,19 +575,9 @@
                         <option value="unité" ${uniteVal === 'unité' ? 'selected' : ''}>unité(s)</option>
                     </select>
                 </div>
-                <div class="space-y-1 pt-1">
-                    <span class="block text-[10px] font-bold text-slate-500">Prix par enseigne (€) :</span>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 prix-enseignes-grid">
-                        ${enseignesDisponibles.map(ens => {
-                            const prixEns = (fData.prix_enseignes && fData.prix_enseignes[ens]) || '';
-                            return `
-                                <div class="flex items-center gap-1 bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                                    <span class="text-[10px] font-medium text-slate-600 truncate w-16" title="${ens}">${ens}</span>
-                                    <input type="number" step="any" data-enseigne="${ens}"" class="input-prix border border-slate-200 p-1 rounded bg-white w-full text-center text-xs font-medium" placeholder="0.00" value="${prixEns}">
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
+                <div class="pt-1">
+                    <span class="block text-[10px] font-bold text-slate-500 mb-1">Prix par enseigne :</span>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${prixInputsHtml}</div>
                 </div>
             `;
             container.appendChild(div);
@@ -580,33 +586,33 @@
         async function sauvegarderIngredient(event) {
             event.preventDefault();
             const id = document.getElementById('ingredient-id').value;
-            const nom = document.getElementById('nom').value.trim();
+            const titre = document.getElementById('titre').value.trim();
             const rayon = document.getElementById('rayon').value;
+            const portion_quantite = parseFloat(document.getElementById('portion_quantite').value) || null;
+            const portion_unite = document.getElementById('portion_unite').value;
 
             const marques = [];
-            const blocsMarques = document.querySelectorAll('#marques-container > div');
+            const blocMarques = document.querySelectorAll('#marques-container > div');
             
-            blocsMarques.forEach(bloc => {
-                const nomMarque = bloc.querySelector('.input-marque').value.trim() || 'Standard';
-                const cal = parseFloat(bloc.querySelector('.input-cal').value) || 0;
-                const prot = parseFloat(bloc.querySelector('.input-prot').value) || 0;
-                const gluc = parseFloat(bloc.querySelector('.input-gluc').value) || 0;
+            blocMarques.forEach(bloc => {
+                const nomMarque = bloc.querySelector('.input-marque').value.trim();
+                const calories = parseFloat(bloc.querySelector('.input-cal').value) || 0;
+                const proteines = parseFloat(bloc.querySelector('.input-prot').value) || 0;
+                const glucides = parseFloat(bloc.querySelector('.input-gluc').value) || 0;
                 const sucres = parseFloat(bloc.querySelector('.input-sucres').value) || 0;
-                const lip = parseFloat(bloc.querySelector('.input-lip').value) || 0;
+                const lipides = parseFloat(bloc.querySelector('.input-lip').value) || 0;
                 const fibres = parseFloat(bloc.querySelector('.input-fibres').value) || 0;
-                
-                const quantite_portion = parseFloat(bloc.querySelector('.input-portion-qte').value) || null;
-                const unite_portion = bloc.querySelector('.input-portion-unite').value;
 
                 const formats = [];
-                bloc.querySelectorAll('.formats-container > div').forEach(fDiv => {
-                    const qte = parseFloat(fDiv.querySelector('.format-qte').value) || 1;
-                    const unite = fDiv.querySelector('.format-unite').value;
+                const blocFormats = bloc.querySelectorAll('.formats-container > div');
+                blocFormats.forEach(fmt => {
+                    const qte = parseFloat(fmt.querySelector('.input-format-qte').value) || 0;
+                    const unite = fmt.querySelector('.input-format-unite').value;
                     const prix_enseignes = {};
                     
-                    fDiv.querySelectorAll('.input-prix').forEach(inputPrix => {
-                        const ens = inputPrix.getAttribute('data-enseigne');
-                        const val = parseFloat(inputPrix.value);
+                    fmt.querySelectorAll('.input-prix-enseigne').forEach(input => {
+                        const ens = input.getAttribute('data-enseigne');
+                        const val = parseFloat(input.value);
                         if (!isNaN(val) && val > 0) {
                             prix_enseignes[ens] = val;
                         }
@@ -617,19 +623,24 @@
 
                 marques.push({
                     nom: nomMarque,
-                    calories: cal,
-                    proteines: prot,
-                    glucides: gluc,
+                    calories,
+                    proteines,
+                    glucides,
                     sucres,
-                    lipides: lip,
+                    lipides,
                     fibres,
-                    quantite_portion,
-                    unite_portion,
                     formats
                 });
             });
 
-            const payload = { nom, rayon, marques };
+            // Payload strictement aligné sur les colonnes SQL trouvées (titre, rayon, portion_quantite, portion_unite, marques)
+            const payload = { 
+                titre, 
+                rayon, 
+                portion_quantite, 
+                portion_unite,
+                marques 
+            };
 
             try {
                 const url = id ? `/api/ingredients/${id}` : '/api/ingredients';
@@ -665,60 +676,84 @@
                 console.error("Erreur suppression", e);
             }
         }
+async function rechercherOffIngredient() {
+    const query = document.getElementById('recherche-off-ing').value.trim();
+    const container = document.getElementById('resultats-off-container');
+    if (!query) return;
 
-        async function rechercherOffIngredient() {
-            const query = document.getElementById('recherche-off-ing').value.trim();
-            const container = document.getElementById('resultats-off-container');
-            if (!query) return;
+    container.classList.remove('hidden');
+    container.innerHTML = '<p class="text-xs text-indigo-700 italic">Interrogation d\'Open Food Facts en cours...</p>';
 
-            container.classList.remove('hidden');
-            container.innerHTML = '<p class="text-xs text-indigo-700 italic">Recherche en cours sur Open Food Facts...</p>';
+    try {
+        // Appel direct à l'API officielle Open Food Facts (v2)
+        const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Erreur réseau Open Food Facts");
+        
+        const data = await res.json();
+        const produits = data.products || [];
 
-            try {
-                const res = await fetch(`/api/open-food-facts/search?q=${encodeURIComponent(query)}`);
-                if (!res.ok) throw new Error();
-                const produits = await res.json();
-
-                if (produits.length === 0) {
-                    container.innerHTML = '<p class="text-xs text-slate-500 italic">Aucun produit trouvé.</p>';
-                    return;
-                }
-
-                container.innerHTML = produits.map((p, idx) => `
-                    <div class="bg-white p-2 rounded-lg border border-indigo-100 flex justify-between items-center text-xs">
-                        <div>
-                            <span class="font-bold text-indigo-950">${p.nom}</span>
-                            <span class="text-[10px] text-slate-500 block">${p.marque || ''} - ${p.calories || 0} kcal/100g</span>
-                        </div>
-                        <button type="button" onclick='importerProduitOff(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="bg-indigo-600 text-white px-2.5 py-1 rounded font-bold text-[10px]">Importer</button>
-                    </div>
-                `).join('');
-            } catch (e) {
-                container.innerHTML = '<p class="text-xs text-red-500">Erreur lors de la recherche Open Food Facts.</p>';
-            }
+        if (produits.length === 0) {
+            container.innerHTML = '<p class="text-xs text-slate-500 italic">Aucun produit trouvé sur Open Food Facts.</p>';
+            return;
         }
 
+        container.innerHTML = produits.map((p) => {
+            // Extraction sécurisée des données nutriments (pour 100g)
+            const nutriments = p.nutriments || {};
+            const nomProduit = p.product_name || 'Produit sans nom';
+            const marqueProduit = p.brands || 'Marque inconnue';
+            const quantiteStr = p.quantity || '';
+
+            // Objet nettoyé prêt à être importé
+            const produitFormat = {
+                nom: nomProduit,
+                marque: marqueProduit,
+                calories: nutriments['energy-kcal_100g'] || nutriments['energy_100g'] ? Math.round(nutriments['energy-kcal_100g'] || (nutriments['energy_100g'] / 4.184)) : 0,
+                proteines: nutriments['proteins_100g'] || 0,
+                glucides: nutriments['carbohydrates_100g'] || 0,
+                sucres: nutriments['sugars_100g'] || 0,
+                lipides: nutriments['fat_100g'] || 0,
+                fibres: nutriments['fiber_100g'] || 0,
+                quantite_paquet: parseFloat(quantiteStr) || 100,
+                unite: quantiteStr.toLowerCase().includes('kg') ? 'kg' : (quantiteStr.toLowerCase().includes('l') ? 'L' : 'g')
+            };
+
+            return `
+                <div class="bg-white p-2 rounded-lg border border-indigo-100 flex justify-between items-center text-xs gap-2">
+                    <div class="overflow-hidden">
+                        <span class="font-bold text-slate-800 truncate block">${nomProduit}</span>
+                        <span class="text-slate-500 block text-[10px]">${marqueProduit} — ${quantiteStr || 'Format non spécifié'}</span>
+                    </div>
+                    <button type="button" onclick='importerProduitOff(${JSON.stringify(produitFormat).replace(/'/g, "&#39;")})' class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg font-bold shrink-0">Sélectionner</button>
+                </div>
+            `;
+        }).join('');
+
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = '<p class="text-xs text-red-500">Erreur de connexion avec Open Food Facts.</p>';
+    }
+}
+
         function importerProduitOff(p) {
-            document.getElementById('nom').value = p.nom || '';
+            document.getElementById('titre').value = p.nom || '';
             if (p.rayon) document.getElementById('rayon').value = p.rayon;
             
             document.getElementById('marques-container').innerHTML = '';
             ajouterBlocMarque({
-                nom: p.marque || p.nom || '',
+                nom: p.marque || '',
                 calories: p.calories || 0,
                 proteines: p.proteines || 0,
                 glucides: p.glucides || 0,
                 sucres: p.sucres || 0,
                 lipides: p.lipides || 0,
                 fibres: p.fibres || 0,
-                quantite_portion: p.quantite_portion || '',
-                unite_portion: p.unite_portion || 'g',
                 formats: [{ qte: p.quantite_paquet || 100, unite: p.unite || 'g', prix_enseignes: {} }]
             });
 
             document.getElementById('resultats-off-container').classList.add('hidden');
-            document.getElementById('form-content-container').classList.remove('hidden');
-            document.getElementById('form-toggle-arrow').innerText = "▲";
+            document.getElementById('recherche-off-ing').value = '';
         }
     </script>
 </body>
