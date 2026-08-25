@@ -200,6 +200,18 @@
                 if (!res.ok) throw new Error("Erreur réseau");
                 listeGlobaleIngredients = await res.json();
                 renderCategories();
+                
+                // Actualiser l'affichage dynamique s'il y a une recherche ou un rayon ouvert
+                const inputRecherche = document.getElementById('input-recherche-globale')?.value;
+                if (inputRecherche) {
+                    rechercherAlimentGlobal();
+                } else {
+                    const titreRayon = document.querySelector('#conteneur-affichage-dynamique h3');
+                    if (titreRayon && titreRayon.innerText.includes('Rayon :')) {
+                        const nomRayon = titreRayon.innerText.split('Rayon :')[1].split('(')[0].trim();
+                        afficherRayon(nomRayon);
+                    }
+                }
             } catch (err) {
                 console.error("Erreur dans init():", err);
             }
@@ -227,7 +239,6 @@
                 }
             }
             
-            // Rafraîchir l'affichage actuel si une vue (rayon ou recherche) est ouverte
             const inputRecherche = document.getElementById('input-recherche-globale')?.value;
             if (inputRecherche) {
                 rechercherAlimentGlobal();
@@ -249,7 +260,6 @@
                 favorisIngredientsCache.push(ingObj);
             }
 
-            // Sauvegarde locale immédiate
             let allFavs = { recettes: [], ingredients: favorisIngredientsCache };
             try {
                 const res = await fetch(`/api/favoris?profil=${encodeURIComponent(profil)}`);
@@ -261,7 +271,6 @@
             allFavs.ingredients = favorisIngredientsCache;
             localStorage.setItem(`favoris_${profil}`, JSON.stringify(allFavs));
 
-            // Sauvegarde serveur
             try {
                 await fetch('/api/favoris', {
                     method: 'POST',
@@ -272,12 +281,10 @@
                 console.error("Erreur synchro serveur favoris", e);
             }
 
-            // Rafraîchir l'affichage
             const inputRecherche = document.getElementById('input-recherche-globale')?.value;
             if (inputRecherche) {
                 rechercherAlimentGlobal();
             } else {
-                // Si un rayon est ouvert, on le rafraîchit
                 const titreRayon = document.querySelector('#conteneur-affichage-dynamique h3');
                 if (titreRayon && titreRayon.innerText.includes('Rayon :')) {
                     const nomRayon = titreRayon.innerText.split('Rayon :')[1].split('(')[0].trim();
@@ -439,7 +446,6 @@
                 <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-3 text-xs">
                     <div class="flex justify-between items-center">
                         <div class="flex items-center gap-2">
-                            <!-- Bouton Coeur Favori -->
                             <button type="button" onclick="toggleFavoriIngredient('${nomAffichage.replace(/'/g, "\\'")}')" class="p-1 rounded-lg transition-all hover:scale-110 focus:outline-none" title="${estFavori ? 'Retirer des favoris' : 'Ajouter aux favoris'}">
                                 <svg class="w-5 h-5 ${estFavori ? 'text-red-500 fill-current' : 'text-slate-300 hover:text-red-400'}" fill="${estFavori ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
@@ -539,86 +545,166 @@
             const div = document.createElement('div');
             div.id = formatId;
             div.className = "bg-white p-3 rounded-xl border border-slate-200 space-y-2 relative";
+            
             div.innerHTML = `
-                <button type="button" onclick="document.getElementById('${formatId}').remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-600 font-bold text-xs">✕ Supprimer</button>
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 pr-20">
-                    <div><label class="block text-[9px] font-bold text-slate-400 mb-0.5">Quantité</label><input type="number" step="any" class="input-format-qte border border-slate-200 p-1.5 rounded-lg bg-slate-50 w-full font-medium text-xs" value="${qteVal}"></div>
-                    <div><label class="block text-[9px] font-bold text-slate-400 mb-0.5">Unité</label>
-                        <select class="select-format-unite border border-slate-200 p-1.5 rounded-lg bg-slate-50 w-full font-medium text-xs">
-                            <option value="g" ${uniteVal === 'g' ? 'selected' : ''}>g</option>
-                            <option value="kg" ${uniteVal === 'kg' ? 'selected' : ''}>kg</option>
-                            <option value="ml" ${uniteVal === 'ml' ? 'selected' : ''}>ml</option>
-                            <option value="L" ${uniteVal === 'L' ? 'selected' : ''}>L</option>
-                            <option value="unité" ${uniteVal === 'unité' ? 'selected' : ''}>unité(s)</option>
-                        </select>
-                    </div>
+                <button type="button" onclick="document.getElementById('${formatId}').remove()" class="absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-xs">✕ Supprimer</button>
+                <div class="flex items-center gap-2 pr-20">
+                    <span class="text-[10px] font-bold text-slate-500">Quantité :</span>
+                    <input type="number" step="any" class="format-qte border border-slate-200 p-1.5 rounded-lg bg-slate-50 w-24 text-center font-medium" placeholder="Ex: 500" value="${qteVal}">
+                    <select class="format-unite border border-slate-200 p-1.5 rounded-lg bg-slate-50 font-medium text-xs">
+                        <option value="g" ${uniteVal === 'g' ? 'selected' : ''}>g</option>
+                        <option value="kg" ${uniteVal === 'kg' ? 'selected' : ''}>kg</option>
+                        <option value="ml" ${uniteVal === 'ml' ? 'selected' : ''}>ml</option>
+                        <option value="L" ${uniteVal === 'L' ? 'selected' : ''}>L</option>
+                        <option value="unité" ${uniteVal === 'unité' ? 'selected' : ''}>unité(s)</option>
+                    </select>
                 </div>
-                <div class="space-y-1.5 pt-1">
-                    <div class="flex justify-between items-center">
-                        <span class="block text-[10px] font-bold text-slate-500">💰 Prix par enseigne (€) :</span>
-                        <button type="button" onclick="ajouterLignePrix('${formatId}')" class="text-blue-600 hover:underline font-bold text-[10px]">+ Enseigne</button>
+                <div class="space-y-1 pt-1">
+                    <span class="block text-[10px] font-bold text-slate-500">Prix par enseigne (€) :</span>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 prix-enseignes-grid">
+                        ${enseignesDisponibles.map(ens => {
+                            const prixEns = (fData.prix_enseignes && fData.prix_enseignes[ens]) || '';
+                            return `
+                                <div class="flex items-center gap-1 bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                    <span class="text-[10px] font-medium text-slate-600 truncate w-16" title="${ens}">${ens}</span>
+                                    <input type="number" step="any" data-enseigne="${ens}"" class="input-prix border border-slate-200 p-1 rounded bg-white w-full text-center text-xs font-medium" placeholder="0.00" value="${prixEns}">
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
-                    <div class="prix-enseignes-container space-y-1"></div>
                 </div>
             `;
             container.appendChild(div);
+        }
 
-            if (fData.prix_enseignes && typeof fData.prix_enseignes === 'object') {
-                for (const [ens, px] of Object.entries(fData.prix_enseignes)) {
-                    ajouterLignePrix(formatId, ens, px);
+        async function sauvegarderIngredient(event) {
+            event.preventDefault();
+            const id = document.getElementById('ingredient-id').value;
+            const nom = document.getElementById('nom').value.trim();
+            const rayon = document.getElementById('rayon').value;
+
+            const marques = [];
+            const blocsMarques = document.querySelectorAll('#marques-container > div');
+            
+            blocsMarques.forEach(bloc => {
+                const nomMarque = bloc.querySelector('.input-marque').value.trim() || 'Standard';
+                const cal = parseFloat(bloc.querySelector('.input-cal').value) || 0;
+                const prot = parseFloat(bloc.querySelector('.input-prot').value) || 0;
+                const gluc = parseFloat(bloc.querySelector('.input-gluc').value) || 0;
+                const sucres = parseFloat(bloc.querySelector('.input-sucres').value) || 0;
+                const lip = parseFloat(bloc.querySelector('.input-lip').value) || 0;
+                const fibres = parseFloat(bloc.querySelector('.input-fibres').value) || 0;
+                
+                const quantite_portion = parseFloat(bloc.querySelector('.input-portion-qte').value) || null;
+                const unite_portion = bloc.querySelector('.input-portion-unite').value;
+
+                const formats = [];
+                bloc.querySelectorAll('.formats-container > div').forEach(fDiv => {
+                    const qte = parseFloat(fDiv.querySelector('.format-qte').value) || 1;
+                    const unite = fDiv.querySelector('.format-unite').value;
+                    const prix_enseignes = {};
+                    
+                    fDiv.querySelectorAll('.input-prix').forEach(inputPrix => {
+                        const ens = inputPrix.getAttribute('data-enseigne');
+                        const val = parseFloat(inputPrix.value);
+                        if (!isNaN(val) && val > 0) {
+                            prix_enseignes[ens] = val;
+                        }
+                    });
+
+                    formats.push({ qte, unite, prix_enseignes });
+                });
+
+                marques.push({
+                    nom: nomMarque,
+                    calories: cal,
+                    proteines: prot,
+                    glucides: gluc,
+                    sucres,
+                    lipides: lip,
+                    fibres,
+                    quantite_portion,
+                    unite_portion,
+                    formats
+                });
+            });
+
+            const payload = { nom, rayon, marques };
+
+            try {
+                const url = id ? `/api/ingredients/${id}` : '/api/ingredients';
+                const method = id ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    reinitialiserFormulaire();
+                    init();
+                } else {
+                    alert("Erreur lors de la sauvegarde.");
                 }
-            } else {
-                ajouterLignePrix(formatId);
+            } catch (e) {
+                console.error("Erreur réseau sauvegarde", e);
             }
         }
 
-        function ajouterLignePrix(formatId, enseigneChoisie = "", prixValeur = "") {
-            const formatBlock = document.getElementById(formatId);
-            const container = formatBlock.querySelector('.prix-enseignes-container');
-            const rowId = 'prix-row-' + Math.random().toString(36).substring(2, 9);
-            const optionsEnseignes = enseignesDisponibles.map(e => `<option value="${e}" ${e === enseigneChoisie ? 'selected' : ''}>${e}</option>`).join('');
-
-            const div = document.createElement('div');
-            div.id = rowId;
-            div.className = "flex items-center gap-2";
-            div.innerHTML = `
-                <select class="select-enseigne border border-slate-200 p-1 rounded-lg bg-white font-medium flex-1 text-xs"><option value="">-- Choisir enseigne --</option>${optionsEnseignes}</select>
-                <input type="number" step="any" value="${prixValeur}" placeholder="Prix (€)" class="input-prix border border-slate-200 p-1 rounded-lg bg-white w-20 font-medium text-xs">
-                <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-red-500 font-bold px-1 py-0.5 text-xs">✕</button>
-            `;
-            container.appendChild(div);
+        async function supprimerIngredient(id) {
+            if (!confirm("Voulez-vous vraiment supprimer cet ingrédient ?")) return;
+            try {
+                const res = await fetch(`/api/ingredients/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    init();
+                } else {
+                    alert("Erreur lors de la suppression.");
+                }
+            } catch (e) {
+                console.error("Erreur suppression", e);
+            }
         }
 
         async function rechercherOffIngredient() {
             const query = document.getElementById('recherche-off-ing').value.trim();
-            if(!query) return;
-            try {
-                const res = await fetch(`/api/recherche-produit?q=${encodeURIComponent(query)}`);
-                const produits = await res.json();
-                const container = document.getElementById('resultats-off-container');
-                container.classList.remove('hidden');
+            const container = document.getElementById('resultats-off-container');
+            if (!query) return;
 
-                if(!produits || produits.length === 0) {
-                    container.innerHTML = `<p class="text-slate-500 text-xs italic">Aucun produit trouvé.</p>`;
+            container.classList.remove('hidden');
+            container.innerHTML = '<p class="text-xs text-indigo-700 italic">Recherche en cours sur Open Food Facts...</p>';
+
+            try {
+                const res = await fetch(`/api/open-food-facts/search?q=${encodeURIComponent(query)}`);
+                if (!res.ok) throw new Error();
+                const produits = await res.json();
+
+                if (produits.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-slate-500 italic">Aucun produit trouvé.</p>';
                     return;
                 }
 
-                container.innerHTML = produits.map(p => `
-                    <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-indigo-100 text-xs shadow-sm">
-                        <div><span class="font-bold text-slate-800">${p.nom}</span>${p.marque ? `<span class="text-slate-400 text-[10px] block">${p.marque}</span>` : ''}</div>
-                        <button type="button" onclick='remplirDepuisOFF(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="bg-indigo-600 text-white px-2.5 py-1 rounded-lg font-bold">Sélectionner</button>
+                container.innerHTML = produits.map((p, idx) => `
+                    <div class="bg-white p-2 rounded-lg border border-indigo-100 flex justify-between items-center text-xs">
+                        <div>
+                            <span class="font-bold text-indigo-950">${p.nom}</span>
+                            <span class="text-[10px] text-slate-500 block">${p.marque || ''} - ${p.calories || 0} kcal/100g</span>
+                        </div>
+                        <button type="button" onclick='importerProduitOff(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="bg-indigo-600 text-white px-2.5 py-1 rounded font-bold text-[10px]">Importer</button>
                     </div>
                 `).join('');
-            } catch (err) {
-                console.error("Erreur recherche OFF", err);
+            } catch (e) {
+                container.innerHTML = '<p class="text-xs text-red-500">Erreur lors de la recherche Open Food Facts.</p>';
             }
         }
 
-        function remplirDepuisOFF(p) {
+        function importerProduitOff(p) {
             document.getElementById('nom').value = p.nom || '';
-            document.getElementById('rayon').value = p.rayon || 'Épicerie salée';
+            if (p.rayon) document.getElementById('rayon').value = p.rayon;
+            
+            document.getElementById('marques-container').innerHTML = '';
             ajouterBlocMarque({
-                nom: p.marque || '',
+                nom: p.marque || p.nom || '',
                 calories: p.calories || 0,
                 proteines: p.proteines || 0,
                 glucides: p.glucides || 0,
@@ -627,85 +713,12 @@
                 fibres: p.fibres || 0,
                 quantite_portion: p.quantite_portion || '',
                 unite_portion: p.unite_portion || 'g',
-                formats: [{ qte: p.quantite_paquet || 1, unite: p.unite || 'g' }]
+                formats: [{ qte: p.quantite_paquet || 100, unite: p.unite || 'g', prix_enseignes: {} }]
             });
+
             document.getElementById('resultats-off-container').classList.add('hidden');
-            document.getElementById('recherche-off-ing').value = '';
-            alert("✅ Produit importé dans le formulaire !");
-        }
-
-        async function sauvegarderIngredient(e) {
-            e.preventDefault();
-            const id = document.getElementById('ingredient-id').value;
-            const nom = document.getElementById('nom').value.trim();
-            const rayon = document.getElementById('rayon').value;
-
-            const melements = document.querySelectorAll('#marques-container > div');
-            const marques = Array.from(melements).map(mEl => {
-                const mNom = mEl.querySelector('.input-marque')?.value.trim() || 'Générique';
-                const portionQte = parseFloat(mEl.querySelector('.input-portion-qte')?.value) || 0;
-                const portionUnite = mEl.querySelector('.input-portion-unite')?.value || 'g';
-                const cal = parseFloat(mEl.querySelector('.input-cal')?.value) || 0;
-                const prot = parseFloat(mEl.querySelector('.input-prot')?.value) || 0;
-                const gluc = parseFloat(mEl.querySelector('.input-gluc')?.value) || 0;
-                const sucres = parseFloat(mEl.querySelector('.input-sucres')?.value) || 0;
-                const lip = parseFloat(mEl.querySelector('.input-lip')?.value) || 0;
-                const fibres = parseFloat(mEl.querySelector('.input-fibres')?.value) || 0;
-
-                const felements = mEl.querySelectorAll('.formats-container > div');
-                const formats = Array.from(felements).map(fEl => {
-                    const qte = parseFloat(fEl.querySelector('.input-format-qte')?.value) || 1;
-                    const unite = fEl.querySelector('.select-format-unite')?.value || 'g';
-                    
-                    const prixElements = fEl.querySelectorAll('.prix-enseignes-container > div');
-                    const prix_enseignes = {};
-                    prixElements.forEach(pEl => {
-                        const ens = pEl.querySelector('.select-enseigne')?.value;
-                        const px = parseFloat(pEl.querySelector('.input-prix')?.value);
-                        if(ens && !isNaN(px)) {
-                            prix_enseignes[ens] = px;
-                        }
-                    });
-
-                    return { qte, unite, prix_enseignes };
-                });
-
-                return { nom: mNom, calories: cal, proteines: prot, glucides: gluc, sucres, lipides: lip, fibres, quantite_portion: portionQte, unite_portion: portionUnite, formats };
-            });
-
-            const payload = { id: id ? parseInt(id) : null, nom, rayon, marques };
-
-            try {
-                const res = await fetch('/api/ingredients', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if(res.ok) {
-                    alert("✅ Ingrédient sauvegardé avec succès !");
-                    reinitialiserFormulaire();
-                    init();
-                } else {
-                    alert("Erreur lors de l'enregistrement.");
-                }
-            } catch (err) {
-                console.error("Erreur sauvegarde ingrédient", err);
-            }
-        }
-
-        async function supprimerIngredient(id) {
-            if(!confirm("Voulez-vous vraiment supprimer cet ingrédient ?")) return;
-            try {
-                const res = await fetch(`/api/ingredients?id=${id}`, { method: 'DELETE' });
-                if(res.ok) {
-                    init();
-                    document.getElementById('conteneur-affichage-dynamique').innerHTML = '';
-                } else {
-                    alert("Erreur lors de la suppression.");
-                }
-            } catch(err) {
-                console.error("Erreur suppression", err);
-            }
+            document.getElementById('form-content-container').classList.remove('hidden');
+            document.getElementById('form-toggle-arrow').innerText = "▲";
         }
     </script>
 </body>
