@@ -305,56 +305,53 @@ app.delete('/api/recettes/:id', async (req, res) => {
 // --- API INGREDIENTS (Structure Relationnelle 4 Tables) ---
 app.get('/api/ingredients', async (req, res) => {
    try {
-       const ingResult = await pool.query("SELECT * FROM ingredients ORDER BY id DESC");
-       const ingredients = ingResult.rows;
-       const ingredientsComplets = [];
-       for (const ing of ingredients) {
-           const marquesResult = await pool.query("SELECT * FROM marques WHERE ingredient_id = $1", [ing.id]);
-           const marques = [];
-           for (const marq of marquesResult.rows) {
-               const formatsResult = await pool.query("SELECT * FROM formats WHERE marque_id = $1", [marq.id]);
-               const formats = [];
-               for (const fmt of formatsResult.rows) {
-                   const prixResult = await pool.query("SELECT * FROM prix_enseignes WHERE format_id = $1", [fmt.id]);
-                   const prix_enseignes = {};
-                   prixResult.rows.forEach(p => {
-                       prix_enseignes[p.enseigne] = p.prix;
-                   });
-                   formats.push({
-                       id: fmt.id,
-                       qte: fmt.quantite,
-                       unite: fmt.unite,
-                       prix_enseignes: prix_enseignes
-                   });
-               }
-               marques.push({
-                   id: marq.id,
-                   nom: marq.nom_marque,
-                   calories: marq.calories_kcal,
-                   proteines: marq.proteines_g,
-                   glucides: marq.glucides_g,
-                   sucres: marq.sucres_g,
-                   lipides: marq.lipides_g,
-                   fibres: marq.fibres_g,
-                   formats: formats
-               });
-           }
-           ingredientsComplets.push({
-               id: ing.id,
-               titre: ing.titre,
-               nom: ing.nom_reference || ing.titre,
-               rayon: ing.rayon,
-               portion_quantite: ing.portion_quantite || 100,
-               portion_unite: ing.portion_unite || 'g',
-               marques: marques
-           });
-       }
-       res.json(ingredientsComplets);
+       const query = `
+           SELECT 
+               i.id, i.titre, i.nom_reference, i.rayon, i.portion_quantite, i.portion_unite,
+               COALESCE(
+                   json_agg(
+                       json_build_object(
+                           'id', m.id,
+                           'nom', m.nom_marque,
+                           'calories', m.calories_kcal,
+                           'proteines', m.proteines_g,
+                           'glucides', m.glucides_g,
+                           'sucres', m.sucres_g,
+                           'lipides', m.lipides_g,
+                           'fibres', m.fibres_g,
+                           'formats', (
+                               SELECT COALESCE(json_agg(
+                                   json_build_object(
+                                       'id', f.id,
+                                       'qte', f.quantite,
+                                       'unite', f.unite,
+                                       'prix_enseignes', (
+                                           SELECT json_object_agg(pe.enseigne, pe.prix)
+                                           FROM prix_enseignes pe
+                                           WHERE pe.format_id = f.id
+                                       )
+                                   )
+                               ), '[]'::json)
+                               FROM formats f
+                               WHERE f.marque_id = m.id
+                           )
+                       )
+                   ) FILTER (WHERE m.id IS NOT NULL), '[]'::json
+               ) AS marques
+           FROM ingredients i
+           LEFT JOIN marques m ON m.ingredient_id = i.id
+           GROUP BY i.id
+           ORDER BY i.id DESC;
+       `;
+       
+       const result = await pool.query(query);
+       res.json(result.rows);
    } catch (err) {
-       console.error("Erreur GET /api/ingredients:", err.message);
+       console.error("Erreur GET /api/ingredients (SQL optimisé):", err.message);
        res.status(500).json({ error: err.message });
    }
 });
+
 app.post('/api/ingredients', async (req, res) => {
    const { nom, titre, rayon, portion_quantite, portion_unite, marques } = req.body;
    const nomFinal = titre || nom || 'Sans nom';
@@ -945,6 +942,30 @@ app.delete('/api/courses', async (req, res) => {
    } catch (err) {
        res.status(500).json({ error: err.message });
    }
+});
+// --- API RECHERCHE OPEN FOOD FACTS (PROCURATION) ---
+const https = require('https');
+
+app.get('/api/off/search', async (req, res) => {
+    const query = req.query.q;
+    if (!query) return res.status(400).json({ error: "Paramètre de recherche 'q' manquant" });
+
+    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1`;
+
+    https.get(url, (apiRes) => {
+        let data = '';
+        apiRes.on('data', (chunk) => { data += chunk; });
+        apiRes.on('end', () => {
+            try {
+                const parsedData = JSON.parse(data);
+                res.json(parsedData);
+            } catch (e) {
+                res.status(500).json({ error: "Erreur lors du parsing des données Open Food Facts" });
+            }
+        });
+    }).on('error', (err) => {
+        res.status(500).json({ error: "Impossible de contacter Open Food Facts" });
+    });
 });
 // --- LANCEMENT DU SERVEUR ---
 const PORT = process.env.PORT || 3000;
