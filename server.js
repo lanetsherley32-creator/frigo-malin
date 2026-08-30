@@ -303,53 +303,41 @@ app.delete('/api/recettes/:id', async (req, res) => {
    }
 });
 // --- API INGREDIENTS (Structure Relationnelle 4 Tables) ---
+// Route pour récupérer tous les ingrédients depuis PostgreSQL
 app.get('/api/ingredients', async (req, res) => {
-   try {
-       const query = `
-           SELECT 
-               i.id, i.titre, i.nom_reference, i.rayon, i.portion_quantite, i.portion_unite,
-               COALESCE(
-                   json_agg(
-                       json_build_object(
-                           'id', m.id,
-                           'nom', m.nom_marque,
-                           'calories', m.calories_kcal,
-                           'proteines', m.proteines_g,
-                           'glucides', m.glucides_g,
-                           'sucres', m.sucres_g,
-                           'lipides', m.lipides_g,
-                           'fibres', m.fibres_g,
-                           'formats', (
-                               SELECT COALESCE(json_agg(
-                                   json_build_object(
-                                       'id', f.id,
-                                       'qte', f.quantite,
-                                       'unite', f.unite,
-                                       'prix_enseignes', (
-                                           SELECT json_object_agg(pe.enseigne, pe.prix)
-                                           FROM prix_enseignes pe
-                                           WHERE pe.format_id = f.id
-                                       )
-                                   )
-                               ), '[]'::json)
-                               FROM formats f
-                               WHERE f.marque_id = m.id
-                           )
-                       )
-                   ) FILTER (WHERE m.id IS NOT NULL), '[]'::json
-               ) AS marques
-           FROM ingredients i
-           LEFT JOIN marques m ON m.ingredient_id = i.id
-           GROUP BY i.id
-           ORDER BY i.id DESC;
-       `;
-       
-       const result = await pool.query(query);
-       res.json(result.rows);
-   } catch (err) {
-       console.error("Erreur GET /api/ingredients (SQL optimisé):", err.message);
-       res.status(500).json({ error: err.message });
-   }
+    try {
+        const result = await pool.query(`
+            SELECT 
+                id, 
+                titre, 
+                nom_reference, 
+                rayon, 
+                portion_quantite, 
+                portion_unite, 
+                marques
+            FROM ingredients
+        `);
+        
+        const ingredientsFormates = result.rows.map(row => {
+            let marquesParsed = row.marques;
+            if (typeof marquesParsed === 'string') {
+                try { 
+                    marquesParsed = JSON.parse(marquesParsed); 
+                } catch(e) { 
+                    marquesParsed = []; 
+                }
+            }
+            return {
+                ...row,
+                marques: Array.isArray(marquesParsed) ? marquesParsed : []
+            };
+        });
+
+        res.json(ingredientsFormates);
+    } catch (err) {
+        console.error("Erreur SQL /api/ingredients :", err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/ingredients', async (req, res) => {
